@@ -9,4 +9,10 @@ authors = ["Andrew Gazelka"]
 
 [workspace.dependencies]
 rayon = "1.10"
-bevy = "0.15"
+flecs_ecs = "0.2"
+wgpu = "24"
+winit = "0.30"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+log = "0.4"
+env_logger = "0.11"

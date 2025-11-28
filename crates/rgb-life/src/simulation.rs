@@ -1,36 +1,13 @@
-use rgb_core::{ChunkPos, Simulation, WorldSlice, CHUNK_SIZE};
+use flecs_ecs::prelude::*;
+use rgb_core::{
+    get_neighbor, link_chunk_neighbors, spawn_chunk, Active, CellData, ChunkIndex, ChunkPos,
+    Direction, Dirty, NextCellData, SimColor, CHUNK_SIZE,
+};
+use std::collections::HashSet;
 
-use crate::chunk::LifeChunk;
-
-pub struct LifeSimulation;
-
-impl LifeSimulation {
-    fn get_cell(slice: &WorldSlice<LifeChunk>, chunk: ChunkPos, x: i32, y: i32) -> bool {
-        let (chunk_pos, local_x, local_y) = normalize_coords(chunk, x, y);
-
-        slice
-            .get(chunk_pos)
-            .map(|c| c.get(local_x, local_y))
-            .unwrap_or(false)
-    }
-
-    fn count_neighbors(slice: &WorldSlice<LifeChunk>, chunk: ChunkPos, x: i32, y: i32) -> u8 {
-        let mut count = 0;
-        for dy in -1..=1 {
-            for dx in -1..=1 {
-                if dx == 0 && dy == 0 {
-                    continue;
-                }
-                if Self::get_cell(slice, chunk, x + dx, y + dy) {
-                    count += 1;
-                }
-            }
-        }
-        count
-    }
-}
-
-fn normalize_coords(chunk: ChunkPos, x: i32, y: i32) -> (ChunkPos, usize, usize) {
+/// Normalize cell coordinates that may be outside chunk bounds
+/// Returns (chunk_pos, local_x, local_y)
+pub fn normalize_coords(chunk: ChunkPos, x: i32, y: i32) -> (ChunkPos, usize, usize) {
     let global_x = chunk.x as i64 * CHUNK_SIZE as i64 + x as i64;
     let global_y = chunk.y as i64 * CHUNK_SIZE as i64 + y as i64;
 
@@ -45,83 +22,290 @@ fn normalize_coords(chunk: ChunkPos, x: i32, y: i32) -> (ChunkPos, usize, usize)
     (new_chunk, local_x, local_y)
 }
 
-impl Simulation for LifeSimulation {
-    type Chunk = LifeChunk;
+/// Get a cell value, looking up neighbor chunks if needed
+pub fn get_cell(
+    world: &World,
+    chunk_entity: Entity,
+    chunk_pos: ChunkPos,
+    chunk_cells: &CellData,
+    x: i32,
+    y: i32,
+) -> bool {
+    // Fast path: cell is within current chunk
+    if x >= 0 && x < CHUNK_SIZE as i32 && y >= 0 && y < CHUNK_SIZE as i32 {
+        return chunk_cells.get(x as usize, y as usize);
+    }
 
-    fn step_region(&self, slice: &mut WorldSlice<Self::Chunk>) {
-        let mut new_chunks: Vec<(ChunkPos, LifeChunk)> = Vec::new();
+    // Slow path: need to look up neighbor chunk
+    let (target_chunk_pos, local_x, local_y) = normalize_coords(chunk_pos, x, y);
 
-        for chunk_pos in slice.center_chunks() {
-            let mut new_chunk = LifeChunk::default();
+    // Determine which direction the neighbor is in
+    let dx = target_chunk_pos.x - chunk_pos.x;
+    let dy = target_chunk_pos.y - chunk_pos.y;
 
-            for y in 0..CHUNK_SIZE {
-                for x in 0..CHUNK_SIZE {
-                    let alive = Self::get_cell(slice, chunk_pos, x as i32, y as i32);
-                    let neighbors = Self::count_neighbors(slice, chunk_pos, x as i32, y as i32);
+    let dir = match (dx, dy) {
+        (0, 1) => Direction::N,
+        (0, -1) => Direction::S,
+        (1, 0) => Direction::E,
+        (-1, 0) => Direction::W,
+        (1, 1) => Direction::NE,
+        (-1, 1) => Direction::NW,
+        (1, -1) => Direction::SE,
+        (-1, -1) => Direction::SW,
+        _ => return false, // Should not happen for immediate neighbors
+    };
 
-                    let next_alive = match (alive, neighbors) {
-                        (true, 2) | (true, 3) => true,
-                        (false, 3) => true,
-                        _ => false,
-                    };
+    // Get the neighbor entity
+    if let Some(neighbor_entity) = get_neighbor(world, chunk_entity, dir) {
+        let neighbor = world.entity_from_id(neighbor_entity);
+        let mut result = false;
+        neighbor.try_get::<&CellData>(|cells| {
+            result = cells.get(local_x, local_y);
+        });
+        result
+    } else {
+        false // No neighbor = dead cell
+    }
+}
 
-                    new_chunk.set(x, y, next_alive);
-                }
+/// Count live neighbors for a cell
+pub fn count_neighbors(
+    world: &World,
+    chunk_entity: Entity,
+    chunk_pos: ChunkPos,
+    chunk_cells: &CellData,
+    x: i32,
+    y: i32,
+) -> u8 {
+    let mut count = 0;
+    for dy in -1..=1 {
+        for dx in -1..=1 {
+            if dx == 0 && dy == 0 {
+                continue;
             }
-
-            new_chunks.push((chunk_pos, new_chunk));
-        }
-
-        for (pos, chunk) in new_chunks {
-            slice.set(pos, Some(chunk));
+            if get_cell(world, chunk_entity, chunk_pos, chunk_cells, x + dx, y + dy) {
+                count += 1;
+            }
         }
     }
+    count
+}
+
+/// Check if a chunk has activity at its edges that might spawn new cells in neighbors
+/// Returns set of directions where new chunks should be created
+pub fn check_edge_activity(cells: &CellData) -> HashSet<Direction> {
+    let mut needs_neighbors = HashSet::new();
+    let max = CHUNK_SIZE - 1;
+
+    // Check north edge (y = max)
+    for x in 0..CHUNK_SIZE {
+        if cells.get(x, max) {
+            needs_neighbors.insert(Direction::N);
+            if x == 0 {
+                needs_neighbors.insert(Direction::NW);
+            }
+            if x == max {
+                needs_neighbors.insert(Direction::NE);
+            }
+        }
+    }
+
+    // Check south edge (y = 0)
+    for x in 0..CHUNK_SIZE {
+        if cells.get(x, 0) {
+            needs_neighbors.insert(Direction::S);
+            if x == 0 {
+                needs_neighbors.insert(Direction::SW);
+            }
+            if x == max {
+                needs_neighbors.insert(Direction::SE);
+            }
+        }
+    }
+
+    // Check east edge (x = max)
+    for y in 0..CHUNK_SIZE {
+        if cells.get(max, y) {
+            needs_neighbors.insert(Direction::E);
+            if y == 0 {
+                needs_neighbors.insert(Direction::SE);
+            }
+            if y == max {
+                needs_neighbors.insert(Direction::NE);
+            }
+        }
+    }
+
+    // Check west edge (x = 0)
+    for y in 0..CHUNK_SIZE {
+        if cells.get(0, y) {
+            needs_neighbors.insert(Direction::W);
+            if y == 0 {
+                needs_neighbors.insert(Direction::SW);
+            }
+            if y == max {
+                needs_neighbors.insert(Direction::NW);
+            }
+        }
+    }
+
+    needs_neighbors
+}
+
+/// Compute the next generation for a chunk
+pub fn compute_next_generation(
+    world: &World,
+    chunk_entity: Entity,
+    chunk_pos: ChunkPos,
+    cells: &CellData,
+) -> [[bool; CHUNK_SIZE]; CHUNK_SIZE] {
+    let mut next = [[false; CHUNK_SIZE]; CHUNK_SIZE];
+
+    for y in 0..CHUNK_SIZE {
+        for x in 0..CHUNK_SIZE {
+            let alive = cells.get(x, y);
+            let neighbors = count_neighbors(world, chunk_entity, chunk_pos, cells, x as i32, y as i32);
+
+            let next_alive = match (alive, neighbors) {
+                (true, 2) | (true, 3) => true,
+                (false, 3) => true,
+                _ => false,
+            };
+
+            next[y][x] = next_alive;
+        }
+    }
+
+    next
+}
+
+/// Expand the world by creating empty neighbor chunks where needed
+pub fn expand_world(world: &World, index: &mut ChunkIndex) {
+    let mut chunks_to_create: HashSet<ChunkPos> = HashSet::new();
+
+    // Collect all positions that need new neighbors
+    world.each_entity::<(&ChunkPos, &CellData)>(|entity, (pos, cells)| {
+        let needed = check_edge_activity(cells);
+
+        for dir in needed {
+            let neighbor_pos = pos.neighbor(dir);
+
+            // Check if neighbor already exists
+            if get_neighbor(world, entity.id(), dir).is_none() {
+                chunks_to_create.insert(neighbor_pos);
+            }
+        }
+    });
+
+    // Create new chunks
+    for pos in chunks_to_create {
+        if !index.map.contains_key(&pos) {
+            let chunk = spawn_chunk(world, pos, CellData::default());
+            // Mark as Active so it gets simulated and can receive cells from neighbors
+            chunk.add(Active);
+            chunk.add(Dirty);
+            index.map.insert(pos, chunk.id());
+            link_chunk_neighbors(world, chunk.id(), pos, index);
+        }
+    }
+}
+
+/// Register Game of Life systems with the world
+pub fn register_life_systems(world: &World) {
+    // System to compute next generation for all active chunks
+    // We process by color to ensure no data races (chunks of same color don't share edges)
+    world
+        .system_named::<(&ChunkPos, &CellData, &mut NextCellData, &SimColor)>("ComputeNextGen")
+        .with(Active)
+        .each_entity(|e, (pos, cells, next, color)| {
+            // We use the color for parallel safety but process all in one system
+            // The Flecs scheduler handles the parallelism
+            let _ = color; // Color is used for grouping, not logic
+
+            let world = e.world();
+            next.cells = compute_next_generation(&world, e.id(), *pos, cells);
+        });
+
+    // System to swap buffers (copy next -> current)
+    world
+        .system_named::<(&mut CellData, &NextCellData)>("SwapBuffers")
+        .with(Active)
+        .each(|(cells, next)| {
+            cells.cells = next.cells;
+        });
+
+    // System to mark changed chunks as dirty
+    world
+        .system_named::<&CellData>("MarkDirty")
+        .with(Active)
+        .without(Dirty)
+        .each_entity(|e, _cells| {
+            e.add(Dirty);
+        });
+
+    // System to update Active status based on cell count
+    world
+        .system_named::<&CellData>("UpdateActive")
+        .each_entity(|e, cells| {
+            if cells.is_empty() {
+                e.remove(Active);
+            } else if !e.has(Active) {
+                e.add(Active);
+            }
+        });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rgb_core::World;
+
+    fn setup_world_with_chunk(cells: CellData) -> (World, Entity) {
+        let world = World::new();
+        let pos = ChunkPos::new(0, 0);
+        let chunk = spawn_chunk(&world, pos, cells);
+        let entity = chunk.id();
+
+        let mut index = ChunkIndex::default();
+        index.map.insert(pos, entity);
+
+        (world, entity)
+    }
 
     #[test]
     fn blinker() {
-        let mut world = World::new(LifeSimulation);
+        let mut cells = CellData::default();
+        cells.set(7, 7, true);
+        cells.set(8, 7, true);
+        cells.set(9, 7, true);
 
-        {
-            let chunk = world.get_chunk_mut(ChunkPos::new(0, 0));
-            chunk.set(7, 7, true);
-            chunk.set(8, 7, true);
-            chunk.set(9, 7, true);
-        }
+        let (world, entity) = setup_world_with_chunk(cells.clone());
+        let pos = ChunkPos::new(0, 0);
 
-        world.step();
+        let next = compute_next_generation(&world, entity, pos, &cells);
 
-        let chunk = world.get_chunk(ChunkPos::new(0, 0)).unwrap();
-        assert!(!chunk.get(7, 7));
-        assert!(chunk.get(8, 6));
-        assert!(chunk.get(8, 7));
-        assert!(chunk.get(8, 8));
-        assert!(!chunk.get(9, 7));
+        assert!(!next[7][7]);
+        assert!(next[6][8]);
+        assert!(next[7][8]);
+        assert!(next[8][8]);
+        assert!(!next[7][9]);
     }
 
     #[test]
     fn block_stable() {
-        let mut world = World::new(LifeSimulation);
+        let mut cells = CellData::default();
+        cells.set(0, 0, true);
+        cells.set(1, 0, true);
+        cells.set(0, 1, true);
+        cells.set(1, 1, true);
 
-        {
-            let chunk = world.get_chunk_mut(ChunkPos::new(0, 0));
-            chunk.set(0, 0, true);
-            chunk.set(1, 0, true);
-            chunk.set(0, 1, true);
-            chunk.set(1, 1, true);
-        }
+        let (world, entity) = setup_world_with_chunk(cells.clone());
+        let pos = ChunkPos::new(0, 0);
 
-        world.step();
+        let next = compute_next_generation(&world, entity, pos, &cells);
 
-        let chunk = world.get_chunk(ChunkPos::new(0, 0)).unwrap();
-        assert!(chunk.get(0, 0));
-        assert!(chunk.get(1, 0));
-        assert!(chunk.get(0, 1));
-        assert!(chunk.get(1, 1));
+        assert!(next[0][0]);
+        assert!(next[0][1]);
+        assert!(next[1][0]);
+        assert!(next[1][1]);
     }
 }

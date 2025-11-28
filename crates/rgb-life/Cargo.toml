@@ -7,3 +7,4 @@ authors.workspace = true
 
 [dependencies]
 rgb-core = { path = "../rgb-core" }
+flecs_ecs.workspace = true

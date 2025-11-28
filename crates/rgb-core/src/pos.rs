@@ -1,7 +1,9 @@
+use flecs_ecs::prelude::*;
+
 pub const CHUNK_SIZE: usize = 16;
 pub const REGION_SIZE: usize = 4;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Default)]
+#[derive(Component, Copy, Clone, Hash, Eq, PartialEq, Debug, Default)]
 pub struct ChunkPos {
     pub x: i32,
     pub y: i32,
@@ -36,6 +38,12 @@ impl ChunkPos {
             x: self.x + dx,
             y: self.y + dy,
         }
+    }
+
+    /// Get the neighbor chunk position in the given direction
+    pub fn neighbor(self, dir: crate::components::Direction) -> Self {
+        let (dx, dy) = dir.offset();
+        self.offset(dx, dy)
     }
 }
 

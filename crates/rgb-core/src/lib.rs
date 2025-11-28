@@ -1,13 +1,17 @@
-mod chunk;
+mod chunk_manager;
 mod color;
+mod components;
 mod pos;
-mod simulation;
-mod slice;
-mod world;
 
-pub use chunk::Chunk;
+pub use chunk_manager::{
+    get_neighbor, link_chunk_neighbors, spawn_chunk, unlink_chunk_neighbors, ChunkIndex,
+};
 pub use color::Color;
+pub use components::{
+    Active, CellData, Dirty, Direction, NeighborE, NeighborN, NeighborNE, NeighborNW, NeighborS,
+    NeighborSE, NeighborSW, NeighborW, NextCellData, SimColor,
+};
 pub use pos::{CellPos, ChunkPos, RegionPos, CHUNK_SIZE, REGION_SIZE};
-pub use simulation::Simulation;
-pub use slice::{WorldSlice, SLICE_SIZE};
-pub use world::World;
+
+// Re-export flecs for convenience
+pub use flecs_ecs;
