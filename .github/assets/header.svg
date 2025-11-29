@@ -6,30 +6,58 @@
     </linearGradient>
   </defs>
 
+  <style>
+    .red-block { fill: #ff6b6b; }
+    .green-block { fill: #4ecdc4; }
+    .blue-block { fill: #45b7d1; }
+
+    /* All reds flash together, then greens, then blues - showing parallelism */
+    @keyframes red-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      5%, 28% { opacity: 1; transform: scale(1.08); filter: drop-shadow(0 0 8px #ff6b6b); }
+      33% { opacity: 0.4; transform: scale(1); }
+    }
+    @keyframes green-pulse {
+      0%, 33% { opacity: 0.4; transform: scale(1); }
+      38%, 61% { opacity: 1; transform: scale(1.08); filter: drop-shadow(0 0 8px #4ecdc4); }
+      66% { opacity: 0.4; transform: scale(1); }
+    }
+    @keyframes blue-pulse {
+      0%, 66% { opacity: 0.4; transform: scale(1); }
+      71%, 94% { opacity: 1; transform: scale(1.08); filter: drop-shadow(0 0 8px #45b7d1); }
+      100% { opacity: 0.4; transform: scale(1); }
+    }
+
+    .red-block { animation: red-pulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+    .green-block { animation: green-pulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+    .blue-block { animation: blue-pulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  </style>
+
   <!-- Background -->
   <rect width="800" height="200" fill="url(#bg)"/>
 
   <!-- RGB Checkerboard Pattern - staggered brick layout, 3 rows -->
-  <g opacity="0.9">
+  <!-- All same-colored blocks animate together = parallel processing -->
+  <g>
     <!-- Row 0: R G B R G -->
-    <rect x="50" y="55" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="85" y="55" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="120" y="55" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="155" y="55" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="190" y="55" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect class="red-block" x="50" y="55" width="30" height="30" rx="4"/>
+    <rect class="green-block" x="85" y="55" width="30" height="30" rx="4"/>
+    <rect class="blue-block" x="120" y="55" width="30" height="30" rx="4"/>
+    <rect class="red-block" x="155" y="55" width="30" height="30" rx="4"/>
+    <rect class="green-block" x="190" y="55" width="30" height="30" rx="4"/>
 
     <!-- Row 1: 4 cells, offset - B R G B -->
-    <rect x="67" y="90" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="102" y="90" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="137" y="90" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="172" y="90" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect class="blue-block" x="67" y="90" width="30" height="30" rx="4"/>
+    <rect class="red-block" x="102" y="90" width="30" height="30" rx="4"/>
+    <rect class="green-block" x="137" y="90" width="30" height="30" rx="4"/>
+    <rect class="blue-block" x="172" y="90" width="30" height="30" rx="4"/>
 
     <!-- Row 2: R G B R G -->
-    <rect x="50" y="125" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="85" y="125" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="120" y="125" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="155" y="125" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="190" y="125" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect class="red-block" x="50" y="125" width="30" height="30" rx="4"/>
+    <rect class="green-block" x="85" y="125" width="30" height="30" rx="4"/>
+    <rect class="blue-block" x="120" y="125" width="30" height="30" rx="4"/>
+    <rect class="red-block" x="155" y="125" width="30" height="30" rx="4"/>
+    <rect class="green-block" x="190" y="125" width="30" height="30" rx="4"/>
   </g>
 
   <!-- Title -->
