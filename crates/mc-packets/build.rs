@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Ident, Span, TokenStream};
@@ -48,6 +48,13 @@ struct PacketInfo {
 
 /// State -> Direction -> Vec<PacketInfo>
 type PacketFields = HashMap<String, HashMap<String, Vec<PacketInfo>>>;
+
+/// Protocol metadata
+#[derive(Debug, Deserialize)]
+struct ProtocolInfo {
+    version: String,
+    protocol_version: i32,
+}
 
 fn is_known_type(t: &str) -> bool {
     if KNOWN_TYPES.contains(&t) {
@@ -276,12 +283,6 @@ fn generate_state_module(
     }
 
     let header = quote! {
-        // Auto-generated from Minecraft
-        // Do not edit manually
-
-        #![allow(dead_code)]
-        #![allow(unused_imports)]
-
         use std::borrow::Cow;
         use mc_protocol::{Encode, Decode, Packet, State, Direction, VarInt, Uuid, Position, Nbt, BlockState};
         use serde::{Serialize, Deserialize};
@@ -292,65 +293,31 @@ fn generate_state_module(
     prettyplease::unparse(&syn::parse2(header).expect("failed to parse generated code"))
 }
 
-fn generate_lib_rs(
-    states: &[&str],
-    protocol_version: Option<i32>,
-    protocol_name: Option<&str>,
-) -> String {
-    let mut tokens = vec![quote! {
-        // Auto-generated Minecraft packet definitions
-        // Run `nix run .#mc-gen` to regenerate
-    }];
+fn main() {
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let data_dir = manifest_dir.join("data");
 
-    if let Some(version) = protocol_version {
-        tokens.push(quote! {
-            /// Protocol version for this build
-            pub const PROTOCOL_VERSION: i32 = #version;
-        });
-    }
-
-    if let Some(name) = protocol_name {
-        tokens.push(quote! {
-            /// Minecraft version name for this build
-            pub const PROTOCOL_NAME: &str = #name;
-        });
-    }
-
-    tokens.push(quote! {
-        // Re-export protocol types
-        pub use mc_protocol::{State, Direction, Packet};
-    });
-
-    for state in states {
-        let state_ident = Ident::new(state, Span::call_site());
-        tokens.push(quote! {
-            pub mod #state_ident;
-        });
-    }
-
-    let all_tokens = quote! { #(#tokens)* };
-    prettyplease::unparse(&syn::parse2(all_tokens).expect("failed to parse lib.rs"))
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() < 4 {
-        eprintln!(
-            "Usage: {} <ids_file> <fields_file> <out_dir> [protocol_version] [protocol_name]",
-            args[0]
-        );
-        std::process::exit(1);
-    }
-
-    let ids_file = &args[1];
-    let fields_file = &args[2];
-    let out_dir = PathBuf::from(&args[3]);
-    let protocol_version: Option<i32> = args.get(4).and_then(|s| s.parse().ok());
-    let protocol_name: Option<&str> = args.get(5).map(String::as_str);
+    // Tell cargo to rerun if data files change
+    println!("cargo:rerun-if-changed=data/packets-ids.json");
+    println!("cargo:rerun-if-changed=data/packets-fields.json");
+    println!("cargo:rerun-if-changed=data/protocol.json");
 
     // Load JSON files
-    let ids_data: PacketIds = serde_json::from_str(&fs::read_to_string(ids_file)?)?;
-    let fields_data: PacketFields = serde_json::from_str(&fs::read_to_string(fields_file)?)?;
+    let ids_json = fs::read_to_string(data_dir.join("packets-ids.json"))
+        .expect("failed to read packets-ids.json");
+    let ids_data: PacketIds =
+        serde_json::from_str(&ids_json).expect("failed to parse packets-ids.json");
+
+    // Fields file may be empty or missing - that's okay
+    let fields_json = fs::read_to_string(data_dir.join("packets-fields.json")).unwrap_or_default();
+    let fields_data: PacketFields = serde_json::from_str(&fields_json).unwrap_or_default();
+
+    // Protocol info
+    let protocol_json =
+        fs::read_to_string(data_dir.join("protocol.json")).expect("failed to read protocol.json");
+    let protocol_info: ProtocolInfo =
+        serde_json::from_str(&protocol_json).expect("failed to parse protocol.json");
 
     // Build lookup for fields by class name
     let mut fields_by_class: HashMap<String, Vec<FieldInfo>> = HashMap::new();
@@ -364,22 +331,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let states = ["handshake", "status", "login", "configuration", "play"];
 
-    // Create output directory if needed
-    fs::create_dir_all(&out_dir)?;
-
     // Generate each state module
     for state in &states {
         let content = generate_state_module(state, &ids_data, &fields_by_class);
         let file_path = out_dir.join(format!("{state}.rs"));
-        fs::write(&file_path, content)?;
-        eprintln!("Generated {}", file_path.display());
+        fs::write(&file_path, content).expect("failed to write state module");
     }
 
-    // Generate lib.rs
-    let lib_content = generate_lib_rs(&states, protocol_version, protocol_name);
-    let lib_path = out_dir.join("lib.rs");
-    fs::write(&lib_path, lib_content)?;
-    eprintln!("Generated {}", lib_path.display());
+    // Generate constants
+    let protocol_version = protocol_info.protocol_version;
+    let protocol_name = &protocol_info.version;
+    let constants = quote! {
+        /// Protocol version for this build
+        pub const PROTOCOL_VERSION: i32 = #protocol_version;
 
-    Ok(())
+        /// Minecraft version name for this build
+        pub const PROTOCOL_NAME: &str = #protocol_name;
+    };
+    let constants_content =
+        prettyplease::unparse(&syn::parse2(constants).expect("failed to parse constants"));
+    fs::write(out_dir.join("constants.rs"), constants_content).expect("failed to write constants");
 }

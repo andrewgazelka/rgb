@@ -1034,15 +1034,8 @@ dependencies = [
 name = "mc-packets"
 version = "0.1.0"
 dependencies = [
- "mc-protocol",
- "serde",
-]
-
-[[package]]
-name = "mc-packets-gen"
-version = "0.1.0"
-dependencies = [
  "heck",
+ "mc-protocol",
  "prettyplease",
  "proc-macro2",
  "quote",

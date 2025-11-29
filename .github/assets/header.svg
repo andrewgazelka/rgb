@@ -9,28 +9,29 @@
   <!-- Background -->
   <rect width="800" height="200" fill="url(#bg)"/>
 
-  <!-- RGB Checkerboard Pattern -->
+  <!-- RGB Checkerboard Pattern - proper 3-coloring where no adjacent cells share color -->
+  <!-- Pattern: (row + col) % 3 determines color: 0=R, 1=G, 2=B -->
   <g opacity="0.9">
-    <!-- Row 1 -->
+    <!-- Row 0: R G B R G -->
     <rect x="50" y="50" width="30" height="30" fill="#ff6b6b" rx="4"/>
     <rect x="85" y="50" width="30" height="30" fill="#4ecdc4" rx="4"/>
     <rect x="120" y="50" width="30" height="30" fill="#45b7d1" rx="4"/>
     <rect x="155" y="50" width="30" height="30" fill="#ff6b6b" rx="4"/>
     <rect x="190" y="50" width="30" height="30" fill="#4ecdc4" rx="4"/>
 
-    <!-- Row 2 -->
-    <rect x="50" y="85" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="85" y="85" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="120" y="85" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="155" y="85" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="190" y="85" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <!-- Row 1: G B R G B -->
+    <rect x="50" y="85" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="85" y="85" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="120" y="85" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="155" y="85" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="190" y="85" width="30" height="30" fill="#45b7d1" rx="4"/>
 
-    <!-- Row 3 -->
-    <rect x="50" y="120" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="85" y="120" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="120" y="120" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="155" y="120" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="190" y="120" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <!-- Row 2: B R G B R -->
+    <rect x="50" y="120" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="85" y="120" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="120" y="120" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="155" y="120" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="190" y="120" width="30" height="30" fill="#ff6b6b" rx="4"/>
   </g>
 
   <!-- Title -->

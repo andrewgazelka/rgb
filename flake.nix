@@ -275,46 +275,43 @@ JAVA_EOF
             SYSTEM:"tee -a $OUTPUT_FILE.client | ${pkgs.socat}/bin/socat - TCP:localhost:$TARGET_PORT | tee -a $OUTPUT_FILE.server"
         '';
 
-        # Generate Rust code from extracted packet data
+        # Extract and update JSON data files for packet generation
         mcGen = pkgs.writeShellScriptBin "mc-gen" ''
           set -euo pipefail
           VERSION="''${1:-${mcVersion}}"
-          PACKETS_DIR="./crates/mc-packets/src"
+          DATA_DIR="./crates/mc-packets/data"
 
           TEMP_DIR=$(mktemp -d)
           trap "rm -rf $TEMP_DIR" EXIT
 
-          echo "=== MC Protocol Generator ==="
+          echo "=== MC Protocol Data Extractor ==="
           echo "Version: $VERSION"
           echo ""
 
+          mkdir -p "$DATA_DIR"
+
           # Extract packet fields from unobfuscated client
           echo "Extracting packet fields..."
-          ${packetExtractor}/bin/extract-packets "$VERSION" "$TEMP_DIR/packets-fields.json" 2>/dev/null
+          ${packetExtractor}/bin/extract-packets "$VERSION" "$DATA_DIR/packets-fields.json" 2>/dev/null || echo "{}" > "$DATA_DIR/packets-fields.json"
 
           # Run Mojang data gen for packet IDs
           echo "Running Mojang data generator for IDs..."
           ${mcDataGen}/bin/mc-data-gen "$VERSION" "$TEMP_DIR" >/dev/null 2>&1
-
-          PACKETS_IDS="$TEMP_DIR/generated/reports/packets.json"
-          PACKETS_FIELDS="$TEMP_DIR/packets-fields.json"
+          cp "$TEMP_DIR/generated/reports/packets.json" "$DATA_DIR/packets-ids.json"
 
           # Extract protocol version from client jar
           CLIENT_JAR=$(${downloadUnobfuscatedClient}/bin/download-unobfuscated-client "$VERSION" 2>/dev/null)
           PROTOCOL_VERSION=$(${pkgs.unzip}/bin/unzip -p "$CLIENT_JAR" version.json 2>/dev/null | ${pkgs.jq}/bin/jq -r '.protocol_version')
           echo "Protocol version: $PROTOCOL_VERSION"
 
-          mkdir -p "$PACKETS_DIR"
-
-          # Build and run the Rust generator
-          cargo run --release -p mc-packets-gen -- "$PACKETS_IDS" "$PACKETS_FIELDS" "$PACKETS_DIR" "$PROTOCOL_VERSION" "$VERSION"
-
-          # Format generated code
-          cargo fmt -p mc-packets
+          # Write protocol.json
+          cat > "$DATA_DIR/protocol.json" << EOF
+          {"version": "$VERSION", "protocol_version": $PROTOCOL_VERSION}
+          EOF
 
           echo ""
-          echo "Generated packets in $PACKETS_DIR"
-          echo "Run \`cargo build -p mc-packets\` to verify."
+          echo "Updated data files in $DATA_DIR"
+          echo "Run \`cargo build -p mc-packets\` to rebuild with new data."
         '';
 
       in {

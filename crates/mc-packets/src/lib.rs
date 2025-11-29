@@ -1,10 +1,37 @@
-/// Protocol version for this build
-pub const PROTOCOL_VERSION: i32 = 1073742105i32;
-/// Minecraft version name for this build
-pub const PROTOCOL_NAME: &str = "1.21.11-pre3";
+//! Auto-generated Minecraft packet definitions
+//!
+//! Run `nix run .#mc-gen` to regenerate the JSON data files.
+
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
+// Re-export protocol types
 pub use mc_protocol::{Direction, Packet, State};
-pub mod configuration;
-pub mod handshake;
-pub mod login;
-pub mod play;
-pub mod status;
+
+// Include generated constants
+include!(concat!(env!("OUT_DIR"), "/constants.rs"));
+
+/// Handshake state packets
+pub mod handshake {
+    include!(concat!(env!("OUT_DIR"), "/handshake.rs"));
+}
+
+/// Status state packets
+pub mod status {
+    include!(concat!(env!("OUT_DIR"), "/status.rs"));
+}
+
+/// Login state packets
+pub mod login {
+    include!(concat!(env!("OUT_DIR"), "/login.rs"));
+}
+
+/// Configuration state packets
+pub mod configuration {
+    include!(concat!(env!("OUT_DIR"), "/configuration.rs"));
+}
+
+/// Play state packets
+pub mod play {
+    include!(concat!(env!("OUT_DIR"), "/play.rs"));
+}
