@@ -1,5 +1,20 @@
 {
   "nodes": {
+    "crane": {
+      "locked": {
+        "lastModified": 1763938834,
+        "narHash": "sha256-j8iB0Yr4zAvQLueCZ5abxfk6fnG/SJ5JnGUziETjwfg=",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "rev": "d9e753122e51cee64eb8d2dddfe11148f339f5a2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ipetkov",
+        "repo": "crane",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -36,8 +51,30 @@
     },
     "root": {
       "inputs": {
+        "crane": "crane",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "rust-overlay": "rust-overlay"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1764383863,
+        "narHash": "sha256-KA5F0137hLvk576mfucWvFu8Z8g8MTm+6c3gw2mZcKI=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "4f5a90bf043a57add9b3288bbd25ed534bfaffb5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
       }
     },
     "systems": {

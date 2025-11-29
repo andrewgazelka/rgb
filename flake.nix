@@ -1,15 +1,42 @@
 {
-  description = "RGB - Minecraft data generator and Rust project";
+  description = "RGB - Minecraft server in Rust";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    crane.url = "github:ipetkov/crane";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, crane, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ rust-overlay.overlays.default ];
+        };
+
+        # Use toolchain from rust-toolchain.toml
+        rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+
+        # Include JSON data files needed by build.rs
+        src = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type:
+            (craneLib.filterCargoSources path type) ||
+            (builtins.match ".*\.json$" path != null);
+        };
+
+        # Build the Rust mc-server
+        mcServer = craneLib.buildPackage {
+          inherit src;
+          cargoExtraArgs = "-p mc-server";
+          strictDeps = true;
+        };
 
         mcVersion = "1.21.11-pre3";
 
@@ -316,26 +343,29 @@ JAVA_EOF
 
       in {
         packages = {
-          default = runMcServer;
+          default = mcServer;
+          mc-server = mcServer;
           mc-data-gen = mcDataGen;
           mc-gen = mcGen;
           extract-packets = packetExtractor;
           download-mc-jar = downloadMcJar;
-          run-mc-server = runMcServer;
+          run-vanilla-server = runMcServer;
           packet-proxy = packetProxy;
         };
 
         apps = {
-          default = flake-utils.lib.mkApp { drv = runMcServer; };
+          default = flake-utils.lib.mkApp { drv = mcServer; name = "mc-server"; };
+          mc-server = flake-utils.lib.mkApp { drv = mcServer; name = "mc-server"; };
           mc-data-gen = flake-utils.lib.mkApp { drv = mcDataGen; };
           mc-gen = flake-utils.lib.mkApp { drv = mcGen; };
           extract-packets = flake-utils.lib.mkApp { drv = packetExtractor; };
-          run-mc-server = flake-utils.lib.mkApp { drv = runMcServer; };
+          run-vanilla-server = flake-utils.lib.mkApp { drv = runMcServer; };
           packet-proxy = flake-utils.lib.mkApp { drv = packetProxy; };
         };
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
+            rustToolchain
             pkgs.jdk21
             pkgs.curl
             pkgs.jq
