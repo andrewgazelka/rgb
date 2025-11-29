@@ -9,6 +9,7 @@
 //! Handlers run in priority order.
 
 use flecs_ecs::prelude::*;
+use tracing::debug;
 
 use crate::components::{
     Connection, ConnectionState, HandlerFn, HandlerFor, PacketBuffer, PacketHandler, Priority,
@@ -45,6 +46,10 @@ impl PacketHandlerRegistration for World {
         handler: HandlerFn,
     ) -> EntityView<'_> {
         let handler_name = format!("handler::{name}");
+        debug!(
+            "Registering handler: name={}, state={:?}, packet_id={:#x}",
+            handler_name, state, packet_id
+        );
         self.entity_named(&handler_name)
             .set(PacketHandler { handler })
             .set(Priority(priority))
@@ -75,19 +80,19 @@ impl Module for PacketDispatchModule {
                         let conn_entity = it.entity(i);
 
                         // Process incoming packets that have registered handlers
-                        // Peek at packets without consuming, only pop if we have handlers
-                        loop {
-                            // Peek at the front packet
-                            let Some((packet_id, _)) = buffer.incoming.front() else {
-                                break;
-                            };
-                            let packet_id = *packet_id;
+                        // We need to scan the queue and process packets with handlers,
+                        // leaving packets without handlers for other systems
+                        let mut idx = 0;
+                        while idx < buffer.incoming.len() {
+                            let packet_id = buffer.incoming[idx].0;
 
                             // Query all handlers for this (state, packet_id)
                             let mut handlers: Vec<(i32, HandlerFn)> = Vec::new();
+                            let mut total_handlers = 0u32;
 
                             world_ref.each_entity::<(&PacketHandler, &Priority, &HandlerFor)>(
                                 |_handler_entity, (handler, priority, handler_for)| {
+                                    total_handlers += 1;
                                     if handler_for.state == state
                                         && handler_for.packet_id == packet_id
                                     {
@@ -96,13 +101,28 @@ impl Module for PacketDispatchModule {
                                 },
                             );
 
-                            // If no handlers registered, leave packet for other systems
-                            if handlers.is_empty() {
-                                break;
+                            if packet_id == 29 {
+                                debug!(
+                                    "Looking for handlers: state={:?}, packet_id={}, total_handlers={}, matches={}",
+                                    state, packet_id, total_handlers, handlers.len()
+                                );
                             }
 
-                            // Now actually consume the packet
-                            let (_, data) = buffer.pop_incoming().unwrap();
+                            // If no handlers registered, skip this packet (leave for other systems)
+                            if handlers.is_empty() {
+                                idx += 1;
+                                continue;
+                            }
+
+                            debug!(
+                                "Dispatching packet: state={:?}, id={:#x}, handlers={}",
+                                state,
+                                packet_id,
+                                handlers.len()
+                            );
+
+                            // Remove this packet from the queue
+                            let (_, data) = buffer.incoming.remove(idx).unwrap();
 
                             // Sort by priority (lower first)
                             handlers.sort_by_key(|(priority, _)| *priority);
@@ -111,6 +131,7 @@ impl Module for PacketDispatchModule {
                             for (_priority, handler_fn) in handlers {
                                 handler_fn(conn_entity, &data);
                             }
+                            // Don't increment idx since we removed an element
                         }
                     }
                 }
@@ -219,7 +240,7 @@ mod tests {
 
         // Packet should NOT be consumed since no handler is registered for Login state
         // This allows other systems to process it
-        conn.get::<&PacketBuffer>(|buffer| {
+        conn.try_get::<&PacketBuffer>(|buffer| {
             assert_eq!(buffer.incoming.len(), 1, "Packet should NOT be consumed");
         });
     }

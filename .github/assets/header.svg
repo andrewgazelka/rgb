@@ -64,5 +64,5 @@
   <text x="280" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700" fill="#ffffff">rgb</text>
 
   <!-- Subtitle -->
-  <text x="280" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#8b949e">Minecraft server written entirely by AI</text>
+  <text x="280" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#8b949e">Simple code · Hot reload · Scalable performance</text>
 </svg>

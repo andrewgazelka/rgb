@@ -26,6 +26,11 @@ The animation above shows the parallelism model: all same-colored blocks pulse t
 - Self-contained: client + server + protocol, all Rust, all testable
 - Targets latest snapshots to stay ahead
 
+## Goals
+
+- **Skript Compatibility**: Hot-reloadable event handlers using the [Skript](https://github.com/SkriptLang/Skript) scripting language. The `skript-lang` crate provides parsing and AST for Skript files.
+- **Hot-Reloadable Rust Plugins**: Support for Rust dylib plugins that can be hot-reloaded at runtime without server restarts.
+
 ## Status
 
 Early development. Targeting Minecraft snapshot builds.

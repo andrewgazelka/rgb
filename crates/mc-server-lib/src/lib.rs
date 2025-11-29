@@ -104,6 +104,9 @@ pub fn create_world(channels: &NetworkChannels) -> World {
     world
         .component::<ConnectionIndex>()
         .add_trait::<flecs::Singleton>();
+    world
+        .component::<TpsTracker>()
+        .add_trait::<flecs::Singleton>();
 
     // Set singleton values
     world.set(NetworkIngress {
@@ -120,6 +123,7 @@ pub fn create_world(channels: &NetworkChannels) -> World {
     world.set(ChunkIndex::default());
     world.set(ConnectionIdCounter::default());
     world.set(ConnectionIndex::default());
+    world.set(TpsTracker::default());
 
     // Import all modules (systems get created here, after singletons are registered)
     world.import::<NetworkModule>();

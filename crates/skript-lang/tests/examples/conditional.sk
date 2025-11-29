@@ -1,0 +1,2 @@
+on damage:
+	send "Ouch!" to victim

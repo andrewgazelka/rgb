@@ -15,7 +15,7 @@ use tracing::debug;
 use crate::WorldTime;
 use crate::components::{
     ChunkData, ChunkIndex, ChunkPos, Connection, ConnectionState, EntityId, InPlayState,
-    NeedsSpawnChunks, PacketBuffer, Position, Rotation,
+    NeedsSpawnChunks, PacketBuffer, Position, Rotation, TpsTracker,
 };
 use crate::packet_dispatch::PacketHandlerRegistration;
 use crate::packets::{
@@ -203,15 +203,20 @@ impl Module for PlayModule {
                 }
             });
 
-        // Send position to action bar (every 10 ticks = 0.5 seconds)
+        // Send position and TPS to action bar (every 10 ticks = 0.5 seconds)
         world
-            .system_named::<(&mut PacketBuffer, &Position, &WorldTime)>("SendPositionActionBar")
+            .system_named::<(&mut PacketBuffer, &Position, &WorldTime, &TpsTracker)>(
+                "SendPositionActionBar",
+            )
             .with(Connection)
             .with(InPlayState)
-            .each(|(buffer, pos, world_time)| {
+            .each(|(buffer, pos, world_time, tps)| {
                 // Update every 10 ticks (0.5 seconds at 20 TPS)
                 if world_time.world_age % 10 == 0 {
-                    let text = format!("X: {:.1} Y: {:.1} Z: {:.1}", pos.x, pos.y, pos.z);
+                    let text = format!(
+                        "X: {:.1} Y: {:.1} Z: {:.1} | TPS: {:.1}:{:.1}:{:.1}",
+                        pos.x, pos.y, pos.z, tps.tps_5s, tps.tps_15s, tps.tps_1m
+                    );
                     send_action_bar(buffer, &text);
                 }
             });
@@ -276,6 +281,7 @@ fn handle_move_player_pos(entity: EntityView<'_>, data: &[u8]) {
         f64::decode(&mut cursor),
         f64::decode(&mut cursor),
     ) {
+        debug!("MovePlayerPos: x={}, y={}, z={}", x, y, z);
         entity.get::<&mut Position>(|pos| {
             pos.x = x;
             pos.y = y;
@@ -293,6 +299,7 @@ fn handle_move_player_pos_rot(entity: EntityView<'_>, data: &[u8]) {
         f32::decode(&mut cursor),
         f32::decode(&mut cursor),
     ) {
+        debug!("MovePlayerPosRot: x={}, y={}, z={}", x, y, z);
         entity.get::<(&mut Position, &mut Rotation)>(|(pos, rot)| {
             pos.x = x;
             pos.y = y;
