@@ -229,6 +229,52 @@ JAVA_EOF
           ${pkgs.jdk21}/bin/java -cp ".:$CLIENT_JAR" PacketExtractor "$CLIENT_JAR" "$OUTPUT"
         '';
 
+        # Run real MC server in offline mode for packet capture
+        runMcServer = pkgs.writeShellScriptBin "run-mc-server" ''
+          set -euo pipefail
+          VERSION="''${1:-${mcVersion}}"
+          PORT="''${2:-25566}"
+
+          SERVER_JAR=$(${downloadMcJar}/bin/download-mc-jar "$VERSION")
+
+          TEMP_DIR=$(mktemp -d)
+          trap "rm -rf $TEMP_DIR" EXIT
+          cd "$TEMP_DIR"
+
+          # Create eula.txt
+          echo "eula=true" > eula.txt
+
+          # Create server.properties for offline mode
+          cat > server.properties << EOF
+          server-port=$PORT
+          online-mode=false
+          level-type=minecraft:flat
+          spawn-protection=0
+          max-players=1
+          view-distance=4
+          simulation-distance=4
+          EOF
+
+          echo "Starting Minecraft server on port $PORT (offline mode, superflat)..."
+          echo "Server JAR: $SERVER_JAR"
+          exec ${pkgs.jdk21}/bin/java -Xmx1G -jar "$SERVER_JAR" nogui
+        '';
+
+        # Packet capture proxy - sits between client and real server
+        packetProxy = pkgs.writeShellScriptBin "packet-proxy" ''
+          set -euo pipefail
+          LISTEN_PORT="''${1:-25565}"
+          TARGET_PORT="''${2:-25566}"
+          OUTPUT_FILE="''${3:-packets.bin}"
+
+          echo "Packet proxy: listening on $LISTEN_PORT, forwarding to localhost:$TARGET_PORT"
+          echo "Saving raw packets to: $OUTPUT_FILE"
+
+          # Use socat with tee to capture traffic
+          ${pkgs.socat}/bin/socat -v TCP-LISTEN:$LISTEN_PORT,fork,reuseaddr \
+            SYSTEM:"tee -a $OUTPUT_FILE.client | ${pkgs.socat}/bin/socat - TCP:localhost:$TARGET_PORT | tee -a $OUTPUT_FILE.server"
+        '';
+
         # Generate Rust code from extracted packet data
         mcGen = pkgs.writeShellScriptBin "mc-gen" ''
           set -euo pipefail
@@ -274,6 +320,8 @@ JAVA_EOF
           mc-gen = mcGen;
           extract-packets = packetExtractor;
           download-mc-jar = downloadMcJar;
+          run-mc-server = runMcServer;
+          packet-proxy = packetProxy;
         };
 
         apps = {
@@ -281,6 +329,8 @@ JAVA_EOF
           mc-data-gen = flake-utils.lib.mkApp { drv = mcDataGen; };
           mc-gen = flake-utils.lib.mkApp { drv = mcGen; };
           extract-packets = flake-utils.lib.mkApp { drv = packetExtractor; };
+          run-mc-server = flake-utils.lib.mkApp { drv = runMcServer; };
+          packet-proxy = flake-utils.lib.mkApp { drv = packetProxy; };
         };
 
         devShells.default = pkgs.mkShell {
