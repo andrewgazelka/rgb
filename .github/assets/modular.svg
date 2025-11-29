@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) { .s { stroke: #e0e0e0; } .f { fill: #e0e0e0; } }
+    @media (prefers-color-scheme: light) { .s { stroke: #1a1a1a; } .f { fill: #1a1a1a; } }
+  </style>
+  <!-- Puzzle pieces -->
+  <path d="M28 8h8v8a4 4 0 0 1 0 8v8h-8a4 4 0 0 1-8 0h-8v-8a4 4 0 0 1 0-8v-8h8a4 4 0 0 1 8 0z" class="s" fill="none" stroke-width="2.5"/>
+  <path d="M44 24h8v8a4 4 0 0 1 0 8v8h-8a4 4 0 0 1-8 0h-8v-8a4 4 0 0 1 0-8" class="s" fill="none" stroke-width="2.5"/>
+</svg>

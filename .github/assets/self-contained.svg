@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) { .s { stroke: #e0e0e0; } .f { fill: #e0e0e0; } }
+    @media (prefers-color-scheme: light) { .s { stroke: #1a1a1a; } .f { fill: #1a1a1a; } }
+  </style>
+  <!-- Box/package -->
+  <path d="M32 4L56 16v28L32 56 8 44V16L32 4z" class="s" fill="none" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M32 28v28M8 16l24 12 24-12" class="s" fill="none" stroke-width="2.5"/>
+  <path d="M20 10l24 12" class="s" fill="none" stroke-width="2"/>
+</svg>

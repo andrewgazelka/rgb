@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) { .s { stroke: #e0e0e0; } .f { fill: #e0e0e0; } }
+    @media (prefers-color-scheme: light) { .s { stroke: #1a1a1a; } .f { fill: #1a1a1a; } }
+  </style>
+  <!-- Robot head -->
+  <rect x="16" y="12" width="32" height="28" rx="4" class="s" fill="none" stroke-width="2.5"/>
+  <circle cx="24" cy="26" r="4" class="f"/>
+  <circle cx="40" cy="26" r="4" class="f"/>
+  <rect x="28" y="4" width="8" height="10" rx="2" class="s" fill="none" stroke-width="2"/>
+  <!-- Keyboard below -->
+  <rect x="12" y="48" width="40" height="12" rx="2" class="s" fill="none" stroke-width="2.5"/>
+  <path d="M18 54h6M28 54h8M40 54h6" class="s" fill="none" stroke-width="2" stroke-linecap="round"/>
+</svg>

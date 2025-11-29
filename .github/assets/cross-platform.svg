@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) { .s { stroke: #e0e0e0; } .f { fill: #e0e0e0; } }
+    @media (prefers-color-scheme: light) { .s { stroke: #1a1a1a; } .f { fill: #1a1a1a; } }
+  </style>
+  <!-- Three monitors/screens -->
+  <rect x="4" y="16" width="16" height="12" rx="1" class="s" fill="none" stroke-width="2"/>
+  <path d="M12 28v4M8 32h8" class="s" fill="none" stroke-width="2"/>
+  <rect x="24" y="12" width="16" height="14" rx="1" class="s" fill="none" stroke-width="2"/>
+  <path d="M32 26v6M26 32h12" class="s" fill="none" stroke-width="2"/>
+  <rect x="44" y="16" width="16" height="12" rx="1" class="s" fill="none" stroke-width="2"/>
+  <path d="M52 28v4M48 32h8" class="s" fill="none" stroke-width="2"/>
+  <!-- Connecting line -->
+  <path d="M12 44h40" class="s" fill="none" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="12" cy="44" r="3" class="f"/>
+  <circle cx="32" cy="44" r="3" class="f"/>
+  <circle cx="52" cy="44" r="3" class="f"/>
+</svg>

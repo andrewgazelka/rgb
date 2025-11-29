@@ -1,6 +1,10 @@
-use std::io::Cursor;
+use std::fs::File;
+use std::io::{BufWriter, Cursor};
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use byteorder::{BigEndian, ReadBytesExt};
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{info, warn};
@@ -58,13 +62,35 @@ fn varint_bytes(value: i32) -> Vec<u8> {
     result
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 enum State {
     Handshaking,
     Status,
     Login,
     Configuration,
     Play,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+enum PacketDirection {
+    ClientToServer,
+    ServerToClient,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RecordedPacket {
+    timestamp_ms: u64,
+    state: State,
+    direction: PacketDirection,
+    packet_id: i32,
+    packet_name: String,
+    raw_data: Vec<u8>,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+struct PacketRecording {
+    start_time: u64,
+    packets: Vec<RecordedPacket>,
 }
 
 fn decode_string(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<String> {
@@ -79,8 +105,12 @@ fn decode_string(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<String> {
     Ok(s)
 }
 
-fn get_packet_name(state: State, direction: &str, packet_id: i32) -> &'static str {
-    match (state, direction, packet_id) {
+fn get_packet_name(state: State, direction: PacketDirection, packet_id: i32) -> &'static str {
+    let dir = match direction {
+        PacketDirection::ClientToServer => "C->S",
+        PacketDirection::ServerToClient => "S->C",
+    };
+    match (state, dir, packet_id) {
         (State::Handshaking, "C->S", 0x00) => "Handshake",
         (State::Status, "C->S", 0x00) => "Status Request",
         (State::Status, "C->S", 0x01) => "Ping Request",
@@ -99,10 +129,12 @@ fn get_packet_name(state: State, direction: &str, packet_id: i32) -> &'static st
         (State::Configuration, "S->C", 0x03) => "Finish Configuration",
         (State::Configuration, "S->C", 0x07) => "Registry Data",
         (State::Configuration, "S->C", 0x0E) => "Known Packs",
-        (State::Play, "S->C", 0x2C) => "Login (Play)",
-        (State::Play, "S->C", 0x27) => "Chunk Data",
-        (State::Play, "S->C", 0x42) => "Sync Player Position",
-        (State::Play, "S->C", 0x26) => "Keep Alive",
+        (State::Play, "S->C", 0x22) => "Game Event",
+        (State::Play, "S->C", 0x23) => "Keep Alive",
+        (State::Play, "S->C", 0x28) => "Login (Play)",
+        (State::Play, "S->C", 0x2C) => "Chunk Data",
+        (State::Play, "S->C", 0x40) => "Sync Player Position",
+        (State::Play, "C->S", 0x00) => "Accept Teleportation",
         (State::Play, "C->S", 0x1A) => "Keep Alive Response",
         _ => "Unknown",
     }
@@ -128,12 +160,21 @@ async fn forward_packet(
     Ok(())
 }
 
-async fn proxy_connection(mut client: TcpStream, server_addr: &str) -> anyhow::Result<()> {
+async fn proxy_connection(
+    mut client: TcpStream,
+    server_addr: &str,
+    recording: Arc<Mutex<PacketRecording>>,
+) -> anyhow::Result<()> {
     let mut server = TcpStream::connect(server_addr).await?;
     info!("Connected to upstream server at {}", server_addr);
 
     let mut state = State::Handshaking;
     let mut packet_num = 0usize;
+
+    let start_time = {
+        let rec = recording.lock().unwrap();
+        rec.start_time
+    };
 
     loop {
         let mut client_buf = [0u8; 1];
@@ -158,10 +199,27 @@ async fn proxy_connection(mut client: TcpStream, server_addr: &str) -> anyhow::R
                         let packet_id = read_varint_sync(&mut cursor)?;
 
                         let state_name = format!("{:?}", state).to_lowercase();
-                        let packet_name = get_packet_name(state, "C->S", packet_id);
+                        let packet_name = get_packet_name(state, PacketDirection::ClientToServer, packet_id);
 
                         info!("#{} [{}] C->S 0x{:02X} {} ({} bytes)",
                             packet_num, state_name, packet_id, packet_name, packet.len());
+
+                        // Record the packet
+                        {
+                            let now = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64;
+                            let mut rec = recording.lock().unwrap();
+                            rec.packets.push(RecordedPacket {
+                                timestamp_ms: now - start_time,
+                                state,
+                                direction: PacketDirection::ClientToServer,
+                                packet_id,
+                                packet_name: packet_name.to_string(),
+                                raw_data: packet.clone(),
+                            });
+                        }
 
                         // Handle state transitions
                         if matches!(state, State::Handshaking) && packet_id == 0 {
@@ -213,10 +271,27 @@ async fn proxy_connection(mut client: TcpStream, server_addr: &str) -> anyhow::R
                         let packet_id = read_varint_sync(&mut cursor)?;
 
                         let state_name = format!("{:?}", state).to_lowercase();
-                        let packet_name = get_packet_name(state, "S->C", packet_id);
+                        let packet_name = get_packet_name(state, PacketDirection::ServerToClient, packet_id);
 
                         info!("#{} [{}] S->C 0x{:02X} {} ({} bytes)",
                             packet_num, state_name, packet_id, packet_name, packet.len());
+
+                        // Record the packet
+                        {
+                            let now = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64;
+                            let mut rec = recording.lock().unwrap();
+                            rec.packets.push(RecordedPacket {
+                                timestamp_ms: now - start_time,
+                                state,
+                                direction: PacketDirection::ServerToClient,
+                                packet_id,
+                                packet_name: packet_name.to_string(),
+                                raw_data: packet.clone(),
+                            });
+                        }
 
                         // Log extra info for registry data
                         if matches!(state, State::Configuration) && packet_id == 0x07 {
@@ -240,6 +315,14 @@ async fn proxy_connection(mut client: TcpStream, server_addr: &str) -> anyhow::R
     Ok(())
 }
 
+fn save_recording(recording: &PacketRecording, path: &str) -> anyhow::Result<()> {
+    let file = File::create(path)?;
+    let writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(writer, recording)?;
+    info!("Saved {} packets to {}", recording.packets.len(), path);
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -251,24 +334,50 @@ async fn main() -> anyhow::Result<()> {
 
     let listen_port = std::env::args().nth(1).unwrap_or("25565".to_string());
     let target_port = std::env::args().nth(2).unwrap_or("25566".to_string());
+    let output_file = std::env::args().nth(3).unwrap_or("recording.json".to_string());
 
     let listen_addr = format!("0.0.0.0:{}", listen_port);
     let target_addr = format!("127.0.0.1:{}", target_port);
 
     info!("MC Packet Capture Proxy");
     info!("Listen: {} -> Forward: {}", listen_addr, target_addr);
+    info!("Recording to: {}", output_file);
     info!("");
 
     let listener = TcpListener::bind(&listen_addr).await?;
+
+    let start_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    let recording = Arc::new(Mutex::new(PacketRecording {
+        start_time,
+        packets: Vec::new(),
+    }));
+
+    // Save on Ctrl+C
+    let recording_clone = recording.clone();
+    let output_clone = output_file.clone();
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        info!("Interrupted, saving recording...");
+        let rec = recording_clone.lock().unwrap();
+        if let Err(e) = save_recording(&rec, &output_clone) {
+            warn!("Failed to save recording: {}", e);
+        }
+        std::process::exit(0);
+    });
 
     loop {
         let (stream, addr) = listener.accept().await?;
         info!("=== New connection from {} ===", addr);
 
         let target = target_addr.clone();
+        let recording = recording.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = proxy_connection(stream, &target).await {
+            if let Err(e) = proxy_connection(stream, &target, recording).await {
                 warn!("Proxy error: {}", e);
             }
             info!("=== Connection closed ===");

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) { .s { stroke: #e0e0e0; } .f { fill: #e0e0e0; } }
+    @media (prefers-color-scheme: light) { .s { stroke: #1a1a1a; } .f { fill: #1a1a1a; } }
+  </style>
+  <!-- Rocket -->
+  <path d="M32 8c-8 8-12 20-12 32h24c0-12-4-24-12-32z" class="s" fill="none" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="32" cy="28" r="4" class="f"/>
+  <path d="M20 40c-8 0-12 8-12 16h12" class="s" fill="none" stroke-width="2.5"/>
+  <path d="M44 40c8 0 12 8 12 16h-12" class="s" fill="none" stroke-width="2.5"/>
+  <path d="M28 48l4 8 4-8" class="s" fill="none" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

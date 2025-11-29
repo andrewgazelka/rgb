@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) { .s { stroke: #e0e0e0; } .f { fill: #e0e0e0; } }
+    @media (prefers-color-scheme: light) { .s { stroke: #1a1a1a; } .f { fill: #1a1a1a; } }
+  </style>
+  <!-- Speedometer -->
+  <path d="M8 48a28 28 0 1 1 48 0" class="s" fill="none" stroke-width="2.5"/>
+  <path d="M16 44l4-2M12 32h4M16 20l3 3M32 12v4M48 20l-3 3M52 32h-4M48 44l-4-2" class="s" fill="none" stroke-width="2" stroke-linecap="round"/>
+  <!-- Needle pointing fast -->
+  <path d="M32 36L48 18" class="s" fill="none" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="36" r="5" class="f"/>
+</svg>

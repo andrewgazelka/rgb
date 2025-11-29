@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    @media (prefers-color-scheme: dark) { .s { stroke: #e0e0e0; } .f { fill: #e0e0e0; } }
+    @media (prefers-color-scheme: light) { .s { stroke: #1a1a1a; } .f { fill: #1a1a1a; } }
+  </style>
+  <!-- Minecraft grass block -->
+  <rect x="8" y="8" width="48" height="48" class="s" fill="none" stroke-width="2.5"/>
+  <path d="M8 24h48" class="s" fill="none" stroke-width="2"/>
+  <rect x="16" y="12" width="8" height="8" class="f"/>
+  <rect x="32" y="14" width="6" height="6" class="f"/>
+  <rect x="44" y="10" width="6" height="10" class="f"/>
+  <rect x="16" y="32" width="8" height="8" class="s" fill="none" stroke-width="1.5"/>
+  <rect x="28" y="40" width="8" height="8" class="s" fill="none" stroke-width="1.5"/>
+  <rect x="40" y="28" width="8" height="8" class="s" fill="none" stroke-width="1.5"/>
+</svg>

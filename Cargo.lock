@@ -990,10 +990,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mc-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "mc-packets",
+ "mc-protocol",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "mc-packets"
 version = "0.1.0"
 dependencies = [
  "mc-protocol",
+ "serde",
 ]
 
 [[package]]
@@ -1002,6 +1018,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "mc-protocol-derive",
+ "serde",
  "thiserror 2.0.17",
 ]
 
@@ -1020,6 +1037,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "byteorder",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",

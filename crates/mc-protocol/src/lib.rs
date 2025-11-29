@@ -2,10 +2,14 @@ use std::borrow::Cow;
 use std::io::{self, Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[cfg(feature = "derive")]
 pub use mc_protocol_derive::{Decode, Encode};
+
+// Re-export serde for use by generated code
+pub use serde;
 
 #[derive(Error, Debug)]
 pub enum ProtocolError {
@@ -216,7 +220,7 @@ impl Decode<'_> for f64 {
 }
 
 // VarInt wrapper type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct VarInt(pub i32);
 
 impl Encode for VarInt {
@@ -244,7 +248,7 @@ impl From<VarInt> for i32 {
 }
 
 // VarLong wrapper type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct VarLong(pub i64);
 
 impl Encode for VarLong {
@@ -336,7 +340,7 @@ impl<'a, T: Decode<'a>> Decode<'a> for Vec<T> {
 }
 
 // UUID
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Uuid(pub u128);
 
 impl Encode for Uuid {
@@ -356,7 +360,7 @@ impl Decode<'_> for Uuid {
 }
 
 // Position (packed x/y/z)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Position {
     pub x: i32,
     pub y: i16,
@@ -364,11 +368,11 @@ pub struct Position {
 }
 
 // NBT placeholder (raw bytes for now)
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Nbt(pub Vec<u8>);
 
 // BlockState placeholder (VarInt encoded)
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct BlockState(pub i32);
 
 impl Encode for Nbt {

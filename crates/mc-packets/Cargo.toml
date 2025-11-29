@@ -8,3 +8,4 @@ description = "Generated Minecraft packet definitions"
 
 [dependencies]
 mc-protocol = { path = "../mc-protocol" }
+serde = { version = "1", features = ["derive"] }

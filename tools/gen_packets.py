@@ -54,9 +54,9 @@ def gen_struct(name, fields, packet_id):
 
     lines = [f'/// Packet ID: {packet_id}']
     if all_known:
-        lines.append('#[derive(Debug, Clone, Encode, Decode)]')
+        lines.append('#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]')
     else:
-        lines.append('#[derive(Debug, Clone)]')
+        lines.append('#[derive(Debug, Clone, Serialize, Deserialize)]')
     if needs_lifetime:
         lines.append(f"pub struct {name}<'a> {{")
     else:
@@ -101,6 +101,7 @@ def main():
             '',
             'use std::borrow::Cow;',
             'use mc_protocol::{Encode, Decode, VarInt, Uuid, Position, Nbt, BlockState};',
+            'use serde::{Serialize, Deserialize};',
             '',
         ]
 
@@ -143,7 +144,7 @@ def main():
                     for line in struct_lines.split('\n'):
                         content.append(f'    {line}' if line else '')
                 else:
-                    content.append(f'    #[derive(Debug, Clone, Default, Encode, Decode)]')
+                    content.append(f'    #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]')
                     content.append(f'    pub struct {struct_name};')
                     content.append('')
 
