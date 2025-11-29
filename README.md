@@ -8,6 +8,10 @@
 
 A Minecraft server written entirely by AI (Claude Opus 4.5).
 
+## How It Works
+
+The animation above shows the parallelism model: all same-colored blocks pulse together. This is how the server processes entities—group by operation type (R, G, B), execute each group in parallel across all entities, then move to the next operation. No per-entity sequential loops; pure data-parallel execution.
+
 **The experiment:** How far can AI-driven development go? This codebase is 100% AI-authored—no human code. We're pushing the boundaries of what's possible when an LLM has full control.
 
 ## The Approach
