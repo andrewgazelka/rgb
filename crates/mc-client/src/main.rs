@@ -1,9 +1,12 @@
 use std::fs::File;
-use std::io::{BufWriter, Cursor, Write as IoWrite};
+use std::io::{BufWriter, Cursor, Read as IoRead};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use mc_protocol::{read_varint, write_varint, Decode, Encode, Uuid};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -41,6 +44,7 @@ struct Client {
     player_uuid: u128,
     recorded_packets: Vec<RecordedPacket>,
     start_time: u64,
+    compression_threshold: Option<i32>,
 }
 
 impl Client {
@@ -58,6 +62,7 @@ impl Client {
             player_uuid,
             recorded_packets: Vec::new(),
             start_time,
+            compression_threshold: None,
         }
     }
 
@@ -105,9 +110,34 @@ impl Client {
         let mut data = vec![0u8; length as usize];
         self.stream.read_exact(&mut data).await?;
 
-        let mut cursor = Cursor::new(&data);
-        let packet_id = read_varint(&mut cursor)?;
-        let remaining = data[cursor.position() as usize..].to_vec();
+        // Handle compression
+        let (packet_id, remaining) = if let Some(threshold) = self.compression_threshold {
+            let mut cursor = Cursor::new(&data);
+            let data_length = read_varint(&mut cursor)?;
+
+            if data_length == 0 {
+                // Uncompressed packet
+                let packet_id = read_varint(&mut cursor)?;
+                let remaining = data[cursor.position() as usize..].to_vec();
+                (packet_id, remaining)
+            } else {
+                // Compressed packet
+                let compressed_data = &data[cursor.position() as usize..];
+                let mut decoder = ZlibDecoder::new(compressed_data);
+                let mut decompressed = Vec::new();
+                decoder.read_to_end(&mut decompressed)?;
+
+                let mut cursor = Cursor::new(&decompressed);
+                let packet_id = read_varint(&mut cursor)?;
+                let remaining = decompressed[cursor.position() as usize..].to_vec();
+                (packet_id, remaining)
+            }
+        } else {
+            let mut cursor = Cursor::new(&data);
+            let packet_id = read_varint(&mut cursor)?;
+            let remaining = data[cursor.position() as usize..].to_vec();
+            (packet_id, remaining)
+        };
 
         // Record the packet
         self.record_packet(PacketDirection::Clientbound, packet_id, &remaining);
@@ -122,15 +152,55 @@ impl Client {
         let mut packet_id_bytes = Vec::new();
         write_varint(&mut packet_id_bytes, packet_id)?;
 
-        let length = packet_id_bytes.len() + data.len();
-        let mut length_bytes = Vec::new();
-        write_varint(&mut length_bytes, length as i32)?;
+        if let Some(threshold) = self.compression_threshold {
+            // Compression enabled
+            let uncompressed_len = packet_id_bytes.len() + data.len();
 
-        self.stream.write_all(&length_bytes).await?;
-        self.stream.write_all(&packet_id_bytes).await?;
-        self.stream.write_all(data).await?;
+            if uncompressed_len >= threshold as usize {
+                // Compress the packet
+                let mut uncompressed = packet_id_bytes.clone();
+                uncompressed.extend_from_slice(data);
+
+                let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+                std::io::Write::write_all(&mut encoder, &uncompressed)?;
+                let compressed = encoder.finish()?;
+
+                let mut data_length_bytes = Vec::new();
+                write_varint(&mut data_length_bytes, uncompressed_len as i32)?;
+
+                let length = data_length_bytes.len() + compressed.len();
+                let mut length_bytes = Vec::new();
+                write_varint(&mut length_bytes, length as i32)?;
+
+                self.stream.write_all(&length_bytes).await?;
+                self.stream.write_all(&data_length_bytes).await?;
+                self.stream.write_all(&compressed).await?;
+            } else {
+                // Send uncompressed (data_length = 0)
+                let mut data_length_bytes = Vec::new();
+                write_varint(&mut data_length_bytes, 0)?;
+
+                let length = data_length_bytes.len() + packet_id_bytes.len() + data.len();
+                let mut length_bytes = Vec::new();
+                write_varint(&mut length_bytes, length as i32)?;
+
+                self.stream.write_all(&length_bytes).await?;
+                self.stream.write_all(&data_length_bytes).await?;
+                self.stream.write_all(&packet_id_bytes).await?;
+                self.stream.write_all(data).await?;
+            }
+        } else {
+            // No compression
+            let length = packet_id_bytes.len() + data.len();
+            let mut length_bytes = Vec::new();
+            write_varint(&mut length_bytes, length as i32)?;
+
+            self.stream.write_all(&length_bytes).await?;
+            self.stream.write_all(&packet_id_bytes).await?;
+            self.stream.write_all(data).await?;
+        }
+
         self.stream.flush().await?;
-
         Ok(())
     }
 
@@ -237,7 +307,7 @@ impl Client {
                 // Set Compression
                 let threshold = read_varint(cursor)?;
                 info!("Set Compression threshold: {}", threshold);
-                // TODO: Implement compression
+                self.compression_threshold = Some(threshold);
             }
             _ => {
                 debug!("Unknown login packet: 0x{:02X}", packet_id);
@@ -248,7 +318,27 @@ impl Client {
 
     async fn handle_configuration_packet(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<bool> {
         match packet_id {
+            0 => {
+                // Cookie Request
+                let key = String::decode(cursor)?;
+                debug!("Cookie Request: {}", key);
+            }
             1 => {
+                // Custom Payload (plugin message)
+                let channel = String::decode(cursor)?;
+                debug!("Custom Payload: channel={}", channel);
+
+                // Respond with brand
+                if channel == "minecraft:brand" {
+                    let mut data = Vec::new();
+                    "minecraft:brand".encode(&mut data)?;
+                    // Brand name
+                    "rust-client".encode(&mut data)?;
+                    self.send_packet(2, &data).await?; // Serverbound Custom Payload
+                    debug!("Sent brand response");
+                }
+            }
+            2 => {
                 // Disconnect
                 let reason = String::decode(cursor)?;
                 warn!("Disconnected during configuration: {}", reason);
@@ -267,6 +357,15 @@ impl Client {
                 let count = read_varint(cursor)?;
                 debug!("Registry Data: {} ({} entries)", registry, count);
             }
+            12 => {
+                // Update Enabled Features
+                let count = read_varint(cursor)?;
+                debug!("Update Enabled Features: {} features", count);
+            }
+            13 => {
+                // Update Tags
+                debug!("Update Tags");
+            }
             14 => {
                 // Known Packs
                 let count = read_varint(cursor)?;
@@ -279,7 +378,7 @@ impl Client {
                 debug!("Sent Known Packs response");
             }
             _ => {
-                debug!("Configuration packet: 0x{:02X}", packet_id);
+                debug!("Configuration packet: 0x{:02X} ({} bytes)", packet_id, cursor.get_ref().len());
             }
         }
         Ok(true)
@@ -384,7 +483,6 @@ async fn main() -> anyhow::Result<()> {
     let mut client = Client::new(stream, player_name);
 
     // Set up Ctrl+C handler to save on exit
-    let save_path = output_file.clone();
     tokio::select! {
         result = client.connect(host, port) => {
             if let Err(e) = result {

@@ -4,9 +4,30 @@ A Minecraft server written in Rust, developed with Claude Opus 4.5.
 
 Fast. Modular. AI-native. Just works.
 
+**Currently targeting:** Minecraft snapshot (development builds). We develop against snapshots to stay ahead—when a new Minecraft version drops, we're ready.
+
 ## Why rgb?
 
 Building Minecraft servers is hard. We make it easy. With Opus 4.5 driving development, rgb delivers a clean, performant, and hackable server that stays current with Minecraft's latest snapshots.
+
+## Why AI?
+
+Opus 4.5 is genuinely good at writing Rust. Like, *really* good. We're building rgb to take full advantage of that.
+
+The key insight: **AI needs to test autonomously.** That means both a client and a server, written in Rust, that can spin up and talk to each other without human intervention. No launching a Java client manually. No clicking through menus. Just `cargo test` and everything works.
+
+This enables:
+- **Rapid iteration** — Opus writes code, runs tests, fixes issues, repeats
+- **Full coverage** — Every packet, every edge case, tested automatically
+- **Confident refactoring** — Break something? The tests catch it immediately
+
+The entire codebase is designed for AI-assisted development. Clean abstractions. Minimal magic. Code that reads like documentation.
+
+## Deobfuscated Minecraft
+
+Starting with snapshot **25w46a**, Minecraft removed obfuscation from their source code. This is huge for us—we can now decompile the official client/server and read actual class and method names instead of `a.b.c()`.
+
+This makes implementing the protocol straightforward: just look at what Mojang does and do the same thing in Rust.
 
 ## Goals
 

@@ -31,9 +31,10 @@ The Java server can be run via: `nix run .#run-mc-server`
 
 ## Remaining Tasks
 
-- [ ] Use client to join native Java server and record packet sequence
-  - Run Java server: `nix run .#run-mc-server -- 25566`
+- [x] Use client to join native Java server and record packet sequence
+  - Run Java server: `nix run .#run-mc-server`
   - Connect with Rust client: `cargo run -p mc-client -- 127.0.0.1 25566 TestBot java-packets.json`
+  - Recorded 105 packets (1 handshake, 4 login, 31 configuration, 69 play)
 
 - [ ] Make sure the actual Rust server implementation is 1:1 with Java
   - Compare recorded packets from Java server with Rust server output
