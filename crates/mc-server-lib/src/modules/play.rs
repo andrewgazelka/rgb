@@ -22,6 +22,48 @@ use crate::packets::{
 };
 use crate::WorldTime;
 
+fn send_play_login(buffer: &mut PacketBuffer, entity_id: i32) {
+    if let Ok(data) = create_play_login(entity_id) {
+        buffer.push_outgoing(encode_packet(PlayLogin::ID, &data));
+    }
+}
+
+fn send_player_position(buffer: &mut PacketBuffer, x: f64, y: f64, z: f64, teleport_id: i32) {
+    if let Ok(data) = create_player_position(x, y, z, teleport_id) {
+        buffer.push_outgoing(encode_packet(PlayerPosition::ID, &data));
+    }
+}
+
+fn send_game_event_start_waiting(buffer: &mut PacketBuffer) {
+    if let Ok(data) = create_game_event_start_waiting() {
+        buffer.push_outgoing(encode_packet(GameEvent::ID, &data));
+    }
+}
+
+fn send_set_center_chunk(buffer: &mut PacketBuffer, x: i32, z: i32) {
+    if let Ok(data) = create_set_center_chunk(x, z) {
+        buffer.push_outgoing(encode_packet(SetChunkCacheCenter::ID, &data));
+    }
+}
+
+fn send_set_time(buffer: &mut PacketBuffer, world_age: i64, time_of_day: i64) {
+    if let Ok(data) = create_set_time(world_age, time_of_day) {
+        buffer.push_outgoing(encode_packet(SetTime::ID, &data));
+    }
+}
+
+fn send_keepalive(buffer: &mut PacketBuffer) {
+    if let Ok(data) = create_keepalive() {
+        buffer.push_outgoing(encode_packet(ClientboundKeepAlive::ID, &data));
+    }
+}
+
+fn send_chunk_batch_finished(buffer: &mut PacketBuffer, count: i32) {
+    if let Ok(data) = create_chunk_batch_finished(count) {
+        buffer.push_outgoing(encode_packet(ChunkBatchFinished::ID, &data));
+    }
+}
+
 /// Play module - handles gameplay
 #[derive(Component)]
 pub struct PlayModule;
@@ -58,39 +100,27 @@ impl Module for PlayModule {
                         let buf = &mut buffer[i];
 
                         // Send Play Login
-                        if let Some(data) = create_play_login(entity_id.0).ok() {
-                            buf.push_outgoing(encode_packet(PlayLogin::ID, &data));
-                        }
+                        send_play_login(buf, entity_id.0);
 
                         // Send player position
-                        if let Some(data) = create_player_position(pos.x, pos.y, pos.z, 1).ok() {
-                            buf.push_outgoing(encode_packet(PlayerPosition::ID, &data));
-                        }
+                        send_player_position(buf, pos.x, pos.y, pos.z, 1);
 
                         // Send game event (start waiting for chunks)
-                        if let Some(data) = create_game_event_start_waiting().ok() {
-                            buf.push_outgoing(encode_packet(GameEvent::ID, &data));
-                        }
+                        send_game_event_start_waiting(buf);
 
                         // Set center chunk
                         let (cx, cz) = pos.chunk_pos();
-                        if let Some(data) = create_set_center_chunk(cx, cz).ok() {
-                            buf.push_outgoing(encode_packet(SetChunkCacheCenter::ID, &data));
-                        }
+                        send_set_center_chunk(buf, cx, cz);
 
                         // Send chunks
                         let chunks = collect_chunks_for_player(chunk_index, 8, it.world());
                         send_chunks_to_buffer(buf, &chunks);
 
                         // Send time
-                        if let Some(data) = create_set_time(world_time.world_age, world_time.time_of_day).ok() {
-                            buf.push_outgoing(encode_packet(SetTime::ID, &data));
-                        }
+                        send_set_time(buf, world_time.world_age, world_time.time_of_day);
 
                         // Send initial keepalive
-                        if let Some(data) = create_keepalive().ok() {
-                            buf.push_outgoing(encode_packet(ClientboundKeepAlive::ID, &data));
-                        }
+                        send_keepalive(buf);
 
                         // Remove NeedsSpawnChunks and add InPlayState
                         let entity = it.entity(i);
@@ -127,9 +157,7 @@ impl Module for PlayModule {
             .each(|(buffer, world_time)| {
                 // Send keepalive every 300 ticks (15 seconds at 20 TPS)
                 if world_time.world_age % 300 == 0 {
-                    if let Some(data) = create_keepalive().ok() {
-                        buffer.push_outgoing(encode_packet(ClientboundKeepAlive::ID, &data));
-                    }
+                    send_keepalive(buffer);
                 }
             });
     }
@@ -163,9 +191,7 @@ fn send_chunks_to_buffer(buffer: &mut PacketBuffer, chunks: &[Bytes]) {
     }
 
     // Finish chunk batch
-    if let Some(data) = create_chunk_batch_finished(chunks.len() as i32).ok() {
-        buffer.push_outgoing(encode_packet(ChunkBatchFinished::ID, &data));
-    }
+    send_chunk_batch_finished(buffer, chunks.len() as i32);
 }
 
 fn handle_play_packet(packet_id: i32, data: &[u8], pos: &mut Position, rot: &mut Rotation) {

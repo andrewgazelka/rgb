@@ -8,6 +8,24 @@ use crate::components::{
 use crate::packets::{create_known_packs, create_login_success, encode_packet, offline_uuid, parse_login_start};
 use crate::EntityIdCounter;
 
+fn try_parse_login(data: &[u8]) -> Option<(String, u128)> {
+    parse_login_start(data).ok()
+}
+
+fn send_login_success(buffer: &mut PacketBuffer, uuid: u128, name: &str) {
+    if let Ok(response_data) = create_login_success(uuid, name) {
+        let packet = encode_packet(2, &response_data);
+        buffer.push_outgoing(packet);
+    }
+}
+
+fn send_known_packs(buffer: &mut PacketBuffer) {
+    if let Ok(data) = create_known_packs() {
+        let packet = encode_packet(14, &data);
+        buffer.push_outgoing(packet);
+    }
+}
+
 /// Login module - handles login flow
 #[derive(Component)]
 pub struct LoginModule;
@@ -46,7 +64,7 @@ impl Module for LoginModule {
                     match packet_id {
                         0 => {
                             // Login Start
-                            if let Some((name, _uuid)) = parse_login_start(&data).ok() {
+                            if let Some((name, _uuid)) = try_parse_login(&data) {
                                 let player_uuid = offline_uuid(&name);
                                 info!("Login from: {} (uuid: {:032x})", &name, player_uuid);
 
@@ -62,11 +80,8 @@ impl Module for LoginModule {
                                 e.set(GameMode::CREATIVE);
 
                                 // Send Login Success
-                                if let Some(response_data) = create_login_success(player_uuid, &name).ok() {
-                                    let packet = encode_packet(2, &response_data);
-                                    buffer.push_outgoing(packet);
-                                    info!("Sent Login Success, waiting for Login Acknowledged");
-                                }
+                                send_login_success(buffer, player_uuid, &name);
+                                info!("Sent Login Success, waiting for Login Acknowledged");
                             }
                         }
                         3 => {
@@ -75,11 +90,8 @@ impl Module for LoginModule {
                             state.0 = ConnectionState::Configuration;
 
                             // Send Known Packs
-                            if let Some(data) = create_known_packs().ok() {
-                                let packet = encode_packet(14, &data);
-                                buffer.push_outgoing(packet);
-                                debug!("Sent Known Packs");
-                            }
+                            send_known_packs(buffer);
+                            debug!("Sent Known Packs");
                         }
                         _ => {
                             debug!("Unknown login packet: {}", packet_id);

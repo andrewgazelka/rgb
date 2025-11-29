@@ -5,7 +5,8 @@ use crate::components::{Connection, ConnectionState, PacketBuffer, ProtocolState
 use crate::packets::{create_status_response, encode_packet, parse_handshake};
 
 fn send_status_response(buffer: &mut PacketBuffer) {
-    if let Ok(response_data) = create_status_response() {
+    let result: anyhow::Result<Vec<u8>> = create_status_response();
+    if let Ok(response_data) = result {
         let packet = encode_packet(0, &response_data);
         buffer.push_outgoing(packet);
     }
@@ -67,10 +68,7 @@ impl Module for HandshakeModule {
                         0 => {
                             // Status Request
                             info!("Status request");
-                            if let Ok(response_data) = create_status_response() {
-                                let packet = encode_packet(0, &response_data);
-                                buffer.push_outgoing(packet);
-                            }
+                            send_status_response(buffer);
                         }
                         1 => {
                             // Ping - echo back the same data
