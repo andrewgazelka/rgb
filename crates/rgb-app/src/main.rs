@@ -11,9 +11,11 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
-use renderer::{atlas_uv, chunk_in_region, chunk_world_pos, region_color_rgb, ChunkInstance, Renderer};
+use renderer::{
+    ChunkInstance, Renderer, atlas_uv, chunk_in_region, chunk_world_pos, region_color_rgb,
+};
 use rgb_core::{
-    link_chunk_neighbors, spawn_chunk, CellData, ChunkIndex, ChunkPos, Color, Dirty, CHUNK_SIZE,
+    CHUNK_SIZE, CellData, ChunkIndex, ChunkPos, Color, Dirty, link_chunk_neighbors, spawn_chunk,
 };
 use rgb_life::{expand_world, register_life_systems};
 
@@ -357,7 +359,7 @@ impl App {
             Err(wgpu::SurfaceError::OutOfMemory) => {
                 log::error!("Out of memory");
             }
-            Err(e) => log::warn!("Render error: {:?}", e),
+            Err(e) => log::warn!("Render error: {e:?}"),
         }
     }
 }

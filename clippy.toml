@@ -6,6 +6,7 @@ too-many-lines-threshold = 100
 
 allow-expect-in-tests = true
 allow-unwrap-in-tests = true
+allow-print-in-tests = true
 cargo-ignore-publish = true  # Enforce cargo_common_metadata even for publish = false crates
 
 disallowed-types = [

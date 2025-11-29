@@ -16,3 +16,98 @@ pollster = "0.4"
 bytemuck = { version = "1", features = ["derive"] }
 log = "0.4"
 env_logger = "0.11"
+
+[workspace.lints.clippy]
+# Deny all categories
+complexity = { level = "deny", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+
+# Allow specific lints - Code style
+collapsible_if = "allow"
+doc_lazy_continuation = "allow"
+doc_markdown = "allow"
+many_single_char_names = "allow"
+match_same_arms = "allow"
+single_match_else = "allow"
+uninlined_format_args = "allow"
+
+# Allow specific lints - Documentation
+missing_const_for_fn = "allow"
+missing_docs_in_private_items = "allow"
+missing_errors_doc = "allow"
+
+# Allow specific lints - Design patterns
+future_not_send = "allow"
+must_use_candidate = "allow"
+needless_pass_by_value = "allow"
+option_if_let_else = "allow"
+significant_drop_tightening = "allow"
+struct_excessive_bools = "allow"
+
+# Allow specific lints - Miscellaneous
+multiple_crate_versions = "allow"
+similar_names = "allow"
+use_self = "allow"
+cast_lossless = "allow"
+elidable_lifetime_names = "allow"
+indexing_slicing = "allow"
+excessive_nesting = "allow"
+module_name_repetitions = "allow"
+return_self_not_must_use = "allow"
+or_fun_call = "allow"
+too_many_lines = "allow"
+disallowed_methods = "allow"
+unnested_or_patterns = "allow"
+unreadable_literal = "allow"
+needless_range_loop = "allow"
+match_like_matches_macro = "allow"
+map_entry = "allow"
+bool_to_int_with_if = "allow"
+allow_attributes = "allow"
+allow_attributes_without_reason = "allow"
+default_trait_access = "allow"
+branches_sharing_code = "allow"
+ignored_unit_patterns = "allow"
+needless_pass_by_ref_mut = "allow"
+wildcard_imports = "allow"
+collection_is_never_read = "allow"
+map_unwrap_or = "allow"
+redundant_closure_for_method_calls = "allow"
+manual_div_ceil = "allow"
+unused_async = "allow"
+
+# Deny specific lints - Safety
+char_indices_as_byte_indices = "deny"
+string_slice = "deny"
+
+# Deny specific lints - Code quality
+cognitive_complexity = "deny"
+missing_panics_doc = "deny"
+print_stdout = "deny"
+
+[workspace.lints.rust]
+# Allow specific lints
+dead_code = "allow"
+mismatched_lifetime_syntaxes = "allow"
+
+# Deny categories
+deprecated_safe = { level = "deny", priority = -1 }
+future_incompatible = { level = "deny", priority = -1 }
+keyword_idents = { level = "deny", priority = -1 }
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+# Warn
+unsafe_code = "warn"
+
+# Config
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }

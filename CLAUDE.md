@@ -1,6 +1,10 @@
 Things that have no self refernce should be free funciton not associated function like Self::get_cell
 
+Run `./ci.sh` for CI checks (fmt, clippy, tests)
+
 Use `cargo nextest run` for tests
+
+Avoid anonymous tuples with >2 elements. Use named structs instead for clarity.
 
 ## Project: Minecraft Server in Rust
 

@@ -1,7 +1,7 @@
 use flecs_ecs::prelude::*;
 use rgb_core::{
-    get_neighbor, link_chunk_neighbors, spawn_chunk, Active, CellData, ChunkIndex, ChunkPos,
-    Direction, Dirty, NextCellData, SimColor, CHUNK_SIZE,
+    Active, CHUNK_SIZE, CellData, ChunkIndex, ChunkPos, Direction, Dirty, NextCellData, SimColor,
+    get_neighbor, link_chunk_neighbors, spawn_chunk,
 };
 use std::collections::HashSet;
 
@@ -164,7 +164,8 @@ pub fn compute_next_generation(
     for y in 0..CHUNK_SIZE {
         for x in 0..CHUNK_SIZE {
             let alive = cells.get(x, y);
-            let neighbors = count_neighbors(world, chunk_entity, chunk_pos, cells, x as i32, y as i32);
+            let neighbors =
+                count_neighbors(world, chunk_entity, chunk_pos, cells, x as i32, y as i32);
 
             let next_alive = match (alive, neighbors) {
                 (true, 2) | (true, 3) => true,

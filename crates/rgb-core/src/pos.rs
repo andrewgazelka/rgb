@@ -94,9 +94,18 @@ mod tests {
 
     #[test]
     fn chunk_to_region() {
-        assert_eq!(ChunkPos::new(0, 0).containing_region(), RegionPos::new(0, 0));
-        assert_eq!(ChunkPos::new(3, 3).containing_region(), RegionPos::new(0, 0));
-        assert_eq!(ChunkPos::new(4, 0).containing_region(), RegionPos::new(1, 0));
+        assert_eq!(
+            ChunkPos::new(0, 0).containing_region(),
+            RegionPos::new(0, 0)
+        );
+        assert_eq!(
+            ChunkPos::new(3, 3).containing_region(),
+            RegionPos::new(0, 0)
+        );
+        assert_eq!(
+            ChunkPos::new(4, 0).containing_region(),
+            RegionPos::new(1, 0)
+        );
         assert_eq!(
             ChunkPos::new(-1, -1).containing_region(),
             RegionPos::new(-1, -1)

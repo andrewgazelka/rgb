@@ -4,7 +4,7 @@ use std::sync::Arc;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
-use rgb_core::{ChunkPos, Color, CHUNK_SIZE, REGION_SIZE};
+use rgb_core::{CHUNK_SIZE, ChunkPos, Color, REGION_SIZE};
 
 const ATLAS_SIZE: u32 = 256; // 256x256 chunks = 65536 max chunks
 const ATLAS_PIXELS: u32 = ATLAS_SIZE * CHUNK_SIZE as u32;
@@ -530,7 +530,10 @@ pub const CELL_SIZE: f32 = 4.0;
 pub const CHUNK_PIXEL_SIZE: f32 = CHUNK_SIZE as f32 * CELL_SIZE;
 
 pub fn chunk_world_pos(pos: ChunkPos) -> [f32; 2] {
-    [pos.x as f32 * CHUNK_PIXEL_SIZE, pos.y as f32 * CHUNK_PIXEL_SIZE]
+    [
+        pos.x as f32 * CHUNK_PIXEL_SIZE,
+        pos.y as f32 * CHUNK_PIXEL_SIZE,
+    ]
 }
 
 pub fn atlas_uv(slot: (u32, u32)) -> [f32; 2] {

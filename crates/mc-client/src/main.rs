@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use flate2::Compression;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
-use flate2::Compression;
-use mc_protocol::{read_varint, write_varint, Decode, Encode, Uuid};
+use mc_protocol::{Decode, Encode, Uuid, read_varint, write_varint};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -111,7 +111,7 @@ impl Client {
         self.stream.read_exact(&mut data).await?;
 
         // Handle compression
-        let (packet_id, remaining) = if let Some(threshold) = self.compression_threshold {
+        let (packet_id, remaining) = if let Some(_threshold) = self.compression_threshold {
             let mut cursor = Cursor::new(&data);
             let data_length = read_varint(&mut cursor)?;
 
@@ -248,7 +248,10 @@ impl Client {
         Uuid(self.player_uuid).encode(&mut data)?;
 
         self.send_packet(0, &data).await?;
-        info!("Sent Login Start (name: {}, uuid: {:032x})", self.player_name, self.player_uuid);
+        info!(
+            "Sent Login Start (name: {}, uuid: {:032x})",
+            self.player_name, self.player_uuid
+        );
         Ok(())
     }
 
@@ -268,7 +271,10 @@ impl Client {
                     }
                 }
                 ConnectionState::Configuration => {
-                    if !self.handle_configuration_packet(packet_id, &mut cursor).await? {
+                    if !self
+                        .handle_configuration_packet(packet_id, &mut cursor)
+                        .await?
+                    {
                         break;
                     }
                 }
@@ -283,7 +289,11 @@ impl Client {
         Ok(())
     }
 
-    async fn handle_login_packet(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<bool> {
+    async fn handle_login_packet(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<bool> {
         match packet_id {
             0 => {
                 // Disconnect
@@ -296,7 +306,10 @@ impl Client {
                 let uuid = Uuid::decode(cursor)?;
                 let name = String::decode(cursor)?;
                 let properties_count = read_varint(cursor)?;
-                info!("Login Success: {} (uuid: {:032x}, {} properties)", name, uuid.0, properties_count);
+                info!(
+                    "Login Success: {} (uuid: {:032x}, {} properties)",
+                    name, uuid.0, properties_count
+                );
 
                 // Send Login Acknowledged
                 self.send_packet(3, &[]).await?;
@@ -316,7 +329,11 @@ impl Client {
         Ok(true)
     }
 
-    async fn handle_configuration_packet(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<bool> {
+    async fn handle_configuration_packet(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<bool> {
         match packet_id {
             0 => {
                 // Cookie Request
@@ -378,13 +395,21 @@ impl Client {
                 debug!("Sent Known Packs response");
             }
             _ => {
-                debug!("Configuration packet: 0x{:02X} ({} bytes)", packet_id, cursor.get_ref().len());
+                debug!(
+                    "Configuration packet: 0x{:02X} ({} bytes)",
+                    packet_id,
+                    cursor.get_ref().len()
+                );
             }
         }
         Ok(true)
     }
 
-    async fn handle_play_packet(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<bool> {
+    async fn handle_play_packet(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<bool> {
         match packet_id {
             0x26 => {
                 // Game Event - packet ID 38
@@ -424,7 +449,11 @@ impl Client {
                 self.send_packet(0x00, &data).await?;
             }
             _ => {
-                debug!("Play packet: 0x{:02X} ({} bytes)", packet_id, cursor.get_ref().len());
+                debug!(
+                    "Play packet: 0x{:02X} ({} bytes)",
+                    packet_id,
+                    cursor.get_ref().len()
+                );
             }
         }
         Ok(true)
@@ -434,7 +463,11 @@ impl Client {
         let file = File::create(path)?;
         let writer = BufWriter::new(file);
         serde_json::to_writer_pretty(writer, &self.recorded_packets)?;
-        info!("Saved {} packets to {:?}", self.recorded_packets.len(), path);
+        info!(
+            "Saved {} packets to {:?}",
+            self.recorded_packets.len(),
+            path
+        );
         Ok(())
     }
 }
@@ -469,8 +502,14 @@ async fn main() -> anyhow::Result<()> {
 
     let host = args.get(1).map(|s| s.as_str()).unwrap_or("127.0.0.1");
     let port: u16 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(25565);
-    let player_name = args.get(3).cloned().unwrap_or_else(|| "RustBot".to_string());
-    let output_file = args.get(4).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("packets.json"));
+    let player_name = args
+        .get(3)
+        .cloned()
+        .unwrap_or_else(|| "RustBot".to_string());
+    let output_file = args
+        .get(4)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("packets.json"));
 
     info!("MC Client - Connecting to {}:{}", host, port);
     info!("Player: {}", player_name);

@@ -100,7 +100,7 @@ fn decode_string(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<String> {
     if pos + len > data.len() {
         anyhow::bail!("String too long");
     }
-    let s = String::from_utf8_lossy(&data[pos..pos+len]).to_string();
+    let s = String::from_utf8_lossy(&data[pos..pos + len]).to_string();
     cursor.set_position((pos + len) as u64);
     Ok(s)
 }
@@ -198,7 +198,7 @@ async fn proxy_connection(
                         let _length = read_varint_sync(&mut cursor)?;
                         let packet_id = read_varint_sync(&mut cursor)?;
 
-                        let state_name = format!("{:?}", state).to_lowercase();
+                        let state_name = format!("{state:?}").to_lowercase();
                         let packet_name = get_packet_name(state, PacketDirection::ClientToServer, packet_id);
 
                         info!("#{} [{}] C->S 0x{:02X} {} ({} bytes)",
@@ -270,7 +270,7 @@ async fn proxy_connection(
                         let _length = read_varint_sync(&mut cursor)?;
                         let packet_id = read_varint_sync(&mut cursor)?;
 
-                        let state_name = format!("{:?}", state).to_lowercase();
+                        let state_name = format!("{state:?}").to_lowercase();
                         let packet_name = get_packet_name(state, PacketDirection::ServerToClient, packet_id);
 
                         info!("#{} [{}] S->C 0x{:02X} {} ({} bytes)",
@@ -334,10 +334,12 @@ async fn main() -> anyhow::Result<()> {
 
     let listen_port = std::env::args().nth(1).unwrap_or("25565".to_string());
     let target_port = std::env::args().nth(2).unwrap_or("25566".to_string());
-    let output_file = std::env::args().nth(3).unwrap_or("recording.json".to_string());
+    let output_file = std::env::args()
+        .nth(3)
+        .unwrap_or("recording.json".to_string());
 
-    let listen_addr = format!("0.0.0.0:{}", listen_port);
-    let target_addr = format!("127.0.0.1:{}", target_port);
+    let listen_addr = format!("0.0.0.0:{listen_port}");
+    let target_addr = format!("127.0.0.1:{target_port}");
 
     info!("MC Packet Capture Proxy");
     info!("Listen: {} -> Forward: {}", listen_addr, target_addr);

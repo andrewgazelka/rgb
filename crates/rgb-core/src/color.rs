@@ -2,16 +2,28 @@ use crate::pos::RegionPos;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Color {
-    C0, C1, C2,
-    C3, C4, C5,
-    C6, C7, C8,
+    C0,
+    C1,
+    C2,
+    C3,
+    C4,
+    C5,
+    C6,
+    C7,
+    C8,
 }
 
 impl Color {
     pub const ALL: [Color; 9] = [
-        Color::C0, Color::C1, Color::C2,
-        Color::C3, Color::C4, Color::C5,
-        Color::C6, Color::C7, Color::C8,
+        Color::C0,
+        Color::C1,
+        Color::C2,
+        Color::C3,
+        Color::C4,
+        Color::C5,
+        Color::C6,
+        Color::C7,
+        Color::C8,
     ];
 
     pub const fn from_region(pos: RegionPos) -> Self {

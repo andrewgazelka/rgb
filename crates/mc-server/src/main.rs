@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use mc_packets::Packet;
-use mc_protocol::{read_varint, write_varint, Decode, Encode, Uuid};
-use serde::{Deserialize, Serialize};
+use mc_protocol::{Decode, Encode, Uuid, read_varint, write_varint};
+use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, warn};
@@ -18,6 +18,367 @@ use mc_packets::play::serverbound::{
     AcceptTeleportation, KeepAlive as ServerboundKeepAlive, MovePlayerPos, MovePlayerPosRot,
     MovePlayerRot, MovePlayerStatusOnly,
 };
+
+struct DamageType {
+    name: &'static str,
+    message_id: &'static str,
+    exhaustion: f32,
+    scaling: &'static str,
+    effects: &'static str,
+}
+
+const DAMAGE_TYPES: &[DamageType] = &[
+    DamageType {
+        name: "in_fire",
+        message_id: "inFire",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "burning",
+    },
+    DamageType {
+        name: "campfire",
+        message_id: "inFire",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "burning",
+    },
+    DamageType {
+        name: "lightning_bolt",
+        message_id: "lightningBolt",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "on_fire",
+        message_id: "onFire",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "burning",
+    },
+    DamageType {
+        name: "lava",
+        message_id: "lava",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "burning",
+    },
+    DamageType {
+        name: "hot_floor",
+        message_id: "hotFloor",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "burning",
+    },
+    DamageType {
+        name: "in_wall",
+        message_id: "inWall",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "cramming",
+        message_id: "cramming",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "drown",
+        message_id: "drown",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "drowning",
+    },
+    DamageType {
+        name: "starve",
+        message_id: "starve",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "cactus",
+        message_id: "cactus",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "fall",
+        message_id: "fall",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "ender_pearl",
+        message_id: "fall",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "fly_into_wall",
+        message_id: "flyIntoWall",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "out_of_world",
+        message_id: "outOfWorld",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "generic",
+        message_id: "generic",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "magic",
+        message_id: "magic",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "wither",
+        message_id: "wither",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "dragon_breath",
+        message_id: "dragonBreath",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "dry_out",
+        message_id: "dryout",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "sweet_berry_bush",
+        message_id: "sweetBerryBush",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "poking",
+    },
+    DamageType {
+        name: "freeze",
+        message_id: "freeze",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "freezing",
+    },
+    DamageType {
+        name: "stalagmite",
+        message_id: "stalagmite",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "falling_block",
+        message_id: "fallingBlock",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "falling_anvil",
+        message_id: "anvil",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "falling_stalactite",
+        message_id: "fallingStalactite",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "sting",
+        message_id: "sting",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "mob_attack",
+        message_id: "mob",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "mob_attack_no_aggro",
+        message_id: "mob",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "player_attack",
+        message_id: "player",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "spear",
+        message_id: "spear",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "arrow",
+        message_id: "arrow",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "trident",
+        message_id: "trident",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "mob_projectile",
+        message_id: "mob",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "spit",
+        message_id: "mob",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "wind_charge",
+        message_id: "mob",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "fireworks",
+        message_id: "fireworks",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "fireball",
+        message_id: "fireball",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "burning",
+    },
+    DamageType {
+        name: "unattributed_fireball",
+        message_id: "onFire",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "burning",
+    },
+    DamageType {
+        name: "wither_skull",
+        message_id: "witherSkull",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "thrown",
+        message_id: "thrown",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "indirect_magic",
+        message_id: "indirectMagic",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "thorns",
+        message_id: "thorns",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "thorns",
+    },
+    DamageType {
+        name: "explosion",
+        message_id: "explosion",
+        exhaustion: 0.1,
+        scaling: "always",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "player_explosion",
+        message_id: "explosion.player",
+        exhaustion: 0.1,
+        scaling: "always",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "sonic_boom",
+        message_id: "sonic_boom",
+        exhaustion: 0.0,
+        scaling: "always",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "bad_respawn_point",
+        message_id: "badRespawnPoint",
+        exhaustion: 0.1,
+        scaling: "always",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "outside_border",
+        message_id: "outsideBorder",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "generic_kill",
+        message_id: "genericKill",
+        exhaustion: 0.0,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+    DamageType {
+        name: "mace_smash",
+        message_id: "mace_smash",
+        exhaustion: 0.1,
+        scaling: "when_caused_by_living_non_player",
+        effects: "hurt",
+    },
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ConnectionState {
@@ -184,14 +545,21 @@ impl Connection {
         Ok(())
     }
 
-    async fn handle_handshaking(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<()> {
+    async fn handle_handshaking(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<()> {
         if packet_id == 0 {
             let protocol_version = read_varint(cursor)?;
             let _server_address = String::decode(cursor)?;
             let _server_port = ReadBytesExt::read_u16::<BigEndian>(cursor)?;
             let next_state = read_varint(cursor)?;
 
-            info!("Handshake: protocol={}, next_state={}", protocol_version, next_state);
+            info!(
+                "Handshake: protocol={}, next_state={}",
+                protocol_version, next_state
+            );
 
             self.state = match next_state {
                 1 => ConnectionState::Status,
@@ -205,7 +573,11 @@ impl Connection {
         Ok(())
     }
 
-    async fn handle_status(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<bool> {
+    async fn handle_status(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<bool> {
         match packet_id {
             0 => {
                 // Status Request
@@ -215,8 +587,14 @@ impl Connection {
                         name: mc_packets::PROTOCOL_NAME.to_string(),
                         protocol: mc_packets::PROTOCOL_VERSION,
                     },
-                    players: Players { max: 100, online: 0, sample: vec![] },
-                    description: Description { text: "A Rust Minecraft Server".to_string() },
+                    players: Players {
+                        max: 100,
+                        online: 0,
+                        sample: vec![],
+                    },
+                    description: Description {
+                        text: "A Rust Minecraft Server".to_string(),
+                    },
                     enforces_secure_chat: false,
                 };
                 let json = serde_json::to_string(&status)?;
@@ -237,7 +615,11 @@ impl Connection {
         Ok(true)
     }
 
-    async fn handle_login(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<()> {
+    async fn handle_login(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<()> {
         match packet_id {
             0 => {
                 // Login Start: String (name), UUID
@@ -290,7 +672,11 @@ impl Connection {
         Ok(())
     }
 
-    async fn handle_configuration(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<()> {
+    async fn handle_configuration(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<()> {
         debug!("Configuration packet: {}", packet_id);
 
         match packet_id {
@@ -387,15 +773,21 @@ impl Connection {
         let mut data = Vec::new();
         "minecraft:damage_type".encode(&mut data)?;
 
-        write_varint(&mut data, 1)?;
-        "minecraft:generic".encode(&mut data)?;
-        true.encode(&mut data)?;
+        write_varint(&mut data, DAMAGE_TYPES.len() as i32)?;
 
-        let nbt = create_damage_type_nbt();
-        data.extend_from_slice(&nbt);
+        for dt in DAMAGE_TYPES {
+            format!("minecraft:{}", dt.name).encode(&mut data)?;
+            true.encode(&mut data)?;
+            let nbt =
+                create_damage_type_nbt_full(dt.message_id, dt.exhaustion, dt.scaling, dt.effects);
+            data.extend_from_slice(&nbt);
+        }
 
         self.send_packet(7, &data).await?;
-        debug!("Sent damage_type registry");
+        debug!(
+            "Sent damage_type registry with {} entries",
+            DAMAGE_TYPES.len()
+        );
         Ok(())
     }
 
@@ -404,8 +796,17 @@ impl Connection {
         "minecraft:cat_variant".encode(&mut data)?;
 
         let variants = [
-            "all_black", "black", "british_shorthair", "calico", "jellie",
-            "persian", "ragdoll", "red", "siamese", "tabby", "white",
+            "all_black",
+            "black",
+            "british_shorthair",
+            "calico",
+            "jellie",
+            "persian",
+            "ragdoll",
+            "red",
+            "siamese",
+            "tabby",
+            "white",
         ];
         write_varint(&mut data, variants.len() as i32)?;
 
@@ -431,7 +832,8 @@ impl Connection {
         for name in variants {
             format!("minecraft:{}", name).encode(&mut data)?;
             true.encode(&mut data)?;
-            let nbt = create_asset_variant_nbt(&format!("minecraft:entity/chicken/{}_chicken", name));
+            let nbt =
+                create_asset_variant_nbt(&format!("minecraft:entity/chicken/{}_chicken", name));
             data.extend_from_slice(&nbt);
         }
 
@@ -502,8 +904,7 @@ impl Connection {
         "minecraft:wolf_variant".encode(&mut data)?;
 
         let variants = [
-            "ashen", "black", "chestnut", "pale", "rusty",
-            "snowy", "spotted", "striped", "woods",
+            "ashen", "black", "chestnut", "pale", "rusty", "snowy", "spotted", "striped", "woods",
         ];
         write_varint(&mut data, variants.len() as i32)?;
 
@@ -563,29 +964,66 @@ impl Connection {
 
         // All painting variants from the data files
         let variants = [
-            ("alban", 1, 1), ("aztec", 1, 1), ("aztec2", 1, 1), ("bomb", 1, 1),
-            ("bouquet", 3, 3), ("burning_skull", 4, 4), ("bust", 2, 2),
-            ("cavebird", 3, 3), ("changing", 4, 2), ("cotan", 3, 3),
-            ("courbet", 2, 1), ("creebet", 2, 1), ("donkey_kong", 4, 3),
-            ("earth", 2, 2), ("endboss", 3, 3), ("fern", 3, 3),
-            ("fighters", 4, 2), ("finding", 4, 2), ("fire", 2, 2),
-            ("graham", 1, 2), ("humble", 2, 2), ("kebab", 1, 2),
-            ("lowmist", 4, 2), ("match", 2, 2), ("meditative", 1, 1),
-            ("orb", 4, 4), ("owlemons", 3, 3), ("passage", 4, 2),
-            ("pigscene", 4, 4), ("plant", 1, 1), ("pointer", 4, 4),
-            ("pond", 3, 4), ("pool", 2, 1), ("prairie_ride", 1, 2),
-            ("sea", 2, 1), ("skeleton", 4, 3), ("skull_and_roses", 2, 2),
-            ("stage", 2, 2), ("sunflowers", 3, 3), ("sunset", 2, 1),
-            ("tides", 3, 3), ("unpacked", 4, 4), ("void", 2, 2),
-            ("wanderer", 1, 2), ("wasteland", 1, 1), ("water", 2, 2),
-            ("wind", 2, 2), ("wither", 2, 2),
+            ("alban", 1, 1),
+            ("aztec", 1, 1),
+            ("aztec2", 1, 1),
+            ("bomb", 1, 1),
+            ("bouquet", 3, 3),
+            ("burning_skull", 4, 4),
+            ("bust", 2, 2),
+            ("cavebird", 3, 3),
+            ("changing", 4, 2),
+            ("cotan", 3, 3),
+            ("courbet", 2, 1),
+            ("creebet", 2, 1),
+            ("donkey_kong", 4, 3),
+            ("earth", 2, 2),
+            ("endboss", 3, 3),
+            ("fern", 3, 3),
+            ("fighters", 4, 2),
+            ("finding", 4, 2),
+            ("fire", 2, 2),
+            ("graham", 1, 2),
+            ("humble", 2, 2),
+            ("kebab", 1, 2),
+            ("lowmist", 4, 2),
+            ("match", 2, 2),
+            ("meditative", 1, 1),
+            ("orb", 4, 4),
+            ("owlemons", 3, 3),
+            ("passage", 4, 2),
+            ("pigscene", 4, 4),
+            ("plant", 1, 1),
+            ("pointer", 4, 4),
+            ("pond", 3, 4),
+            ("pool", 2, 1),
+            ("prairie_ride", 1, 2),
+            ("sea", 2, 1),
+            ("skeleton", 4, 3),
+            ("skull_and_roses", 2, 2),
+            ("stage", 2, 2),
+            ("sunflowers", 3, 3),
+            ("sunset", 2, 1),
+            ("tides", 3, 3),
+            ("unpacked", 4, 4),
+            ("void", 2, 2),
+            ("wanderer", 1, 2),
+            ("wasteland", 1, 1),
+            ("water", 2, 2),
+            ("wind", 2, 2),
+            ("wither", 2, 2),
             // Backrooms paintings
-            ("backyard", 3, 4), ("baroque", 2, 2), ("endboss", 3, 3),
+            ("backyard", 3, 4),
+            ("baroque", 2, 2),
+            ("endboss", 3, 3),
         ];
 
         // Deduplicate
         let mut seen = std::collections::HashSet::new();
-        let unique_variants: Vec<_> = variants.iter().filter(|(n, _, _)| seen.insert(*n)).collect();
+        let unique_variants: Vec<_> = variants
+            .iter()
+            .filter(|(n, _, _)| seen.insert(*n))
+            .collect();
 
         write_varint(&mut data, unique_variants.len() as i32)?;
 
@@ -805,7 +1243,10 @@ impl Connection {
         // Debug: print chunk packet data breakdown
         info!("Chunk packet data size: {} bytes", data.len());
         info!("First 50 bytes: {:02x?}", &data[..50.min(data.len())]);
-        info!("Bytes 8-20 (after coords): {:02x?}", &data[8..20.min(data.len())]);
+        info!(
+            "Bytes 8-20 (after coords): {:02x?}",
+            &data[8..20.min(data.len())]
+        );
 
         self.send_packet(LevelChunkWithLight::ID, &data).await?;
         debug!("Sent chunk ({}, {})", chunk_x, chunk_z);
@@ -820,21 +1261,24 @@ impl Connection {
         Ok(())
     }
 
-    async fn handle_play(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<()> {
+    async fn handle_play(
+        &mut self,
+        packet_id: i32,
+        cursor: &mut Cursor<&Vec<u8>>,
+    ) -> anyhow::Result<()> {
         match packet_id {
-            id if id == AcceptTeleportation::ID => {
+            AcceptTeleportation::ID => {
                 let teleport_id = read_varint(cursor)?;
                 debug!("Client accepted teleport: {}", teleport_id);
             }
-            id if id == ServerboundKeepAlive::ID => {
+            ServerboundKeepAlive::ID => {
                 let ka_id = i64::decode(cursor)?;
                 debug!("Keep alive response: {}", ka_id);
             }
-            id if id == MovePlayerPos::ID
-                || id == MovePlayerPosRot::ID
-                || id == MovePlayerRot::ID
-                || id == MovePlayerStatusOnly::ID =>
-            {
+            MovePlayerPos::ID
+            | MovePlayerPosRot::ID
+            | MovePlayerRot::ID
+            | MovePlayerStatusOnly::ID => {
                 // Player position/rotation packets - ignore for now
             }
             _ => {
@@ -908,12 +1352,21 @@ fn create_biome_nbt() -> Vec<u8> {
     json_to_network_nbt(&json)
 }
 
-fn create_damage_type_nbt() -> Vec<u8> {
-    let json = serde_json::json!({
-        "message_id": "generic",
-        "scaling": "never",
-        "exhaustion": 0.0
+fn create_damage_type_nbt_full(
+    message_id: &str,
+    exhaustion: f32,
+    scaling: &str,
+    effects: &str,
+) -> Vec<u8> {
+    let mut json = serde_json::json!({
+        "message_id": message_id,
+        "scaling": scaling,
+        "exhaustion": exhaustion
     });
+    // Only add effects if not default "hurt"
+    if effects != "hurt" {
+        json["effects"] = serde_json::json!(effects);
+    }
     json_to_network_nbt(&json)
 }
 
@@ -1060,10 +1513,10 @@ fn write_superflat_section(data: &mut Vec<u8>) {
     write_varint_to_vec(data, 4); // 4 palette entries
 
     // Palette entries (global block state IDs)
-    write_varint_to_vec(data, 0);     // 0: air
-    write_varint_to_vec(data, 79);    // 1: bedrock (approximate ID)
-    write_varint_to_vec(data, 10);    // 2: dirt (approximate ID)
-    write_varint_to_vec(data, 9);     // 3: grass_block (approximate ID)
+    write_varint_to_vec(data, 0); // 0: air
+    write_varint_to_vec(data, 79); // 1: bedrock (approximate ID)
+    write_varint_to_vec(data, 10); // 2: dirt (approximate ID)
+    write_varint_to_vec(data, 9); // 3: grass_block (approximate ID)
 
     // Data array: 16x16x16 = 4096 blocks, 4 bits each
     // From SimpleBitStorage: valuesPerLong = 64 / 4 = 16
@@ -1077,10 +1530,10 @@ fn write_superflat_section(data: &mut Vec<u8>) {
             let mut long_val: u64 = 0;
             for i in 0..16 {
                 let block_idx = match y {
-                    0 => 1,  // bedrock
-                    1 | 2 => 2,  // dirt
-                    3 => 3,  // grass_block
-                    _ => 0,  // air
+                    0 => 1,     // bedrock
+                    1 | 2 => 2, // dirt
+                    3 => 3,     // grass_block
+                    _ => 0,     // air
                 };
                 long_val |= (block_idx as u64) << (i * 4);
             }
@@ -1106,7 +1559,11 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = "0.0.0.0:25565";
     let listener = TcpListener::bind(addr).await?;
-    info!("Minecraft server listening on {} (version {})", addr, mc_packets::PROTOCOL_NAME);
+    info!(
+        "Minecraft server listening on {} (version {})",
+        addr,
+        mc_packets::PROTOCOL_NAME
+    );
 
     loop {
         let (stream, addr) = listener.accept().await?;

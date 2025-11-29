@@ -2,10 +2,13 @@
 // Do not edit manually
 
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
+use mc_protocol::{
+    BlockState, Decode, Direction, Encode, Nbt, Packet, Position, State, Uuid, VarInt,
+};
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use mc_protocol::{Encode, Decode, Packet, State, Direction, VarInt, Uuid, Position, Nbt, BlockState};
-use serde::{Serialize, Deserialize};
 
 pub mod clientbound {
     use super::*;
@@ -209,7 +212,6 @@ pub mod clientbound {
         const STATE: State = State::Configuration;
         const DIRECTION: Direction = Direction::Clientbound;
     }
-
 }
 
 pub mod serverbound {
@@ -314,5 +316,4 @@ pub mod serverbound {
         const STATE: State = State::Configuration;
         const DIRECTION: Direction = Direction::Serverbound;
     }
-
 }

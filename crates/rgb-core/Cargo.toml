@@ -7,3 +7,6 @@ authors.workspace = true
 
 [dependencies]
 flecs_ecs.workspace = true
+
+[lints]
+workspace = true

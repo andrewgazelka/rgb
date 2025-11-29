@@ -8,10 +8,10 @@ pub const PROTOCOL_VERSION: i32 = 1073742105;
 pub const PROTOCOL_NAME: &str = "1.21.11-pre3";
 
 // Re-export protocol types
-pub use mc_protocol::{State, Direction, Packet};
+pub use mc_protocol::{Direction, Packet, State};
 
-pub mod handshake;
-pub mod status;
-pub mod login;
 pub mod configuration;
+pub mod handshake;
+pub mod login;
 pub mod play;
+pub mod status;

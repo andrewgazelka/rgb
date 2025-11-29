@@ -4,7 +4,7 @@ use flecs_ecs::prelude::*;
 
 use crate::color::Color;
 use crate::components::{
-    Active, CellData, Dirty, Direction, NeighborE, NeighborN, NeighborNE, NeighborNW, NeighborS,
+    Active, CellData, Direction, Dirty, NeighborE, NeighborN, NeighborNE, NeighborNW, NeighborS,
     NeighborSE, NeighborSW, NeighborW, NextCellData, SimColor,
 };
 use crate::pos::ChunkPos;
@@ -38,7 +38,12 @@ pub fn spawn_chunk(world: &World, pos: ChunkPos, cells: CellData) -> EntityView<
 }
 
 /// Link a chunk to its neighbors (bidirectional relationships)
-pub fn link_chunk_neighbors(world: &World, chunk_entity: Entity, pos: ChunkPos, index: &ChunkIndex) {
+pub fn link_chunk_neighbors(
+    world: &World,
+    chunk_entity: Entity,
+    pos: ChunkPos,
+    index: &ChunkIndex,
+) {
     let chunk = world.entity_from_id(chunk_entity);
 
     for dir in Direction::ALL {
@@ -57,7 +62,7 @@ pub fn link_chunk_neighbors(world: &World, chunk_entity: Entity, pos: ChunkPos, 
     }
 }
 
-fn add_neighbor_relationship(entity: &EntityView, target: Entity, dir: Direction) {
+fn add_neighbor_relationship(entity: &EntityView<'_>, target: Entity, dir: Direction) {
     match dir {
         Direction::N => {
             entity.add((NeighborN, target));
@@ -105,7 +110,12 @@ pub fn get_neighbor(world: &World, chunk_entity: Entity, dir: Direction) -> Opti
 }
 
 /// Unlink a chunk from all its neighbors before removal
-pub fn unlink_chunk_neighbors(world: &World, chunk_entity: Entity, pos: ChunkPos, index: &ChunkIndex) {
+pub fn unlink_chunk_neighbors(
+    world: &World,
+    chunk_entity: Entity,
+    pos: ChunkPos,
+    index: &ChunkIndex,
+) {
     for dir in Direction::ALL {
         let (dx, dy) = dir.offset();
         let neighbor_pos = pos.offset(dx, dy);
@@ -119,7 +129,7 @@ pub fn unlink_chunk_neighbors(world: &World, chunk_entity: Entity, pos: ChunkPos
     }
 }
 
-fn remove_neighbor_relationship(entity: &EntityView, target: Entity, dir: Direction) {
+fn remove_neighbor_relationship(entity: &EntityView<'_>, target: Entity, dir: Direction) {
     match dir {
         Direction::N => {
             entity.remove((NeighborN, target));

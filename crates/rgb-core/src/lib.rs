@@ -4,14 +4,14 @@ mod components;
 mod pos;
 
 pub use chunk_manager::{
-    get_neighbor, link_chunk_neighbors, spawn_chunk, unlink_chunk_neighbors, ChunkIndex,
+    ChunkIndex, get_neighbor, link_chunk_neighbors, spawn_chunk, unlink_chunk_neighbors,
 };
 pub use color::Color;
 pub use components::{
-    Active, CellData, Dirty, Direction, NeighborE, NeighborN, NeighborNE, NeighborNW, NeighborS,
+    Active, CellData, Direction, Dirty, NeighborE, NeighborN, NeighborNE, NeighborNW, NeighborS,
     NeighborSE, NeighborSW, NeighborW, NextCellData, SimColor,
 };
-pub use pos::{CellPos, ChunkPos, RegionPos, CHUNK_SIZE, REGION_SIZE};
+pub use pos::{CHUNK_SIZE, CellPos, ChunkPos, REGION_SIZE, RegionPos};
 
 // Re-export flecs for convenience
 pub use flecs_ecs;
