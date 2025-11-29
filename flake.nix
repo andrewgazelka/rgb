@@ -316,7 +316,7 @@ JAVA_EOF
 
       in {
         packages = {
-          default = mcGen;
+          default = runMcServer;
           mc-data-gen = mcDataGen;
           mc-gen = mcGen;
           extract-packets = packetExtractor;
@@ -326,7 +326,7 @@ JAVA_EOF
         };
 
         apps = {
-          default = flake-utils.lib.mkApp { drv = mcGen; };
+          default = flake-utils.lib.mkApp { drv = runMcServer; };
           mc-data-gen = flake-utils.lib.mkApp { drv = mcDataGen; };
           mc-gen = flake-utils.lib.mkApp { drv = mcGen; };
           extract-packets = flake-utils.lib.mkApp { drv = packetExtractor; };
