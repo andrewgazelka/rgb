@@ -386,39 +386,39 @@ impl Client {
 
     async fn handle_play_packet(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<bool> {
         match packet_id {
-            0x22 => {
-                // Game Event
+            0x26 => {
+                // Game Event - packet ID 38
                 let event = ReadBytesExt::read_u8(cursor)?;
                 let value = ReadBytesExt::read_f32::<BigEndian>(cursor)?;
                 debug!("Game Event: {} (value: {})", event, value);
             }
-            0x23 => {
-                // Keep Alive
+            0x2B => {
+                // Keep Alive - packet ID 43
                 let id = i64::decode(cursor)?;
                 debug!("Keep Alive: {}", id);
 
-                // Respond with same ID
+                // Respond with same ID (serverbound keep alive is 0x1B = 27)
                 let mut data = Vec::new();
                 WriteBytesExt::write_i64::<BigEndian>(&mut data, id)?;
-                self.send_packet(0x1A, &data).await?;
+                self.send_packet(0x1B, &data).await?;
             }
-            0x28 => {
-                // Login (Play)
+            0x30 => {
+                // Login (Play) - packet ID 48
                 let entity_id = i32::decode(cursor)?;
                 info!("Play Login: entity_id={}", entity_id);
             }
             0x2C => {
-                // Level Chunk With Light
+                // Level Chunk With Light - packet ID 44
                 let chunk_x = i32::decode(cursor)?;
                 let chunk_z = i32::decode(cursor)?;
                 debug!("Chunk: ({}, {})", chunk_x, chunk_z);
             }
-            0x40 => {
-                // Synchronize Player Position
+            0x46 => {
+                // Player Position - packet ID 70
                 let teleport_id = read_varint(cursor)?;
-                debug!("Sync Player Position: teleport_id={}", teleport_id);
+                debug!("Player Position: teleport_id={}", teleport_id);
 
-                // Accept teleportation
+                // Accept teleportation (serverbound is 0x00)
                 let mut data = Vec::new();
                 write_varint(&mut data, teleport_id)?;
                 self.send_packet(0x00, &data).await?;

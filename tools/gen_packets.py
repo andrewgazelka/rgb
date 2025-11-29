@@ -71,6 +71,29 @@ def gen_struct(name, fields, packet_id):
     lines.append('')
     return '\n'.join(lines)
 
+def gen_packet_impl(struct_name, packet_id, state, direction, needs_lifetime=False):
+    """Generate impl Packet for the struct"""
+    state_enum = {
+        'handshake': 'Handshaking',
+        'status': 'Status',
+        'login': 'Login',
+        'configuration': 'Configuration',
+        'play': 'Play',
+    }[state]
+
+    dir_enum = 'Clientbound' if direction == 'clientbound' else 'Serverbound'
+
+    lifetime = "<'_>" if needs_lifetime else ""
+    lines = [
+        f'impl Packet for {struct_name}{lifetime} {{',
+        f'    const ID: i32 = {packet_id};',
+        f'    const STATE: State = State::{state_enum};',
+        f'    const DIRECTION: Direction = Direction::{dir_enum};',
+        '}',
+        '',
+    ]
+    return '\n'.join(lines)
+
 def main():
     ids_file, fields_file, out_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 
@@ -100,7 +123,7 @@ def main():
             '#![allow(dead_code)]',
             '',
             'use std::borrow::Cow;',
-            'use mc_protocol::{Encode, Decode, VarInt, Uuid, Position, Nbt, BlockState};',
+            'use mc_protocol::{Encode, Decode, Packet, State, Direction, VarInt, Uuid, Position, Nbt, BlockState};',
             'use serde::{Serialize, Deserialize};',
             '',
         ]
@@ -134,9 +157,11 @@ def main():
                         fields = fields_by_class[pattern]
                         break
 
-                content.append(f'    /// {struct_name} (ID: {pkt_id})')
-                content.append(f'    pub const {to_snake(clean_name).upper()}_ID: i32 = {pkt_id};')
-                content.append('')
+                # Check if struct needs lifetime
+                needs_lifetime = False
+                if fields:
+                    field_types = [rust_type(f['rustType']) for f in fields]
+                    needs_lifetime = any("Cow<'a" in t for t in field_types)
 
                 # Generate struct
                 if fields:
@@ -144,9 +169,15 @@ def main():
                     for line in struct_lines.split('\n'):
                         content.append(f'    {line}' if line else '')
                 else:
+                    content.append(f'    /// Packet ID: {pkt_id}')
                     content.append(f'    #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]')
                     content.append(f'    pub struct {struct_name};')
                     content.append('')
+
+                # Generate impl Packet
+                impl_lines = gen_packet_impl(struct_name, pkt_id, state, direction, needs_lifetime)
+                for line in impl_lines.split('\n'):
+                    content.append(f'    {line}' if line else '')
 
             content.append('}')
             content.append('')
@@ -166,6 +197,10 @@ def main():
         if protocol_name is not None:
             f.write(f'/// Minecraft version name for this build\n')
             f.write(f'pub const PROTOCOL_NAME: &str = "{protocol_name}";\n\n')
+
+        # Re-export State and Direction for convenience
+        f.write('// Re-export protocol types\n')
+        f.write('pub use mc_protocol::{State, Direction, Packet};\n\n')
 
         for s in states:
             f.write(f'pub mod {s};\n')

@@ -21,7 +21,11 @@ This enables:
 - **Full coverage** — Every packet, every edge case, tested automatically
 - **Confident refactoring** — Break something? The tests catch it immediately
 
-The entire codebase is designed for AI-assisted development. Clean abstractions. Minimal magic. Code that reads like documentation.
+**The LLM is the abstraction, not the code.**
+
+Traditional codebases add layers of abstraction to help humans manage complexity. But LLMs don't need that—they can hold the entire context in memory and reason about low-level details directly. So we keep the code flat and explicit. Fewer abstractions means fewer indirections for the AI to trace through, and more direct control over what actually happens.
+
+This isn't about dumbing things down. It's about giving Opus full power over the system. When the AI can see exactly what every line does, it can make better decisions, catch more bugs, and write more efficient code.
 
 ## Deobfuscated Minecraft
 

@@ -2,11 +2,22 @@ use std::io::Cursor;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use mc_packets::Packet;
 use mc_protocol::{read_varint, write_varint, Decode, Encode, Uuid};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, warn};
+
+// Import packet types for their IDs
+use mc_packets::play::clientbound::{
+    GameEvent, KeepAlive as ClientboundKeepAlive, LevelChunkWithLight, Login as PlayLogin,
+    PlayerPosition, SetChunkCacheCenter,
+};
+use mc_packets::play::serverbound::{
+    AcceptTeleportation, KeepAlive as ServerboundKeepAlive, MovePlayerPos, MovePlayerPosRot,
+    MovePlayerRot, MovePlayerStatusOnly,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ConnectionState {
@@ -664,7 +675,7 @@ impl Connection {
         // Enforces Secure Chat (Boolean)
         false.encode(&mut data)?;
 
-        self.send_packet(0x28, &data).await?; // login (play)
+        self.send_packet(PlayLogin::ID, &data).await?;
         info!("Sent Play Login packet");
 
         // Send initial position
@@ -709,7 +720,7 @@ impl Connection {
         // Flags (Int bitfield) - 0 means all absolute
         WriteBytesExt::write_i32::<BigEndian>(&mut data, 0)?;
 
-        self.send_packet(0x40, &data).await?; // synchronize_player_position
+        self.send_packet(PlayerPosition::ID, &data).await?;
         debug!("Sent Player Position");
         Ok(())
     }
@@ -720,7 +731,7 @@ impl Connection {
         WriteBytesExt::write_u8(&mut data, 13)?; // Event: Start waiting for level chunks
         WriteBytesExt::write_f32::<BigEndian>(&mut data, 0.0)?; // Value (unused for this event)
 
-        self.send_packet(0x22, &data).await?;
+        self.send_packet(GameEvent::ID, &data).await?;
         debug!("Sent Game Event: Start waiting for chunks");
         Ok(())
     }
@@ -731,7 +742,7 @@ impl Connection {
         write_varint(&mut data, x)?;
         write_varint(&mut data, z)?;
 
-        self.send_packet(0x4F, &data).await?; // set_chunk_cache_center
+        self.send_packet(SetChunkCacheCenter::ID, &data).await?;
         debug!("Sent Set Center Chunk");
         Ok(())
     }
@@ -796,7 +807,7 @@ impl Connection {
         info!("First 50 bytes: {:02x?}", &data[..50.min(data.len())]);
         info!("Bytes 8-20 (after coords): {:02x?}", &data[8..20.min(data.len())]);
 
-        self.send_packet(0x2C, &data).await?; // level_chunk_with_light
+        self.send_packet(LevelChunkWithLight::ID, &data).await?;
         debug!("Sent chunk ({}, {})", chunk_x, chunk_z);
         Ok(())
     }
@@ -805,23 +816,25 @@ impl Connection {
         // Send initial keep-alive
         let mut data = Vec::new();
         WriteBytesExt::write_i64::<BigEndian>(&mut data, 0)?;
-        self.send_packet(0x23, &data).await?; // keep_alive
+        self.send_packet(ClientboundKeepAlive::ID, &data).await?;
         Ok(())
     }
 
     async fn handle_play(&mut self, packet_id: i32, cursor: &mut Cursor<&Vec<u8>>) -> anyhow::Result<()> {
         match packet_id {
-            0x00 => {
-                // Accept Teleportation
+            id if id == AcceptTeleportation::ID => {
                 let teleport_id = read_varint(cursor)?;
                 debug!("Client accepted teleport: {}", teleport_id);
             }
-            0x1A => {
-                // Keep Alive response
-                let id = i64::decode(cursor)?;
-                debug!("Keep alive response: {}", id);
+            id if id == ServerboundKeepAlive::ID => {
+                let ka_id = i64::decode(cursor)?;
+                debug!("Keep alive response: {}", ka_id);
             }
-            0x1D | 0x1E | 0x1F | 0x20 => {
+            id if id == MovePlayerPos::ID
+                || id == MovePlayerPosRot::ID
+                || id == MovePlayerRot::ID
+                || id == MovePlayerStatusOnly::ID =>
+            {
                 // Player position/rotation packets - ignore for now
             }
             _ => {

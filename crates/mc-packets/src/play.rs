@@ -4,1245 +4,2065 @@
 #![allow(dead_code)]
 
 use std::borrow::Cow;
-use mc_protocol::{Encode, Decode, VarInt, Uuid, Position, Nbt, BlockState};
+use mc_protocol::{Encode, Decode, Packet, State, Direction, VarInt, Uuid, Position, Nbt, BlockState};
 use serde::{Serialize, Deserialize};
 
 pub mod clientbound {
     use super::*;
 
-    /// BundleDelimiter (ID: 0)
-    pub const BUNDLE_DELIMITER_ID: i32 = 0;
-
+    /// Packet ID: 0
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BundleDelimiter;
 
-    /// AddEntity (ID: 1)
-    pub const ADD_ENTITY_ID: i32 = 1;
+    impl Packet for BundleDelimiter {
+        const ID: i32 = 0;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 1
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct AddEntity;
 
-    /// Animate (ID: 2)
-    pub const ANIMATE_ID: i32 = 2;
+    impl Packet for AddEntity {
+        const ID: i32 = 1;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 2
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Animate;
 
-    /// AwardStats (ID: 3)
-    pub const AWARD_STATS_ID: i32 = 3;
+    impl Packet for Animate {
+        const ID: i32 = 2;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 3
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct AwardStats;
 
-    /// BlockChangedAck (ID: 4)
-    pub const BLOCK_CHANGED_ACK_ID: i32 = 4;
+    impl Packet for AwardStats {
+        const ID: i32 = 3;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 4
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BlockChangedAck;
 
-    /// BlockDestruction (ID: 5)
-    pub const BLOCK_DESTRUCTION_ID: i32 = 5;
+    impl Packet for BlockChangedAck {
+        const ID: i32 = 4;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 5
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BlockDestruction;
 
-    /// BlockEntityData (ID: 6)
-    pub const BLOCK_ENTITY_DATA_ID: i32 = 6;
+    impl Packet for BlockDestruction {
+        const ID: i32 = 5;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 6
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BlockEntityData;
 
-    /// BlockEvent (ID: 7)
-    pub const BLOCK_EVENT_ID: i32 = 7;
+    impl Packet for BlockEntityData {
+        const ID: i32 = 6;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 7
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BlockEvent;
 
-    /// BlockUpdate (ID: 8)
-    pub const BLOCK_UPDATE_ID: i32 = 8;
+    impl Packet for BlockEvent {
+        const ID: i32 = 7;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 8
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BlockUpdate;
 
-    /// BossEvent (ID: 9)
-    pub const BOSS_EVENT_ID: i32 = 9;
+    impl Packet for BlockUpdate {
+        const ID: i32 = 8;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 9
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BossEvent;
 
-    /// ChangeDifficulty (ID: 10)
-    pub const CHANGE_DIFFICULTY_ID: i32 = 10;
+    impl Packet for BossEvent {
+        const ID: i32 = 9;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 10
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChangeDifficulty;
 
-    /// ChunkBatchFinished (ID: 11)
-    pub const CHUNK_BATCH_FINISHED_ID: i32 = 11;
+    impl Packet for ChangeDifficulty {
+        const ID: i32 = 10;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 11
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChunkBatchFinished;
 
-    /// ChunkBatchStart (ID: 12)
-    pub const CHUNK_BATCH_START_ID: i32 = 12;
+    impl Packet for ChunkBatchFinished {
+        const ID: i32 = 11;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 12
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChunkBatchStart;
 
-    /// ChunksBiomes (ID: 13)
-    pub const CHUNKS_BIOMES_ID: i32 = 13;
+    impl Packet for ChunkBatchStart {
+        const ID: i32 = 12;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 13
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChunksBiomes;
 
-    /// ClearTitles (ID: 14)
-    pub const CLEAR_TITLES_ID: i32 = 14;
+    impl Packet for ChunksBiomes {
+        const ID: i32 = 13;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 14
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ClearTitles;
 
-    /// CommandSuggestions (ID: 15)
-    pub const COMMAND_SUGGESTIONS_ID: i32 = 15;
+    impl Packet for ClearTitles {
+        const ID: i32 = 14;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 15
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CommandSuggestions;
 
-    /// Commands (ID: 16)
-    pub const COMMANDS_ID: i32 = 16;
+    impl Packet for CommandSuggestions {
+        const ID: i32 = 15;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 16
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Commands;
 
-    /// ContainerClose (ID: 17)
-    pub const CONTAINER_CLOSE_ID: i32 = 17;
+    impl Packet for Commands {
+        const ID: i32 = 16;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 17
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerClose;
 
-    /// ContainerSetContent (ID: 18)
-    pub const CONTAINER_SET_CONTENT_ID: i32 = 18;
+    impl Packet for ContainerClose {
+        const ID: i32 = 17;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 18
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerSetContent;
 
-    /// ContainerSetData (ID: 19)
-    pub const CONTAINER_SET_DATA_ID: i32 = 19;
+    impl Packet for ContainerSetContent {
+        const ID: i32 = 18;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 19
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerSetData;
 
-    /// ContainerSetSlot (ID: 20)
-    pub const CONTAINER_SET_SLOT_ID: i32 = 20;
+    impl Packet for ContainerSetData {
+        const ID: i32 = 19;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 20
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerSetSlot;
 
-    /// CookieRequest (ID: 21)
-    pub const COOKIE_REQUEST_ID: i32 = 21;
+    impl Packet for ContainerSetSlot {
+        const ID: i32 = 20;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 21
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CookieRequest;
 
-    /// Cooldown (ID: 22)
-    pub const COOLDOWN_ID: i32 = 22;
+    impl Packet for CookieRequest {
+        const ID: i32 = 21;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 22
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Cooldown;
 
-    /// CustomChatCompletions (ID: 23)
-    pub const CUSTOM_CHAT_COMPLETIONS_ID: i32 = 23;
+    impl Packet for Cooldown {
+        const ID: i32 = 22;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 23
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CustomChatCompletions;
 
-    /// CustomPayload (ID: 24)
-    pub const CUSTOM_PAYLOAD_ID: i32 = 24;
+    impl Packet for CustomChatCompletions {
+        const ID: i32 = 23;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 24
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CustomPayload;
 
-    /// DamageEvent (ID: 25)
-    pub const DAMAGE_EVENT_ID: i32 = 25;
+    impl Packet for CustomPayload {
+        const ID: i32 = 24;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 25
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DamageEvent;
 
-    /// DebugBlockValue (ID: 26)
-    pub const DEBUG_BLOCK_VALUE_ID: i32 = 26;
+    impl Packet for DamageEvent {
+        const ID: i32 = 25;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 26
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DebugBlockValue;
 
-    /// DebugChunkValue (ID: 27)
-    pub const DEBUG_CHUNK_VALUE_ID: i32 = 27;
+    impl Packet for DebugBlockValue {
+        const ID: i32 = 26;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 27
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DebugChunkValue;
 
-    /// DebugEntityValue (ID: 28)
-    pub const DEBUG_ENTITY_VALUE_ID: i32 = 28;
+    impl Packet for DebugChunkValue {
+        const ID: i32 = 27;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 28
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DebugEntityValue;
 
-    /// DebugEvent (ID: 29)
-    pub const DEBUG_EVENT_ID: i32 = 29;
+    impl Packet for DebugEntityValue {
+        const ID: i32 = 28;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 29
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DebugEvent;
 
-    /// DebugSample (ID: 30)
-    pub const DEBUG_SAMPLE_ID: i32 = 30;
+    impl Packet for DebugEvent {
+        const ID: i32 = 29;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 30
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DebugSample;
 
-    /// DeleteChat (ID: 31)
-    pub const DELETE_CHAT_ID: i32 = 31;
+    impl Packet for DebugSample {
+        const ID: i32 = 30;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 31
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DeleteChat;
 
-    /// Disconnect (ID: 32)
-    pub const DISCONNECT_ID: i32 = 32;
+    impl Packet for DeleteChat {
+        const ID: i32 = 31;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 32
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Disconnect;
 
-    /// DisguisedChat (ID: 33)
-    pub const DISGUISED_CHAT_ID: i32 = 33;
+    impl Packet for Disconnect {
+        const ID: i32 = 32;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 33
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DisguisedChat;
 
-    /// EntityEvent (ID: 34)
-    pub const ENTITY_EVENT_ID: i32 = 34;
+    impl Packet for DisguisedChat {
+        const ID: i32 = 33;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 34
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct EntityEvent;
 
-    /// EntityPositionSync (ID: 35)
-    pub const ENTITY_POSITION_SYNC_ID: i32 = 35;
+    impl Packet for EntityEvent {
+        const ID: i32 = 34;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 35
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct EntityPositionSync;
 
-    /// Explode (ID: 36)
-    pub const EXPLODE_ID: i32 = 36;
+    impl Packet for EntityPositionSync {
+        const ID: i32 = 35;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 36
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Explode;
 
-    /// ForgetLevelChunk (ID: 37)
-    pub const FORGET_LEVEL_CHUNK_ID: i32 = 37;
+    impl Packet for Explode {
+        const ID: i32 = 36;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 37
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ForgetLevelChunk;
 
-    /// GameEvent (ID: 38)
-    pub const GAME_EVENT_ID: i32 = 38;
+    impl Packet for ForgetLevelChunk {
+        const ID: i32 = 37;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 38
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct GameEvent;
 
-    /// GameTestHighlightPos (ID: 39)
-    pub const GAME_TEST_HIGHLIGHT_POS_ID: i32 = 39;
+    impl Packet for GameEvent {
+        const ID: i32 = 38;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 39
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct GameTestHighlightPos;
 
-    /// MountScreenOpen (ID: 40)
-    pub const MOUNT_SCREEN_OPEN_ID: i32 = 40;
+    impl Packet for GameTestHighlightPos {
+        const ID: i32 = 39;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 40
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MountScreenOpen;
 
-    /// HurtAnimation (ID: 41)
-    pub const HURT_ANIMATION_ID: i32 = 41;
+    impl Packet for MountScreenOpen {
+        const ID: i32 = 40;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 41
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct HurtAnimation;
 
-    /// InitializeBorder (ID: 42)
-    pub const INITIALIZE_BORDER_ID: i32 = 42;
+    impl Packet for HurtAnimation {
+        const ID: i32 = 41;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 42
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct InitializeBorder;
 
-    /// KeepAlive (ID: 43)
-    pub const KEEP_ALIVE_ID: i32 = 43;
+    impl Packet for InitializeBorder {
+        const ID: i32 = 42;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 43
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct KeepAlive;
 
-    /// LevelChunkWithLight (ID: 44)
-    pub const LEVEL_CHUNK_WITH_LIGHT_ID: i32 = 44;
+    impl Packet for KeepAlive {
+        const ID: i32 = 43;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 44
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct LevelChunkWithLight;
 
-    /// LevelEvent (ID: 45)
-    pub const LEVEL_EVENT_ID: i32 = 45;
+    impl Packet for LevelChunkWithLight {
+        const ID: i32 = 44;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 45
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct LevelEvent;
 
-    /// LevelParticles (ID: 46)
-    pub const LEVEL_PARTICLES_ID: i32 = 46;
+    impl Packet for LevelEvent {
+        const ID: i32 = 45;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 46
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct LevelParticles;
 
-    /// LightUpdate (ID: 47)
-    pub const LIGHT_UPDATE_ID: i32 = 47;
+    impl Packet for LevelParticles {
+        const ID: i32 = 46;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 47
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct LightUpdate;
 
-    /// Login (ID: 48)
-    pub const LOGIN_ID: i32 = 48;
+    impl Packet for LightUpdate {
+        const ID: i32 = 47;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 48
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Login;
 
-    /// MapItemData (ID: 49)
-    pub const MAP_ITEM_DATA_ID: i32 = 49;
+    impl Packet for Login {
+        const ID: i32 = 48;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 49
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MapItemData;
 
-    /// MerchantOffers (ID: 50)
-    pub const MERCHANT_OFFERS_ID: i32 = 50;
+    impl Packet for MapItemData {
+        const ID: i32 = 49;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 50
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MerchantOffers;
 
-    /// MoveEntityPos (ID: 51)
-    pub const MOVE_ENTITY_POS_ID: i32 = 51;
+    impl Packet for MerchantOffers {
+        const ID: i32 = 50;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 51
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MoveEntityPos;
 
-    /// MoveEntityPosRot (ID: 52)
-    pub const MOVE_ENTITY_POS_ROT_ID: i32 = 52;
+    impl Packet for MoveEntityPos {
+        const ID: i32 = 51;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 52
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MoveEntityPosRot;
 
-    /// MoveMinecartAlongTrack (ID: 53)
-    pub const MOVE_MINECART_ALONG_TRACK_ID: i32 = 53;
+    impl Packet for MoveEntityPosRot {
+        const ID: i32 = 52;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 53
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MoveMinecartAlongTrack;
 
-    /// MoveEntityRot (ID: 54)
-    pub const MOVE_ENTITY_ROT_ID: i32 = 54;
+    impl Packet for MoveMinecartAlongTrack {
+        const ID: i32 = 53;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 54
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MoveEntityRot;
 
-    /// MoveVehicle (ID: 55)
-    pub const MOVE_VEHICLE_ID: i32 = 55;
+    impl Packet for MoveEntityRot {
+        const ID: i32 = 54;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 55
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MoveVehicle;
 
-    /// OpenBook (ID: 56)
-    pub const OPEN_BOOK_ID: i32 = 56;
+    impl Packet for MoveVehicle {
+        const ID: i32 = 55;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 56
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct OpenBook;
 
-    /// OpenScreen (ID: 57)
-    pub const OPEN_SCREEN_ID: i32 = 57;
+    impl Packet for OpenBook {
+        const ID: i32 = 56;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 57
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct OpenScreen;
 
-    /// OpenSignEditor (ID: 58)
-    pub const OPEN_SIGN_EDITOR_ID: i32 = 58;
+    impl Packet for OpenScreen {
+        const ID: i32 = 57;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 58
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct OpenSignEditor;
 
-    /// Ping (ID: 59)
-    pub const PING_ID: i32 = 59;
+    impl Packet for OpenSignEditor {
+        const ID: i32 = 58;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 59
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Ping;
 
-    /// PongResponse (ID: 60)
-    pub const PONG_RESPONSE_ID: i32 = 60;
+    impl Packet for Ping {
+        const ID: i32 = 59;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 60
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PongResponse;
 
-    /// PlaceGhostRecipe (ID: 61)
-    pub const PLACE_GHOST_RECIPE_ID: i32 = 61;
+    impl Packet for PongResponse {
+        const ID: i32 = 60;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 61
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlaceGhostRecipe;
 
-    /// PlayerAbilities (ID: 62)
-    pub const PLAYER_ABILITIES_ID: i32 = 62;
+    impl Packet for PlaceGhostRecipe {
+        const ID: i32 = 61;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 62
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerAbilities;
 
-    /// PlayerChat (ID: 63)
-    pub const PLAYER_CHAT_ID: i32 = 63;
+    impl Packet for PlayerAbilities {
+        const ID: i32 = 62;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 63
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerChat;
 
-    /// PlayerCombatEnd (ID: 64)
-    pub const PLAYER_COMBAT_END_ID: i32 = 64;
+    impl Packet for PlayerChat {
+        const ID: i32 = 63;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 64
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerCombatEnd;
 
-    /// PlayerCombatEnter (ID: 65)
-    pub const PLAYER_COMBAT_ENTER_ID: i32 = 65;
+    impl Packet for PlayerCombatEnd {
+        const ID: i32 = 64;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 65
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerCombatEnter;
 
-    /// PlayerCombatKill (ID: 66)
-    pub const PLAYER_COMBAT_KILL_ID: i32 = 66;
+    impl Packet for PlayerCombatEnter {
+        const ID: i32 = 65;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 66
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerCombatKill;
 
-    /// PlayerInfoRemove (ID: 67)
-    pub const PLAYER_INFO_REMOVE_ID: i32 = 67;
+    impl Packet for PlayerCombatKill {
+        const ID: i32 = 66;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 67
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerInfoRemove;
 
-    /// PlayerInfoUpdate (ID: 68)
-    pub const PLAYER_INFO_UPDATE_ID: i32 = 68;
+    impl Packet for PlayerInfoRemove {
+        const ID: i32 = 67;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 68
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerInfoUpdate;
 
-    /// PlayerLookAt (ID: 69)
-    pub const PLAYER_LOOK_AT_ID: i32 = 69;
+    impl Packet for PlayerInfoUpdate {
+        const ID: i32 = 68;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 69
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerLookAt;
 
-    /// PlayerPosition (ID: 70)
-    pub const PLAYER_POSITION_ID: i32 = 70;
+    impl Packet for PlayerLookAt {
+        const ID: i32 = 69;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 70
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerPosition;
 
-    /// PlayerRotation (ID: 71)
-    pub const PLAYER_ROTATION_ID: i32 = 71;
+    impl Packet for PlayerPosition {
+        const ID: i32 = 70;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 71
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerRotation;
 
-    /// RecipeBookAdd (ID: 72)
-    pub const RECIPE_BOOK_ADD_ID: i32 = 72;
+    impl Packet for PlayerRotation {
+        const ID: i32 = 71;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 72
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RecipeBookAdd;
 
-    /// RecipeBookRemove (ID: 73)
-    pub const RECIPE_BOOK_REMOVE_ID: i32 = 73;
+    impl Packet for RecipeBookAdd {
+        const ID: i32 = 72;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 73
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RecipeBookRemove;
 
-    /// RecipeBookSettings (ID: 74)
-    pub const RECIPE_BOOK_SETTINGS_ID: i32 = 74;
+    impl Packet for RecipeBookRemove {
+        const ID: i32 = 73;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 74
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RecipeBookSettings;
 
-    /// RemoveEntities (ID: 75)
-    pub const REMOVE_ENTITIES_ID: i32 = 75;
+    impl Packet for RecipeBookSettings {
+        const ID: i32 = 74;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 75
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RemoveEntities;
 
-    /// RemoveMobEffect (ID: 76)
-    pub const REMOVE_MOB_EFFECT_ID: i32 = 76;
+    impl Packet for RemoveEntities {
+        const ID: i32 = 75;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 76
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RemoveMobEffect;
 
-    /// ResetScore (ID: 77)
-    pub const RESET_SCORE_ID: i32 = 77;
+    impl Packet for RemoveMobEffect {
+        const ID: i32 = 76;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 77
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ResetScore;
 
-    /// ResourcePackPop (ID: 78)
-    pub const RESOURCE_PACK_POP_ID: i32 = 78;
+    impl Packet for ResetScore {
+        const ID: i32 = 77;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 78
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ResourcePackPop;
 
-    /// ResourcePackPush (ID: 79)
-    pub const RESOURCE_PACK_PUSH_ID: i32 = 79;
+    impl Packet for ResourcePackPop {
+        const ID: i32 = 78;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 79
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ResourcePackPush;
 
-    /// Respawn (ID: 80)
-    pub const RESPAWN_ID: i32 = 80;
+    impl Packet for ResourcePackPush {
+        const ID: i32 = 79;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 80
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Respawn;
 
-    /// RotateHead (ID: 81)
-    pub const ROTATE_HEAD_ID: i32 = 81;
+    impl Packet for Respawn {
+        const ID: i32 = 80;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 81
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RotateHead;
 
-    /// SectionBlocksUpdate (ID: 82)
-    pub const SECTION_BLOCKS_UPDATE_ID: i32 = 82;
+    impl Packet for RotateHead {
+        const ID: i32 = 81;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 82
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SectionBlocksUpdate;
 
-    /// SelectAdvancementsTab (ID: 83)
-    pub const SELECT_ADVANCEMENTS_TAB_ID: i32 = 83;
+    impl Packet for SectionBlocksUpdate {
+        const ID: i32 = 82;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 83
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SelectAdvancementsTab;
 
-    /// ServerData (ID: 84)
-    pub const SERVER_DATA_ID: i32 = 84;
+    impl Packet for SelectAdvancementsTab {
+        const ID: i32 = 83;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 84
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ServerData;
 
-    /// SetActionBarText (ID: 85)
-    pub const SET_ACTION_BAR_TEXT_ID: i32 = 85;
+    impl Packet for ServerData {
+        const ID: i32 = 84;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 85
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetActionBarText;
 
-    /// SetBorderCenter (ID: 86)
-    pub const SET_BORDER_CENTER_ID: i32 = 86;
+    impl Packet for SetActionBarText {
+        const ID: i32 = 85;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 86
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetBorderCenter;
 
-    /// SetBorderLerpSize (ID: 87)
-    pub const SET_BORDER_LERP_SIZE_ID: i32 = 87;
+    impl Packet for SetBorderCenter {
+        const ID: i32 = 86;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 87
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetBorderLerpSize;
 
-    /// SetBorderSize (ID: 88)
-    pub const SET_BORDER_SIZE_ID: i32 = 88;
+    impl Packet for SetBorderLerpSize {
+        const ID: i32 = 87;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 88
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetBorderSize;
 
-    /// SetBorderWarningDelay (ID: 89)
-    pub const SET_BORDER_WARNING_DELAY_ID: i32 = 89;
+    impl Packet for SetBorderSize {
+        const ID: i32 = 88;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 89
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetBorderWarningDelay;
 
-    /// SetBorderWarningDistance (ID: 90)
-    pub const SET_BORDER_WARNING_DISTANCE_ID: i32 = 90;
+    impl Packet for SetBorderWarningDelay {
+        const ID: i32 = 89;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 90
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetBorderWarningDistance;
 
-    /// SetCamera (ID: 91)
-    pub const SET_CAMERA_ID: i32 = 91;
+    impl Packet for SetBorderWarningDistance {
+        const ID: i32 = 90;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 91
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetCamera;
 
-    /// SetChunkCacheCenter (ID: 92)
-    pub const SET_CHUNK_CACHE_CENTER_ID: i32 = 92;
+    impl Packet for SetCamera {
+        const ID: i32 = 91;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 92
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetChunkCacheCenter;
 
-    /// SetChunkCacheRadius (ID: 93)
-    pub const SET_CHUNK_CACHE_RADIUS_ID: i32 = 93;
+    impl Packet for SetChunkCacheCenter {
+        const ID: i32 = 92;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 93
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetChunkCacheRadius;
 
-    /// SetCursorItem (ID: 94)
-    pub const SET_CURSOR_ITEM_ID: i32 = 94;
+    impl Packet for SetChunkCacheRadius {
+        const ID: i32 = 93;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 94
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetCursorItem;
 
-    /// SetDefaultSpawnPosition (ID: 95)
-    pub const SET_DEFAULT_SPAWN_POSITION_ID: i32 = 95;
+    impl Packet for SetCursorItem {
+        const ID: i32 = 94;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 95
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetDefaultSpawnPosition;
 
-    /// SetDisplayObjective (ID: 96)
-    pub const SET_DISPLAY_OBJECTIVE_ID: i32 = 96;
+    impl Packet for SetDefaultSpawnPosition {
+        const ID: i32 = 95;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 96
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetDisplayObjective;
 
-    /// SetEntityData (ID: 97)
-    pub const SET_ENTITY_DATA_ID: i32 = 97;
+    impl Packet for SetDisplayObjective {
+        const ID: i32 = 96;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 97
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetEntityData;
 
-    /// SetEntityLink (ID: 98)
-    pub const SET_ENTITY_LINK_ID: i32 = 98;
+    impl Packet for SetEntityData {
+        const ID: i32 = 97;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 98
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetEntityLink;
 
-    /// SetEntityMotion (ID: 99)
-    pub const SET_ENTITY_MOTION_ID: i32 = 99;
+    impl Packet for SetEntityLink {
+        const ID: i32 = 98;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 99
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetEntityMotion;
 
-    /// SetEquipment (ID: 100)
-    pub const SET_EQUIPMENT_ID: i32 = 100;
+    impl Packet for SetEntityMotion {
+        const ID: i32 = 99;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 100
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetEquipment;
 
-    /// SetExperience (ID: 101)
-    pub const SET_EXPERIENCE_ID: i32 = 101;
+    impl Packet for SetEquipment {
+        const ID: i32 = 100;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 101
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetExperience;
 
-    /// SetHealth (ID: 102)
-    pub const SET_HEALTH_ID: i32 = 102;
+    impl Packet for SetExperience {
+        const ID: i32 = 101;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 102
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetHealth;
 
-    /// SetHeldSlot (ID: 103)
-    pub const SET_HELD_SLOT_ID: i32 = 103;
+    impl Packet for SetHealth {
+        const ID: i32 = 102;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 103
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetHeldSlot;
 
-    /// SetObjective (ID: 104)
-    pub const SET_OBJECTIVE_ID: i32 = 104;
+    impl Packet for SetHeldSlot {
+        const ID: i32 = 103;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 104
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetObjective;
 
-    /// SetPassengers (ID: 105)
-    pub const SET_PASSENGERS_ID: i32 = 105;
+    impl Packet for SetObjective {
+        const ID: i32 = 104;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 105
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetPassengers;
 
-    /// SetPlayerInventory (ID: 106)
-    pub const SET_PLAYER_INVENTORY_ID: i32 = 106;
+    impl Packet for SetPassengers {
+        const ID: i32 = 105;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 106
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetPlayerInventory;
 
-    /// SetPlayerTeam (ID: 107)
-    pub const SET_PLAYER_TEAM_ID: i32 = 107;
+    impl Packet for SetPlayerInventory {
+        const ID: i32 = 106;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 107
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetPlayerTeam;
 
-    /// SetScore (ID: 108)
-    pub const SET_SCORE_ID: i32 = 108;
+    impl Packet for SetPlayerTeam {
+        const ID: i32 = 107;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 108
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetScore;
 
-    /// SetSimulationDistance (ID: 109)
-    pub const SET_SIMULATION_DISTANCE_ID: i32 = 109;
+    impl Packet for SetScore {
+        const ID: i32 = 108;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 109
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetSimulationDistance;
 
-    /// SetSubtitleText (ID: 110)
-    pub const SET_SUBTITLE_TEXT_ID: i32 = 110;
+    impl Packet for SetSimulationDistance {
+        const ID: i32 = 109;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 110
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetSubtitleText;
 
-    /// SetTime (ID: 111)
-    pub const SET_TIME_ID: i32 = 111;
+    impl Packet for SetSubtitleText {
+        const ID: i32 = 110;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 111
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetTime;
 
-    /// SetTitleText (ID: 112)
-    pub const SET_TITLE_TEXT_ID: i32 = 112;
+    impl Packet for SetTime {
+        const ID: i32 = 111;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 112
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetTitleText;
 
-    /// SetTitlesAnimation (ID: 113)
-    pub const SET_TITLES_ANIMATION_ID: i32 = 113;
+    impl Packet for SetTitleText {
+        const ID: i32 = 112;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 113
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetTitlesAnimation;
 
-    /// SoundEntity (ID: 114)
-    pub const SOUND_ENTITY_ID: i32 = 114;
+    impl Packet for SetTitlesAnimation {
+        const ID: i32 = 113;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 114
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SoundEntity;
 
-    /// Sound (ID: 115)
-    pub const SOUND_ID: i32 = 115;
+    impl Packet for SoundEntity {
+        const ID: i32 = 114;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 115
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Sound;
 
-    /// StartConfiguration (ID: 116)
-    pub const START_CONFIGURATION_ID: i32 = 116;
+    impl Packet for Sound {
+        const ID: i32 = 115;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 116
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct StartConfiguration;
 
-    /// StopSound (ID: 117)
-    pub const STOP_SOUND_ID: i32 = 117;
+    impl Packet for StartConfiguration {
+        const ID: i32 = 116;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 117
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct StopSound;
 
-    /// StoreCookie (ID: 118)
-    pub const STORE_COOKIE_ID: i32 = 118;
+    impl Packet for StopSound {
+        const ID: i32 = 117;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 118
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct StoreCookie;
 
-    /// SystemChat (ID: 119)
-    pub const SYSTEM_CHAT_ID: i32 = 119;
+    impl Packet for StoreCookie {
+        const ID: i32 = 118;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 119
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SystemChat;
 
-    /// TabList (ID: 120)
-    pub const TAB_LIST_ID: i32 = 120;
+    impl Packet for SystemChat {
+        const ID: i32 = 119;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 120
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TabList;
 
-    /// TagQuery (ID: 121)
-    pub const TAG_QUERY_ID: i32 = 121;
+    impl Packet for TabList {
+        const ID: i32 = 120;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 121
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TagQuery;
 
-    /// TakeItemEntity (ID: 122)
-    pub const TAKE_ITEM_ENTITY_ID: i32 = 122;
+    impl Packet for TagQuery {
+        const ID: i32 = 121;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 122
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TakeItemEntity;
 
-    /// TeleportEntity (ID: 123)
-    pub const TELEPORT_ENTITY_ID: i32 = 123;
+    impl Packet for TakeItemEntity {
+        const ID: i32 = 122;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 123
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TeleportEntity;
 
-    /// TestInstanceBlockStatus (ID: 124)
-    pub const TEST_INSTANCE_BLOCK_STATUS_ID: i32 = 124;
+    impl Packet for TeleportEntity {
+        const ID: i32 = 123;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 124
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TestInstanceBlockStatus;
 
-    /// TickingState (ID: 125)
-    pub const TICKING_STATE_ID: i32 = 125;
+    impl Packet for TestInstanceBlockStatus {
+        const ID: i32 = 124;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 125
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TickingState;
 
-    /// TickingStep (ID: 126)
-    pub const TICKING_STEP_ID: i32 = 126;
+    impl Packet for TickingState {
+        const ID: i32 = 125;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 126
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TickingStep;
 
-    /// Transfer (ID: 127)
-    pub const TRANSFER_ID: i32 = 127;
+    impl Packet for TickingStep {
+        const ID: i32 = 126;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 127
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Transfer;
 
-    /// UpdateAdvancements (ID: 128)
-    pub const UPDATE_ADVANCEMENTS_ID: i32 = 128;
+    impl Packet for Transfer {
+        const ID: i32 = 127;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 128
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct UpdateAdvancements;
 
-    /// UpdateAttributes (ID: 129)
-    pub const UPDATE_ATTRIBUTES_ID: i32 = 129;
+    impl Packet for UpdateAdvancements {
+        const ID: i32 = 128;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 129
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct UpdateAttributes;
 
-    /// UpdateMobEffect (ID: 130)
-    pub const UPDATE_MOB_EFFECT_ID: i32 = 130;
+    impl Packet for UpdateAttributes {
+        const ID: i32 = 129;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 130
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct UpdateMobEffect;
 
-    /// UpdateRecipes (ID: 131)
-    pub const UPDATE_RECIPES_ID: i32 = 131;
+    impl Packet for UpdateMobEffect {
+        const ID: i32 = 130;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 131
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct UpdateRecipes;
 
-    /// UpdateTags (ID: 132)
-    pub const UPDATE_TAGS_ID: i32 = 132;
+    impl Packet for UpdateRecipes {
+        const ID: i32 = 131;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 132
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct UpdateTags;
 
-    /// ProjectilePower (ID: 133)
-    pub const PROJECTILE_POWER_ID: i32 = 133;
+    impl Packet for UpdateTags {
+        const ID: i32 = 132;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 133
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ProjectilePower;
 
-    /// CustomReportDetails (ID: 134)
-    pub const CUSTOM_REPORT_DETAILS_ID: i32 = 134;
+    impl Packet for ProjectilePower {
+        const ID: i32 = 133;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 134
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CustomReportDetails;
 
-    /// ServerLinks (ID: 135)
-    pub const SERVER_LINKS_ID: i32 = 135;
+    impl Packet for CustomReportDetails {
+        const ID: i32 = 134;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 135
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ServerLinks;
 
-    /// Waypoint (ID: 136)
-    pub const WAYPOINT_ID: i32 = 136;
+    impl Packet for ServerLinks {
+        const ID: i32 = 135;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 136
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Waypoint;
 
-    /// ClearDialog (ID: 137)
-    pub const CLEAR_DIALOG_ID: i32 = 137;
+    impl Packet for Waypoint {
+        const ID: i32 = 136;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 137
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ClearDialog;
 
-    /// ShowDialog (ID: 138)
-    pub const SHOW_DIALOG_ID: i32 = 138;
+    impl Packet for ClearDialog {
+        const ID: i32 = 137;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
+    /// Packet ID: 138
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ShowDialog;
+
+    impl Packet for ShowDialog {
+        const ID: i32 = 138;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Clientbound;
+    }
 
 }
 
 pub mod serverbound {
     use super::*;
 
-    /// AcceptTeleportation (ID: 0)
-    pub const ACCEPT_TELEPORTATION_ID: i32 = 0;
-
+    /// Packet ID: 0
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct AcceptTeleportation;
 
-    /// BlockEntityTagQuery (ID: 1)
-    pub const BLOCK_ENTITY_TAG_QUERY_ID: i32 = 1;
+    impl Packet for AcceptTeleportation {
+        const ID: i32 = 0;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 1
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BlockEntityTagQuery;
 
-    /// BundleItemSelected (ID: 2)
-    pub const BUNDLE_ITEM_SELECTED_ID: i32 = 2;
+    impl Packet for BlockEntityTagQuery {
+        const ID: i32 = 1;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 2
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct BundleItemSelected;
 
-    /// ChangeDifficulty (ID: 3)
-    pub const CHANGE_DIFFICULTY_ID: i32 = 3;
+    impl Packet for BundleItemSelected {
+        const ID: i32 = 2;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 3
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChangeDifficulty;
 
-    /// ChangeGameMode (ID: 4)
-    pub const CHANGE_GAME_MODE_ID: i32 = 4;
+    impl Packet for ChangeDifficulty {
+        const ID: i32 = 3;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 4
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChangeGameMode;
 
-    /// ChatAck (ID: 5)
-    pub const CHAT_ACK_ID: i32 = 5;
+    impl Packet for ChangeGameMode {
+        const ID: i32 = 4;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 5
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChatAck;
 
-    /// ChatCommand (ID: 6)
-    pub const CHAT_COMMAND_ID: i32 = 6;
+    impl Packet for ChatAck {
+        const ID: i32 = 5;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 6
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChatCommand;
 
-    /// ChatCommandSigned (ID: 7)
-    pub const CHAT_COMMAND_SIGNED_ID: i32 = 7;
+    impl Packet for ChatCommand {
+        const ID: i32 = 6;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 7
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChatCommandSigned;
 
-    /// Chat (ID: 8)
-    pub const CHAT_ID: i32 = 8;
+    impl Packet for ChatCommandSigned {
+        const ID: i32 = 7;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 8
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Chat;
 
-    /// ChatSessionUpdate (ID: 9)
-    pub const CHAT_SESSION_UPDATE_ID: i32 = 9;
+    impl Packet for Chat {
+        const ID: i32 = 8;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 9
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChatSessionUpdate;
 
-    /// ChunkBatchReceived (ID: 10)
-    pub const CHUNK_BATCH_RECEIVED_ID: i32 = 10;
+    impl Packet for ChatSessionUpdate {
+        const ID: i32 = 9;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 10
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ChunkBatchReceived;
 
-    /// ClientCommand (ID: 11)
-    pub const CLIENT_COMMAND_ID: i32 = 11;
+    impl Packet for ChunkBatchReceived {
+        const ID: i32 = 10;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 11
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ClientCommand;
 
-    /// ClientTickEnd (ID: 12)
-    pub const CLIENT_TICK_END_ID: i32 = 12;
+    impl Packet for ClientCommand {
+        const ID: i32 = 11;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 12
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ClientTickEnd;
 
-    /// ClientInformation (ID: 13)
-    pub const CLIENT_INFORMATION_ID: i32 = 13;
+    impl Packet for ClientTickEnd {
+        const ID: i32 = 12;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 13
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ClientInformation;
 
-    /// CommandSuggestion (ID: 14)
-    pub const COMMAND_SUGGESTION_ID: i32 = 14;
+    impl Packet for ClientInformation {
+        const ID: i32 = 13;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 14
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CommandSuggestion;
 
-    /// ConfigurationAcknowledged (ID: 15)
-    pub const CONFIGURATION_ACKNOWLEDGED_ID: i32 = 15;
+    impl Packet for CommandSuggestion {
+        const ID: i32 = 14;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 15
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ConfigurationAcknowledged;
 
-    /// ContainerButtonClick (ID: 16)
-    pub const CONTAINER_BUTTON_CLICK_ID: i32 = 16;
+    impl Packet for ConfigurationAcknowledged {
+        const ID: i32 = 15;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 16
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerButtonClick;
 
-    /// ContainerClick (ID: 17)
-    pub const CONTAINER_CLICK_ID: i32 = 17;
+    impl Packet for ContainerButtonClick {
+        const ID: i32 = 16;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 17
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerClick;
 
-    /// ContainerClose (ID: 18)
-    pub const CONTAINER_CLOSE_ID: i32 = 18;
+    impl Packet for ContainerClick {
+        const ID: i32 = 17;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 18
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerClose;
 
-    /// ContainerSlotStateChanged (ID: 19)
-    pub const CONTAINER_SLOT_STATE_CHANGED_ID: i32 = 19;
+    impl Packet for ContainerClose {
+        const ID: i32 = 18;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 19
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ContainerSlotStateChanged;
 
-    /// CookieResponse (ID: 20)
-    pub const COOKIE_RESPONSE_ID: i32 = 20;
+    impl Packet for ContainerSlotStateChanged {
+        const ID: i32 = 19;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 20
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CookieResponse;
 
-    /// CustomPayload (ID: 21)
-    pub const CUSTOM_PAYLOAD_ID: i32 = 21;
+    impl Packet for CookieResponse {
+        const ID: i32 = 20;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 21
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CustomPayload;
 
-    /// DebugSubscriptionRequest (ID: 22)
-    pub const DEBUG_SUBSCRIPTION_REQUEST_ID: i32 = 22;
+    impl Packet for CustomPayload {
+        const ID: i32 = 21;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 22
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct DebugSubscriptionRequest;
 
-    /// EditBook (ID: 23)
-    pub const EDIT_BOOK_ID: i32 = 23;
+    impl Packet for DebugSubscriptionRequest {
+        const ID: i32 = 22;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 23
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct EditBook;
 
-    /// EntityTagQuery (ID: 24)
-    pub const ENTITY_TAG_QUERY_ID: i32 = 24;
+    impl Packet for EditBook {
+        const ID: i32 = 23;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 24
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct EntityTagQuery;
 
-    /// Interact (ID: 25)
-    pub const INTERACT_ID: i32 = 25;
+    impl Packet for EntityTagQuery {
+        const ID: i32 = 24;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 25
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Interact;
 
-    /// JigsawGenerate (ID: 26)
-    pub const JIGSAW_GENERATE_ID: i32 = 26;
+    impl Packet for Interact {
+        const ID: i32 = 25;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 26
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct JigsawGenerate;
 
-    /// KeepAlive (ID: 27)
-    pub const KEEP_ALIVE_ID: i32 = 27;
+    impl Packet for JigsawGenerate {
+        const ID: i32 = 26;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 27
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct KeepAlive;
 
-    /// LockDifficulty (ID: 28)
-    pub const LOCK_DIFFICULTY_ID: i32 = 28;
+    impl Packet for KeepAlive {
+        const ID: i32 = 27;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 28
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct LockDifficulty;
 
-    /// MovePlayerPos (ID: 29)
-    pub const MOVE_PLAYER_POS_ID: i32 = 29;
+    impl Packet for LockDifficulty {
+        const ID: i32 = 28;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 29
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MovePlayerPos;
 
-    /// MovePlayerPosRot (ID: 30)
-    pub const MOVE_PLAYER_POS_ROT_ID: i32 = 30;
+    impl Packet for MovePlayerPos {
+        const ID: i32 = 29;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 30
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MovePlayerPosRot;
 
-    /// MovePlayerRot (ID: 31)
-    pub const MOVE_PLAYER_ROT_ID: i32 = 31;
+    impl Packet for MovePlayerPosRot {
+        const ID: i32 = 30;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 31
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MovePlayerRot;
 
-    /// MovePlayerStatusOnly (ID: 32)
-    pub const MOVE_PLAYER_STATUS_ONLY_ID: i32 = 32;
+    impl Packet for MovePlayerRot {
+        const ID: i32 = 31;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 32
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MovePlayerStatusOnly;
 
-    /// MoveVehicle (ID: 33)
-    pub const MOVE_VEHICLE_ID: i32 = 33;
+    impl Packet for MovePlayerStatusOnly {
+        const ID: i32 = 32;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 33
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct MoveVehicle;
 
-    /// PaddleBoat (ID: 34)
-    pub const PADDLE_BOAT_ID: i32 = 34;
+    impl Packet for MoveVehicle {
+        const ID: i32 = 33;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 34
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PaddleBoat;
 
-    /// PickItemFromBlock (ID: 35)
-    pub const PICK_ITEM_FROM_BLOCK_ID: i32 = 35;
+    impl Packet for PaddleBoat {
+        const ID: i32 = 34;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 35
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PickItemFromBlock;
 
-    /// PickItemFromEntity (ID: 36)
-    pub const PICK_ITEM_FROM_ENTITY_ID: i32 = 36;
+    impl Packet for PickItemFromBlock {
+        const ID: i32 = 35;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 36
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PickItemFromEntity;
 
-    /// PingRequest (ID: 37)
-    pub const PING_REQUEST_ID: i32 = 37;
+    impl Packet for PickItemFromEntity {
+        const ID: i32 = 36;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 37
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PingRequest;
 
-    /// PlaceRecipe (ID: 38)
-    pub const PLACE_RECIPE_ID: i32 = 38;
+    impl Packet for PingRequest {
+        const ID: i32 = 37;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 38
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlaceRecipe;
 
-    /// PlayerAbilities (ID: 39)
-    pub const PLAYER_ABILITIES_ID: i32 = 39;
+    impl Packet for PlaceRecipe {
+        const ID: i32 = 38;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 39
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerAbilities;
 
-    /// PlayerAction (ID: 40)
-    pub const PLAYER_ACTION_ID: i32 = 40;
+    impl Packet for PlayerAbilities {
+        const ID: i32 = 39;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 40
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerAction;
 
-    /// PlayerCommand (ID: 41)
-    pub const PLAYER_COMMAND_ID: i32 = 41;
+    impl Packet for PlayerAction {
+        const ID: i32 = 40;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 41
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerCommand;
 
-    /// PlayerInput (ID: 42)
-    pub const PLAYER_INPUT_ID: i32 = 42;
+    impl Packet for PlayerCommand {
+        const ID: i32 = 41;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 42
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerInput;
 
-    /// PlayerLoaded (ID: 43)
-    pub const PLAYER_LOADED_ID: i32 = 43;
+    impl Packet for PlayerInput {
+        const ID: i32 = 42;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 43
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct PlayerLoaded;
 
-    /// Pong (ID: 44)
-    pub const PONG_ID: i32 = 44;
+    impl Packet for PlayerLoaded {
+        const ID: i32 = 43;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 44
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Pong;
 
-    /// RecipeBookChangeSettings (ID: 45)
-    pub const RECIPE_BOOK_CHANGE_SETTINGS_ID: i32 = 45;
+    impl Packet for Pong {
+        const ID: i32 = 44;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 45
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RecipeBookChangeSettings;
 
-    /// RecipeBookSeenRecipe (ID: 46)
-    pub const RECIPE_BOOK_SEEN_RECIPE_ID: i32 = 46;
+    impl Packet for RecipeBookChangeSettings {
+        const ID: i32 = 45;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 46
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RecipeBookSeenRecipe;
 
-    /// RenameItem (ID: 47)
-    pub const RENAME_ITEM_ID: i32 = 47;
+    impl Packet for RecipeBookSeenRecipe {
+        const ID: i32 = 46;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 47
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct RenameItem;
 
-    /// ResourcePack (ID: 48)
-    pub const RESOURCE_PACK_ID: i32 = 48;
+    impl Packet for RenameItem {
+        const ID: i32 = 47;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 48
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct ResourcePack;
 
-    /// SeenAdvancements (ID: 49)
-    pub const SEEN_ADVANCEMENTS_ID: i32 = 49;
+    impl Packet for ResourcePack {
+        const ID: i32 = 48;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 49
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SeenAdvancements;
 
-    /// SelectTrade (ID: 50)
-    pub const SELECT_TRADE_ID: i32 = 50;
+    impl Packet for SeenAdvancements {
+        const ID: i32 = 49;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 50
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SelectTrade;
 
-    /// SetBeacon (ID: 51)
-    pub const SET_BEACON_ID: i32 = 51;
+    impl Packet for SelectTrade {
+        const ID: i32 = 50;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 51
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetBeacon;
 
-    /// SetCarriedItem (ID: 52)
-    pub const SET_CARRIED_ITEM_ID: i32 = 52;
+    impl Packet for SetBeacon {
+        const ID: i32 = 51;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 52
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetCarriedItem;
 
-    /// SetCommandBlock (ID: 53)
-    pub const SET_COMMAND_BLOCK_ID: i32 = 53;
+    impl Packet for SetCarriedItem {
+        const ID: i32 = 52;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 53
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetCommandBlock;
 
-    /// SetCommandMinecart (ID: 54)
-    pub const SET_COMMAND_MINECART_ID: i32 = 54;
+    impl Packet for SetCommandBlock {
+        const ID: i32 = 53;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 54
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetCommandMinecart;
 
-    /// SetCreativeModeSlot (ID: 55)
-    pub const SET_CREATIVE_MODE_SLOT_ID: i32 = 55;
+    impl Packet for SetCommandMinecart {
+        const ID: i32 = 54;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 55
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetCreativeModeSlot;
 
-    /// SetJigsawBlock (ID: 56)
-    pub const SET_JIGSAW_BLOCK_ID: i32 = 56;
+    impl Packet for SetCreativeModeSlot {
+        const ID: i32 = 55;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 56
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetJigsawBlock;
 
-    /// SetStructureBlock (ID: 57)
-    pub const SET_STRUCTURE_BLOCK_ID: i32 = 57;
+    impl Packet for SetJigsawBlock {
+        const ID: i32 = 56;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 57
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetStructureBlock;
 
-    /// SetTestBlock (ID: 58)
-    pub const SET_TEST_BLOCK_ID: i32 = 58;
+    impl Packet for SetStructureBlock {
+        const ID: i32 = 57;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 58
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SetTestBlock;
 
-    /// SignUpdate (ID: 59)
-    pub const SIGN_UPDATE_ID: i32 = 59;
+    impl Packet for SetTestBlock {
+        const ID: i32 = 58;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 59
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct SignUpdate;
 
-    /// Swing (ID: 60)
-    pub const SWING_ID: i32 = 60;
+    impl Packet for SignUpdate {
+        const ID: i32 = 59;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 60
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct Swing;
 
-    /// TeleportToEntity (ID: 61)
-    pub const TELEPORT_TO_ENTITY_ID: i32 = 61;
+    impl Packet for Swing {
+        const ID: i32 = 60;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 61
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TeleportToEntity;
 
-    /// TestInstanceBlockAction (ID: 62)
-    pub const TEST_INSTANCE_BLOCK_ACTION_ID: i32 = 62;
+    impl Packet for TeleportToEntity {
+        const ID: i32 = 61;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 62
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct TestInstanceBlockAction;
 
-    /// UseItemOn (ID: 63)
-    pub const USE_ITEM_ON_ID: i32 = 63;
+    impl Packet for TestInstanceBlockAction {
+        const ID: i32 = 62;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 63
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct UseItemOn;
 
-    /// UseItem (ID: 64)
-    pub const USE_ITEM_ID: i32 = 64;
+    impl Packet for UseItemOn {
+        const ID: i32 = 63;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 64
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct UseItem;
 
-    /// CustomClickAction (ID: 65)
-    pub const CUSTOM_CLICK_ACTION_ID: i32 = 65;
+    impl Packet for UseItem {
+        const ID: i32 = 64;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
+    /// Packet ID: 65
     #[derive(Debug, Clone, Default, Encode, Decode, Serialize, Deserialize)]
     pub struct CustomClickAction;
+
+    impl Packet for CustomClickAction {
+        const ID: i32 = 65;
+        const STATE: State = State::Play;
+        const DIRECTION: Direction = Direction::Serverbound;
+    }
 
 }

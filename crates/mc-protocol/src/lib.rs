@@ -27,6 +27,33 @@ pub enum ProtocolError {
 
 pub type Result<T> = std::result::Result<T, ProtocolError>;
 
+/// Protocol state
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum State {
+    Handshaking,
+    Status,
+    Login,
+    Configuration,
+    Play,
+}
+
+/// Packet direction
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Direction {
+    Clientbound,
+    Serverbound,
+}
+
+/// Trait for all packets - provides ID, state, and direction
+pub trait Packet {
+    /// The packet ID
+    const ID: i32;
+    /// The protocol state this packet belongs to
+    const STATE: State;
+    /// Whether this packet is clientbound or serverbound
+    const DIRECTION: Direction;
+}
+
 pub trait Encode {
     fn encode<W: Write>(&self, writer: &mut W) -> Result<()>;
 }
