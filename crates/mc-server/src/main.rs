@@ -72,7 +72,9 @@ async fn main() -> anyhow::Result<()> {
             let connections = connections_clone.clone();
             let data = packet.data;
             let conn_id = packet.connection_id;
-            rt_handle.spawn(async move {
+            // Block on sending to preserve packet order
+            // Each connection's mpsc channel ensures sequential delivery to its writer task
+            rt_handle.block_on(async move {
                 let connections = connections.read().await;
                 if let Some(tx) = connections.get(&conn_id) {
                     debug!("Async egress: found connection, sending via mpsc");

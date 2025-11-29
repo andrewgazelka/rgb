@@ -72,6 +72,10 @@ impl Module for LoginModule {
                                 let player_uuid = offline_uuid(&name);
                                 info!("Login from: {} (uuid: {:032x})", &name, player_uuid);
 
+                                // Rename entity to use player hierarchy
+                                let player_path = format!("players::{}", name);
+                                e.set_name(&player_path);
+
                                 // Add player components
                                 let entity_id = entity_counter.next();
                                 e.add(Player);

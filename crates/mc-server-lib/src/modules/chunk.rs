@@ -47,7 +47,7 @@ pub fn generate_spawn_chunks(world: &World, view_distance: i32) {
 
             // Generate chunk data
             if let Ok(data) = create_superflat_chunk(cx, cz) {
-                let name = format!("chunk:{}:{}", cx, cz);
+                let name = format!("chunks::{}::{}", cx, cz);
                 world
                     .entity_named(&name)
                     .set(pos)
