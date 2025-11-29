@@ -15,7 +15,6 @@ mc-protocol = { path = "../mc-protocol" }
 mc-data = { path = "../mc-data" }
 tracing = "0.1"
 byteorder = "1"
-fastnbt = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

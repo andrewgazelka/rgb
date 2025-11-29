@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.rgb.testagent.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientLoginNetworkHandlerMixin",
+    "ClientPlayNetworkHandlerMixin",
+    "ClientChunkManagerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

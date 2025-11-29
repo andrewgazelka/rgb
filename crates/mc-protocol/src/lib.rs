@@ -5,6 +5,8 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod nbt;
+
 #[cfg(feature = "derive")]
 pub use mc_protocol_derive::{Decode, Encode};
 

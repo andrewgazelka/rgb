@@ -41,6 +41,10 @@ pub struct NetworkChannels {
     pub egress_tx: Sender<OutgoingPacket>,
     /// Receiver for outgoing packets (ECS -> async)
     pub egress_rx: Receiver<OutgoingPacket>,
+    /// Sender for disconnect events (async -> ECS)
+    pub disconnect_tx: Sender<DisconnectEvent>,
+    /// Receiver for disconnect events (async -> ECS)
+    pub disconnect_rx: Receiver<DisconnectEvent>,
 }
 
 impl NetworkChannels {
@@ -49,11 +53,14 @@ impl NetworkChannels {
     pub fn new() -> Self {
         let (ingress_tx, ingress_rx) = crossbeam_channel::unbounded();
         let (egress_tx, egress_rx) = crossbeam_channel::unbounded();
+        let (disconnect_tx, disconnect_rx) = crossbeam_channel::unbounded();
         Self {
             ingress_tx,
             ingress_rx,
             egress_tx,
             egress_rx,
+            disconnect_tx,
+            disconnect_rx,
         }
     }
 }
@@ -90,6 +97,9 @@ pub fn create_world(channels: &NetworkChannels) -> World {
         .component::<NetworkEgress>()
         .add_trait::<flecs::Singleton>();
     world
+        .component::<DisconnectIngress>()
+        .add_trait::<flecs::Singleton>();
+    world
         .component::<ConnectionIndex>()
         .add_trait::<flecs::Singleton>();
 
@@ -99,6 +109,9 @@ pub fn create_world(channels: &NetworkChannels) -> World {
     });
     world.set(NetworkEgress {
         tx: channels.egress_tx.clone(),
+    });
+    world.set(DisconnectIngress {
+        rx: channels.disconnect_rx.clone(),
     });
     world.set(WorldTime::default());
     world.set(EntityIdCounter::default());

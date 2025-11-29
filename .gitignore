@@ -1,1 +1,31 @@
-target
+# Rust
+target/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Nix
+result
+result-*
+
+# Gradle (for fabric-test-agent)
+.gradle/
+build/
+.kotlin/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Generated/temporary files
+*.bak
+*.log
+*.tmp
+
+# Java
+*.class
+*.jar
+!gradle/wrapper/*.jar

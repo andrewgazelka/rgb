@@ -12,6 +12,18 @@ pub struct IncomingPacket {
     pub data: Bytes,
 }
 
+/// Event signaling a connection has been closed
+#[derive(Debug)]
+pub struct DisconnectEvent {
+    pub connection_id: u64,
+}
+
+/// Singleton: Receiver for disconnect events from async layer
+#[derive(Component)]
+pub struct DisconnectIngress {
+    pub rx: Receiver<DisconnectEvent>,
+}
+
 /// Packet to send via async network layer
 #[derive(Debug)]
 pub struct OutgoingPacket {

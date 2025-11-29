@@ -33,24 +33,6 @@ pub fn encode_packet_data(packet_id: i32, data: &[u8]) -> Bytes {
     buf.freeze()
 }
 
-/// Convert JSON value to network NBT (nameless root compound)
-#[allow(clippy::missing_panics_doc)]
-pub fn json_to_network_nbt(json: &serde_json::Value) -> Vec<u8> {
-    let nbt_bytes = fastnbt::to_bytes(json).expect("fastnbt serialize");
-
-    if nbt_bytes.len() >= 3 && nbt_bytes[0] == 0x0A {
-        let name_len = u16::from_be_bytes([nbt_bytes[1], nbt_bytes[2]]) as usize;
-        let skip = 3 + name_len;
-
-        let mut result = Vec::with_capacity(nbt_bytes.len() - name_len - 2);
-        result.push(0x0A);
-        result.extend_from_slice(&nbt_bytes[skip..]);
-        result
-    } else {
-        nbt_bytes
-    }
-}
-
 /// Generate offline-mode UUID from username (UUID v3 from "OfflinePlayer:<name>")
 #[must_use]
 pub fn offline_uuid(name: &str) -> u128 {

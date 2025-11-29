@@ -4,8 +4,8 @@ use bytes::Bytes;
 use flecs_ecs::prelude::*;
 
 use crate::components::{
-    Connection, ConnectionId, NetworkEgress, NetworkIngress, OutgoingPacket, PacketBuffer,
-    ProtocolState,
+    Connection, ConnectionId, DisconnectIngress, NetworkEgress, NetworkIngress, OutgoingPacket,
+    PacketBuffer, ProtocolState,
 };
 
 /// Singleton: Maps connection IDs to their ECS entities
@@ -44,7 +44,7 @@ impl Module for NetworkModule {
 
                     // First, process any pending packets from last tick (for newly created entities)
                     let pending = std::mem::take(&mut conn_index.pending_packets);
-                    for (conn_id, packet_id, data) in &pending {
+                    for (conn_id, packet_id, _data) in &pending {
                         tracing::debug!(
                             "Processing pending packet: conn_id={}, packet_id={}",
                             conn_id,
@@ -73,8 +73,9 @@ impl Module for NetworkModule {
                         let is_new = !conn_index.map.contains_key(&conn_id);
                         if is_new {
                             // Create new connection entity
+                            let name = format!("connection:{}", conn_id);
                             let entity = world
-                                .entity()
+                                .entity_named(&name)
                                 .add(Connection)
                                 .set(ConnectionId(conn_id))
                                 .set(PacketBuffer::new())
@@ -116,6 +117,41 @@ impl Module for NetworkModule {
                                     .push((conn_id, packet_id, data_clone));
                             }
                         }
+                    }
+                }
+            });
+
+        // DISCONNECT: Handle disconnect events (also in OnLoad, after ingress)
+        // Removes connection entities when async layer reports disconnection
+        world
+            .system_named::<(&DisconnectIngress, &mut ConnectionIndex)>("HandleDisconnects")
+            .kind(id::<flecs::pipeline::OnLoad>())
+            .run(|mut it| {
+                while it.next() {
+                    let disconnect = &it.field::<DisconnectIngress>(0)[0];
+                    let conn_index = &mut it.field_mut::<ConnectionIndex>(1)[0];
+                    let world = it.world();
+
+                    // Process all disconnect events
+                    while let Ok(event) = disconnect.rx.try_recv() {
+                        let conn_id = event.connection_id;
+                        tracing::info!("Processing disconnect for conn_id={}", conn_id);
+
+                        // Remove from index and delete entity
+                        if let Some(entity) = conn_index.map.remove(&conn_id) {
+                            let entity_view = world.entity_from_id(entity);
+                            tracing::info!(
+                                "Deleting connection entity for conn_id={}, entity={:?}",
+                                conn_id,
+                                entity
+                            );
+                            entity_view.destruct();
+                        }
+
+                        // Also remove any pending packets for this connection
+                        conn_index
+                            .pending_packets
+                            .retain(|(id, _, _)| *id != conn_id);
                     }
                 }
             });

@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use mc_protocol::read_varint;
-use mc_server_lib::{IncomingPacket, NetworkChannels, ServerConfig};
+use mc_server_lib::{DisconnectEvent, IncomingPacket, NetworkChannels, ServerConfig};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
@@ -46,6 +46,7 @@ async fn main() -> anyhow::Result<()> {
     // Spawn the ECS world in a blocking thread
     let ingress_tx = channels.ingress_tx.clone();
     let egress_rx = channels.egress_rx.clone();
+    let disconnect_tx = channels.disconnect_tx.clone();
 
     // Connection map for routing outgoing packets
     let connections: ConnectionMap = Arc::new(RwLock::new(HashMap::new()));
@@ -86,10 +87,17 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Start TCP listener
-    let addr = "0.0.0.0:25565";
-    let listener = TcpListener::bind(addr).await?;
-    info!("Minecraft server listening on {}", addr);
+    // Start TCP listener (port 0 = auto-assign)
+    let port: u16 = std::env::var("MC_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(25565);
+    let addr = format!("0.0.0.0:{port}");
+    let listener = TcpListener::bind(&addr).await?;
+    let actual_port = listener.local_addr()?.port();
+    // Print in a parseable format for test harness
+    info!("SERVER_PORT={}", actual_port);
+    info!("Minecraft server listening on 0.0.0.0:{}", actual_port);
 
     // Connection ID counter
     let mut next_conn_id: u64 = 1;
@@ -102,6 +110,7 @@ async fn main() -> anyhow::Result<()> {
         next_conn_id += 1;
 
         let ingress_tx = ingress_tx.clone();
+        let disconnect_tx = disconnect_tx.clone();
         let connections = connections.clone();
 
         tokio::spawn(async move {
@@ -122,6 +131,12 @@ async fn main() -> anyhow::Result<()> {
                 let mut conns = connections.write().await;
                 conns.remove(&conn_id);
             }
+
+            // Notify ECS of disconnection
+            info!("Connection {} disconnected, notifying ECS", conn_id);
+            let _ = disconnect_tx.send(DisconnectEvent {
+                connection_id: conn_id,
+            });
 
             if let Err(e) = result {
                 debug!("Connection {} closed: {}", conn_id, e);

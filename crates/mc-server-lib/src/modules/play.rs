@@ -106,27 +106,27 @@ impl Module for PlayModule {
                         let entity_id = &entity_ids[i];
                         let buf = &mut buffer[i];
 
-                        // Send Play Login
+                        // 1. Send Play Login - creates player and level on client
                         send_play_login(buf, entity_id.0);
 
-                        // Send player position
-                        send_player_position(buf, pos.x, pos.y, pos.z, 1);
-
-                        // Send game event (start waiting for chunks)
+                        // 2. Send game event (start waiting for chunks) - client waits for chunks
                         send_game_event_start_waiting(buf);
 
-                        // Set center chunk
+                        // 3. Set center chunk
                         let (cx, cz) = pos.chunk_pos();
                         send_set_center_chunk(buf, cx, cz);
 
-                        // Send chunks
+                        // 4. Send chunks
                         let chunks = collect_chunks_for_player(chunk_index, 8, it.world());
                         send_chunks_to_buffer(buf, &chunks);
 
-                        // Send time
+                        // 5. Send time
                         send_set_time(buf, world_time.world_age, world_time.time_of_day);
 
-                        // Send initial keepalive
+                        // 6. Send player position AFTER chunks are loaded
+                        send_player_position(buf, pos.x, pos.y, pos.z, 1);
+
+                        // 7. Send initial keepalive
                         send_keepalive(buf);
 
                         // Remove NeedsSpawnChunks and add InPlayState

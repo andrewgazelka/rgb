@@ -22,8 +22,9 @@ pub fn spawn_chunk(world: &World, pos: ChunkPos, cells: CellData) -> EntityView<
 
     let is_active = !cells.is_empty();
 
+    let name = format!("chunk:{}:{}", pos.x, pos.y);
     let chunk = world
-        .entity()
+        .entity_named(&name)
         .set(pos)
         .set(cells)
         .set(NextCellData::default())

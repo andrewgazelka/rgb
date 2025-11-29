@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "rgb-test-agent",
+  "version": "${version}",
+  "name": "RGB Test Agent",
+  "description": "Integration testing agent for RGB Minecraft server",
+  "authors": ["Andrew Gazelka"],
+  "contact": {
+    "sources": "https://github.com/andrewgazelka/rgb"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.rgb.testagent.RgbTestAgentMod"],
+    "fabric-datagen": []
+  },
+  "mixins": ["rgb-test-agent.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "~1.21.11-pre3",
+    "java": ">=21",
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=1.12.3+kotlin.2.0.21"
+  }
+}

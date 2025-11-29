@@ -20,7 +20,7 @@ impl Module for ChunkModule {
 
         // Observer: Add chunk to index when loaded
         world
-            .observer::<flecs::OnSet, &ChunkPos>()
+            .observer_named::<flecs::OnSet, &ChunkPos>("ChunkIndexAdd")
             .with(ChunkLoaded)
             .each_entity(|e, pos| {
                 e.world().get::<&mut ChunkIndex>(|index| {
@@ -30,7 +30,7 @@ impl Module for ChunkModule {
 
         // Observer: Remove chunk from index when unloaded
         world
-            .observer::<flecs::OnRemove, &ChunkPos>()
+            .observer_named::<flecs::OnRemove, &ChunkPos>("ChunkIndexRemove")
             .each_entity(|e, pos| {
                 e.world().get::<&mut ChunkIndex>(|index| {
                     index.remove(pos);
@@ -47,8 +47,9 @@ pub fn generate_spawn_chunks(world: &World, view_distance: i32) {
 
             // Generate chunk data
             if let Ok(data) = create_superflat_chunk(cx, cz) {
+                let name = format!("chunk:{}:{}", cx, cz);
                 world
-                    .entity()
+                    .entity_named(&name)
                     .set(pos)
                     .set(ChunkData::new(data))
                     .add(ChunkLoaded);

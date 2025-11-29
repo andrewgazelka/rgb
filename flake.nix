@@ -302,6 +302,45 @@ JAVA_EOF
             SYSTEM:"tee -a $OUTPUT_FILE.client | ${pkgs.socat}/bin/socat - TCP:localhost:$TARGET_PORT | tee -a $OUTPUT_FILE.server"
         '';
 
+        # Build Fabric test agent mod
+        buildFabricTestAgent = pkgs.writeShellScriptBin "build-fabric-test-agent" ''
+          set -euo pipefail
+          cd "''${1:-.}/fabric-test-agent"
+
+          # Use gradle wrapper if available, otherwise use system gradle
+          if [ -f gradlew ]; then
+            ./gradlew build --no-daemon
+          else
+            ${pkgs.gradle}/bin/gradle build --no-daemon
+          fi
+
+          echo "Built fabric-test-agent mod"
+          ls -la build/libs/*.jar 2>/dev/null || echo "No JAR found in build/libs"
+        '';
+
+        # Run integration tests with Xvfb for headless Minecraft
+        runIntegrationTests = pkgs.writeShellScriptBin "run-integration-tests" ''
+          set -euo pipefail
+
+          echo "=== RGB Integration Tests ==="
+          echo ""
+
+          # Build the Rust server
+          echo "Building mc-server..."
+          cargo build -p mc-server --release
+
+          # Build the Fabric test agent
+          echo "Building Fabric test agent..."
+          ${buildFabricTestAgent}/bin/build-fabric-test-agent "."
+
+          # Run tests with virtual framebuffer
+          echo "Running integration tests..."
+          export MC_INTEGRATION_TESTS=1
+          export MC_SERVER_BINARY="target/release/mc-server"
+
+          ${pkgs.xvfb-run}/bin/xvfb-run -a cargo nextest run -p mc-integration-tests "$@"
+        '';
+
         # Extract and update JSON data files for packet generation
         mcGen = pkgs.writeShellScriptBin "mc-gen" ''
           set -euo pipefail
@@ -351,6 +390,8 @@ JAVA_EOF
           download-mc-jar = downloadMcJar;
           run-vanilla-server = runMcServer;
           packet-proxy = packetProxy;
+          build-fabric-test-agent = buildFabricTestAgent;
+          run-integration-tests = runIntegrationTests;
         };
 
         apps = {
@@ -361,6 +402,8 @@ JAVA_EOF
           extract-packets = flake-utils.lib.mkApp { drv = packetExtractor; };
           run-vanilla-server = flake-utils.lib.mkApp { drv = runMcServer; };
           packet-proxy = flake-utils.lib.mkApp { drv = packetProxy; };
+          build-fabric-test-agent = flake-utils.lib.mkApp { drv = buildFabricTestAgent; };
+          run-integration-tests = flake-utils.lib.mkApp { drv = runIntegrationTests; };
         };
 
         devShells.default = pkgs.mkShell {
@@ -369,9 +412,13 @@ JAVA_EOF
             pkgs.jdk21
             pkgs.curl
             pkgs.jq
+            pkgs.gradle
+            pkgs.xvfb-run
             mcDataGen
             mcGen
             packetExtractor
+            buildFabricTestAgent
+            runIntegrationTests
           ];
         };
       }
