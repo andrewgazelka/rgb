@@ -44,10 +44,12 @@ pub enum Direction {
     Serverbound,
 }
 
-/// Trait for all packets - provides ID, state, and direction
+/// Trait for all packets - provides ID, name, state, and direction
 pub trait Packet {
     /// The packet ID
     const ID: i32;
+    /// The packet name (e.g., "MovePlayerPos")
+    const NAME: &'static str;
     /// The protocol state this packet belongs to
     const STATE: State;
     /// Whether this packet is clientbound or serverbound

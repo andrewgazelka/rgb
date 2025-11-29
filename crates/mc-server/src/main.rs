@@ -15,8 +15,8 @@ use mc_packets::play::clientbound::{
     LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetChunkCacheCenter, SetTime,
 };
 use mc_packets::play::serverbound::{
-    AcceptTeleportation, KeepAlive as ServerboundKeepAlive, MovePlayerPos, MovePlayerPosRot,
-    MovePlayerRot, MovePlayerStatusOnly,
+    self as play_serverbound, AcceptTeleportation, KeepAlive as ServerboundKeepAlive,
+    MovePlayerPos, MovePlayerPosRot, MovePlayerRot, MovePlayerStatusOnly,
 };
 
 struct DamageType {
@@ -1365,7 +1365,8 @@ impl Connection {
                 // Player position/rotation packets - ignore for now
             }
             _ => {
-                debug!("Play packet: 0x{:02X}", packet_id);
+                let name = play_serverbound::packet_name(packet_id).unwrap_or("Unknown");
+                debug!("Play packet: 0x{:02X} ({})", packet_id, name);
             }
         }
         Ok(())
@@ -1607,6 +1608,8 @@ fn write_superflat_section(data: &mut Vec<u8>) {
     //   2. palette.write() - for HashMapPalette: VarInt(size) + size * VarInt(global_id)
     //   3. writeFixedSizeLongArray() - NO length prefix! Just raw longs
 
+    use mc_packets::blocks;
+
     // Bits per entry - need at least 2 bits for 4 block types
     // Minecraft uses palette when bits <= 8, direct when bits > 8
     data.push(4); // 4 bits per entry (uses palette)
@@ -1614,11 +1617,11 @@ fn write_superflat_section(data: &mut Vec<u8>) {
     // Palette: HashMapPalette.write() = VarInt(size) + VarInt(id) for each entry
     write_varint_to_vec(data, 4); // 4 palette entries
 
-    // Palette entries (global block state IDs)
-    write_varint_to_vec(data, 0); // 0: air
-    write_varint_to_vec(data, 79); // 1: bedrock (approximate ID)
-    write_varint_to_vec(data, 10); // 2: dirt (approximate ID)
-    write_varint_to_vec(data, 9); // 3: grass_block (approximate ID)
+    // Palette entries (global block state IDs from registry)
+    write_varint_to_vec(data, blocks::AIR.id() as i32);
+    write_varint_to_vec(data, blocks::BEDROCK.id() as i32);
+    write_varint_to_vec(data, blocks::DIRT.id() as i32);
+    write_varint_to_vec(data, blocks::GRASS_BLOCK.id() as i32);
 
     // Data array: 16x16x16 = 4096 blocks, 4 bits each
     // From SimpleBitStorage: valuesPerLong = 64 / 4 = 16

@@ -49,4 +49,36 @@ java -jar cfr.jar client.jar --outputdir /tmp/mc-decompile-1.21.11-pre3/decompil
 - Environment attributes (sky_color, fog_color): `world/attribute/EnvironmentAttributes.java`
 - Attribute map serialization: `world/attribute/EnvironmentAttributeMap.java`
 - Sky rendering: `client/renderer/SkyRenderer.java`
+- Blocks registry: `world/level/block/Blocks.java`
+
+### Generated Data
+
+Use `nix run .#mc-data-gen` to generate Mojang's data reports (blocks, items, packets, etc).
+
+Data files in `crates/mc-packets/data/`:
+- `blocks.json` - All block states with IDs (from Mojang data generator)
+- `packets-ids.json` - Packet IDs
+- `protocol.json` - Protocol version info
+
+### Block Registry
+
+Block state IDs are auto-generated from `blocks.json`. Use the registry instead of hardcoding IDs:
+
+```rust
+use mc_packets::{BlockState, blocks};
+
+// Use block constants (default states)
+let air = blocks::AIR;           // BlockState(0)
+let bedrock = blocks::BEDROCK;   // BlockState(85)
+let dirt = blocks::DIRT;         // BlockState(10)
+let grass = blocks::GRASS_BLOCK; // BlockState(9)
+
+// Get raw ID for protocol
+let id: u16 = bedrock.id();
+
+// Lookup by name
+let stone = BlockState::by_name("minecraft:stone");
+```
+
+**NEVER hardcode block state IDs** - they change between versions. Always use the registry.
 

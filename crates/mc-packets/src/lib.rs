@@ -35,3 +35,12 @@ pub mod configuration {
 pub mod play {
     include!(concat!(env!("OUT_DIR"), "/play.rs"));
 }
+
+// Include generated block registry
+mod block_registry {
+    include!(concat!(env!("OUT_DIR"), "/blocks.rs"));
+}
+
+// Re-export block types at crate root
+pub use block_registry::BlockState;
+pub use block_registry::blocks;

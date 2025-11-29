@@ -56,6 +56,27 @@ struct ProtocolInfo {
     protocol_version: i32,
 }
 
+/// Block state from Mojang's data generator
+#[derive(Debug, Deserialize)]
+struct BlockStateInfo {
+    id: i32,
+    #[serde(default)]
+    default: bool,
+    #[serde(default)]
+    properties: HashMap<String, String>,
+}
+
+/// Block info from Mojang's data generator
+#[derive(Debug, Deserialize)]
+struct BlockInfo {
+    #[serde(default)]
+    properties: HashMap<String, Vec<String>>,
+    states: Vec<BlockStateInfo>,
+}
+
+/// BlockName -> BlockInfo
+type BlocksData = HashMap<String, BlockInfo>;
+
 fn is_known_type(t: &str) -> bool {
     if KNOWN_TYPES.contains(&t) {
         return true;
@@ -194,6 +215,7 @@ fn gen_packet_impl(struct_name: &str, packet_id: i32, state: &str, direction: &s
     quote! {
         impl Packet for #struct_ident {
             const ID: i32 = #packet_id;
+            const NAME: &'static str = #struct_name;
             const STATE: State = #state_enum;
             const DIRECTION: Direction = #dir_enum;
         }
@@ -230,6 +252,7 @@ fn generate_state_module(
         packets.sort_by_key(|(_, info)| info.protocol_id);
 
         let mut packet_tokens = Vec::new();
+        let mut name_match_arms = Vec::new();
 
         for (pkt_name, pkt_info) in packets {
             let pkt_id = pkt_info.protocol_id;
@@ -269,6 +292,11 @@ fn generate_state_module(
 
                 #impl_tokens
             });
+
+            // Add match arm for packet_name lookup
+            name_match_arms.push(quote! {
+                #pkt_id => Some(#struct_name)
+            });
         }
 
         let dir_ident = Ident::new(direction, Span::call_site());
@@ -277,6 +305,14 @@ fn generate_state_module(
                 use super::*;
 
                 #(#packet_tokens)*
+
+                /// Get the packet name for a given packet ID, or None if unknown
+                pub fn packet_name(id: i32) -> Option<&'static str> {
+                    match id {
+                        #(#name_match_arms,)*
+                        _ => None,
+                    }
+                }
             }
         };
         direction_modules.push(dir_module);
@@ -293,6 +329,118 @@ fn generate_state_module(
     prettyplease::unparse(&syn::parse2(header).expect("failed to parse generated code"))
 }
 
+fn generate_blocks_module(blocks_data: &BlocksData) -> String {
+    // Collect all blocks sorted by their default state ID
+    let mut blocks: Vec<(&String, &BlockInfo)> = blocks_data.iter().collect();
+    blocks.sort_by_key(|(_, info)| {
+        info.states
+            .iter()
+            .find(|s| s.default)
+            .map(|s| s.id)
+            .unwrap_or(info.states.first().map(|s| s.id).unwrap_or(0))
+    });
+
+    let mut block_consts = Vec::new();
+    let mut block_name_arms = Vec::new();
+    let mut block_by_name_arms = Vec::new();
+
+    for (block_name, block_info) in &blocks {
+        let clean_name = block_name.replace("minecraft:", "");
+        let const_name = format_ident!("{}", clean_name.to_uppercase().replace('.', "_"));
+        let default_state = block_info
+            .states
+            .iter()
+            .find(|s| s.default)
+            .unwrap_or_else(|| block_info.states.first().expect("block has no states"));
+        let default_id = default_state.id as u16;
+
+        let doc = format!("`{}` - default state ID: {}", block_name, default_id);
+
+        block_consts.push(quote! {
+            #[doc = #doc]
+            pub const #const_name: BlockState = BlockState(#default_id);
+        });
+
+        let full_name = block_name.as_str();
+        block_name_arms.push(quote! {
+            BlockState(#default_id) => Some(#full_name)
+        });
+
+        block_by_name_arms.push(quote! {
+            #full_name | #clean_name => Some(BlockState(#default_id))
+        });
+    }
+
+    let output = quote! {
+        /// A block state ID as used in the Minecraft protocol.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+        #[repr(transparent)]
+        pub struct BlockState(pub u16);
+
+        impl BlockState {
+            /// Air block (default, ID 0)
+            pub const AIR: BlockState = BlockState(0);
+
+            /// Create a new BlockState from a raw ID
+            #[inline]
+            pub const fn new(id: u16) -> Self {
+                BlockState(id)
+            }
+
+            /// Get the raw block state ID
+            #[inline]
+            pub const fn id(self) -> u16 {
+                self.0
+            }
+
+            /// Check if this is an air block
+            #[inline]
+            pub const fn is_air(self) -> bool {
+                self.0 == 0
+            }
+
+            /// Get the block name for this state, if it's a default state
+            pub fn name(self) -> Option<&'static str> {
+                match self {
+                    #(#block_name_arms,)*
+                    _ => None,
+                }
+            }
+
+            /// Get a block state by name (returns the default state)
+            pub fn by_name(name: &str) -> Option<BlockState> {
+                match name {
+                    #(#block_by_name_arms,)*
+                    _ => None,
+                }
+            }
+        }
+
+        impl From<u16> for BlockState {
+            #[inline]
+            fn from(id: u16) -> Self {
+                BlockState(id)
+            }
+        }
+
+        impl From<BlockState> for u16 {
+            #[inline]
+            fn from(state: BlockState) -> Self {
+                state.0
+            }
+        }
+
+        /// Block constants for common blocks (default states)
+        pub mod blocks {
+            use super::BlockState;
+
+            #(#block_consts)*
+        }
+    };
+
+    prettyplease::unparse(&syn::parse2(output).expect("failed to parse blocks module"))
+}
+
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -302,6 +450,7 @@ fn main() {
     println!("cargo:rerun-if-changed=data/packets-ids.json");
     println!("cargo:rerun-if-changed=data/packets-fields.json");
     println!("cargo:rerun-if-changed=data/protocol.json");
+    println!("cargo:rerun-if-changed=data/blocks.json");
 
     // Load JSON files
     let ids_json = fs::read_to_string(data_dir.join("packets-ids.json"))
@@ -351,4 +500,12 @@ fn main() {
     let constants_content =
         prettyplease::unparse(&syn::parse2(constants).expect("failed to parse constants"));
     fs::write(out_dir.join("constants.rs"), constants_content).expect("failed to write constants");
+
+    // Load and generate blocks module
+    let blocks_json =
+        fs::read_to_string(data_dir.join("blocks.json")).expect("failed to read blocks.json");
+    let blocks_data: BlocksData =
+        serde_json::from_str(&blocks_json).expect("failed to parse blocks.json");
+    let blocks_content = generate_blocks_module(&blocks_data);
+    fs::write(out_dir.join("blocks.rs"), blocks_content).expect("failed to write blocks module");
 }
