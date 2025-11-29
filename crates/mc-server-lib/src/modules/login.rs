@@ -1,12 +1,14 @@
 use flecs_ecs::prelude::*;
 use tracing::{debug, info};
 
+use crate::EntityIdCounter;
 use crate::components::{
     ChunkPosition, Connection, ConnectionState, EntityId, GameMode, PacketBuffer, Player,
     PlayerName, PlayerUuid, Position, ProtocolState, Rotation,
 };
-use crate::packets::{create_known_packs, create_login_success, encode_packet, offline_uuid, parse_login_start};
-use crate::EntityIdCounter;
+use crate::packets::{
+    create_known_packs, create_login_success, encode_packet, offline_uuid, parse_login_start,
+};
 
 fn try_parse_login(data: &[u8]) -> Option<(String, u128)> {
     parse_login_start(data).ok()

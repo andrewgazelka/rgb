@@ -28,9 +28,9 @@
       50%, 100% { opacity: 0.4; transform: scale(1); }
     }
 
-    .red-block { animation: red-pulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
-    .green-block { animation: green-pulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
-    .blue-block { animation: blue-pulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+    .red-block { animation: red-pulse 6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+    .green-block { animation: green-pulse 6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+    .blue-block { animation: blue-pulse 6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
   </style>
 
   <!-- Background -->

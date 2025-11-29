@@ -5,6 +5,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use mc_protocol::{Decode, Encode, write_varint};
 
 /// Encode a packet with ID and data into a length-prefixed packet
+#[allow(clippy::missing_panics_doc)]
 pub fn encode_packet(packet_id: i32, data: &[u8]) -> Bytes {
     let mut packet_id_bytes = Vec::new();
     write_varint(&mut packet_id_bytes, packet_id).expect("varint write");
@@ -21,6 +22,7 @@ pub fn encode_packet(packet_id: i32, data: &[u8]) -> Bytes {
 }
 
 /// Encode a packet with just the ID and data (no length prefix)
+#[allow(clippy::missing_panics_doc)]
 pub fn encode_packet_data(packet_id: i32, data: &[u8]) -> Bytes {
     let mut packet_id_bytes = Vec::new();
     write_varint(&mut packet_id_bytes, packet_id).expect("varint write");
@@ -32,6 +34,7 @@ pub fn encode_packet_data(packet_id: i32, data: &[u8]) -> Bytes {
 }
 
 /// Convert JSON value to network NBT (nameless root compound)
+#[allow(clippy::missing_panics_doc)]
 pub fn json_to_network_nbt(json: &serde_json::Value) -> Vec<u8> {
     let nbt_bytes = fastnbt::to_bytes(json).expect("fastnbt serialize");
 
@@ -284,6 +287,7 @@ pub fn create_set_time(world_age: i64, time_of_day: i64) -> anyhow::Result<Vec<u
 }
 
 /// Create keep-alive packet
+#[allow(clippy::missing_panics_doc)]
 pub fn create_keepalive() -> anyhow::Result<Vec<u8>> {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

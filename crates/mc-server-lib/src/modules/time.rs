@@ -11,7 +11,9 @@ impl Module for TimeModule {
         world.module::<TimeModule>("time");
 
         // Register WorldTime singleton
-        world.component::<WorldTime>().add_trait::<flecs::Singleton>();
+        world
+            .component::<WorldTime>()
+            .add_trait::<flecs::Singleton>();
 
         // Tick world time each frame
         world

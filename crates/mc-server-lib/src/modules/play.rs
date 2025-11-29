@@ -11,6 +11,7 @@ use mc_data::play::serverbound::{
 use mc_protocol::{Decode, Packet};
 use tracing::debug;
 
+use crate::WorldTime;
 use crate::components::{
     ChunkData, ChunkIndex, ChunkPos, Connection, ConnectionState, EntityId, InPlayState,
     NeedsSpawnChunks, PacketBuffer, Position, ProtocolState, Rotation,
@@ -20,7 +21,6 @@ use crate::packets::{
     create_play_login, create_player_position, create_set_center_chunk, create_set_time,
     encode_packet,
 };
-use crate::WorldTime;
 
 fn send_play_login(buffer: &mut PacketBuffer, entity_id: i32) {
     let result: anyhow::Result<Vec<u8>> = create_play_login(entity_id);
@@ -141,9 +141,12 @@ impl Module for PlayModule {
 
         // Handle play packets
         world
-            .system_named::<(&ProtocolState, &mut PacketBuffer, &mut Position, &mut Rotation)>(
-                "HandlePlayPackets",
-            )
+            .system_named::<(
+                &ProtocolState,
+                &mut PacketBuffer,
+                &mut Position,
+                &mut Rotation,
+            )>("HandlePlayPackets")
             .with(Connection)
             .with(InPlayState)
             .each(|(state, buffer, pos, rot)| {
@@ -170,7 +173,11 @@ impl Module for PlayModule {
     }
 }
 
-fn collect_chunks_for_player(chunk_index: &ChunkIndex, view_distance: i32, world: WorldRef<'_>) -> Vec<Bytes> {
+fn collect_chunks_for_player(
+    chunk_index: &ChunkIndex,
+    view_distance: i32,
+    world: WorldRef<'_>,
+) -> Vec<Bytes> {
     let mut chunks = Vec::new();
 
     for cx in -view_distance..=view_distance {

@@ -17,7 +17,9 @@ impl Module for ChunkModule {
         world.component::<ChunkLoaded>();
 
         // Register ChunkIndex singleton
-        world.component::<ChunkIndex>().add_trait::<flecs::Singleton>();
+        world
+            .component::<ChunkIndex>()
+            .add_trait::<flecs::Singleton>();
 
         // Observer: Add chunk to index when loaded
         world

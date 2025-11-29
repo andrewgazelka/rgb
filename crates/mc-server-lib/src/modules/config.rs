@@ -2,7 +2,9 @@ use flecs_ecs::prelude::*;
 use mc_protocol::Decode;
 use tracing::{debug, info};
 
-use crate::components::{Connection, ConnectionState, NeedsSpawnChunks, PacketBuffer, ProtocolState};
+use crate::components::{
+    Connection, ConnectionState, NeedsSpawnChunks, PacketBuffer, ProtocolState,
+};
 use crate::packets::encode_packet;
 use crate::world_gen::{
     create_biome_registry, create_cat_variant_registry, create_chicken_variant_registry,
@@ -78,18 +80,42 @@ fn send_registry(buffer: &mut PacketBuffer, data: Vec<u8>) {
 }
 
 fn send_registry_data(buffer: &mut PacketBuffer) {
-    if let Ok(data) = create_dimension_type_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_biome_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_damage_type_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_cat_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_chicken_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_cow_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_frog_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_pig_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_wolf_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_wolf_sound_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_zombie_nautilus_variant_registry() { send_registry(buffer, data); }
-    if let Ok(data) = create_painting_variant_registry() { send_registry(buffer, data); }
+    if let Ok(data) = create_dimension_type_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_biome_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_damage_type_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_cat_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_chicken_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_cow_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_frog_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_pig_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_wolf_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_wolf_sound_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_zombie_nautilus_variant_registry() {
+        send_registry(buffer, data);
+    }
+    if let Ok(data) = create_painting_variant_registry() {
+        send_registry(buffer, data);
+    }
 
     debug!("Sent all registry data");
 }
