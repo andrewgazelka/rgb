@@ -1,11 +1,13 @@
 pub mod components;
 pub mod modules;
+pub mod packet_dispatch;
 mod packets;
 mod world_gen;
 
 pub use components::*;
 pub use flecs_ecs::prelude::*;
 pub use modules::*;
+pub use packet_dispatch::*;
 pub use packets::*;
 
 use crossbeam_channel::{Receiver, Sender};
@@ -121,6 +123,7 @@ pub fn create_world(channels: &NetworkChannels) -> World {
 
     // Import all modules (systems get created here, after singletons are registered)
     world.import::<NetworkModule>();
+    world.import::<PacketDispatchModule>();
     world.import::<HandshakeModule>();
     world.import::<LoginModule>();
     world.import::<ConfigurationModule>();

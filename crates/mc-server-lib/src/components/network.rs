@@ -64,7 +64,7 @@ pub fn register_connection_id_meta(world: &World) {
 }
 
 /// Current protocol state of the connection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Component)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, Component)]
 #[repr(C)]
 #[flecs(meta)]
 pub enum ConnectionState {

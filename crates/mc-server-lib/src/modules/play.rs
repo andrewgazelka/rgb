@@ -15,8 +15,9 @@ use tracing::debug;
 use crate::WorldTime;
 use crate::components::{
     ChunkData, ChunkIndex, ChunkPos, Connection, ConnectionState, EntityId, InPlayState,
-    NeedsSpawnChunks, PacketBuffer, Position, ProtocolState, Rotation,
+    NeedsSpawnChunks, PacketBuffer, Position, Rotation,
 };
+use crate::packet_dispatch::PacketHandlerRegistration;
 use crate::packets::{
     create_action_bar_text, create_chunk_batch_finished, create_game_event_start_waiting,
     create_keepalive, create_play_login, create_player_position, create_set_center_chunk,
@@ -146,25 +147,49 @@ impl Module for PlayModule {
                 }
             });
 
-        // Handle play packets
-        world
-            .system_named::<(
-                &ProtocolState,
-                &mut PacketBuffer,
-                &mut Position,
-                &mut Rotation,
-            )>("HandlePlayPackets")
-            .with(Connection)
-            .with(InPlayState)
-            .each(|(state, buffer, pos, rot)| {
-                if state.0 != ConnectionState::Play {
-                    return;
-                }
-
-                while let Some((packet_id, data)) = buffer.pop_incoming() {
-                    handle_play_packet(packet_id, &data, pos, rot);
-                }
-            });
+        // Register packet handlers using the new dispatch system
+        world.register_handler(
+            "AcceptTeleportation",
+            ConnectionState::Play,
+            AcceptTeleportation::ID,
+            0,
+            handle_accept_teleportation,
+        );
+        world.register_handler(
+            "KeepAlive",
+            ConnectionState::Play,
+            ServerboundKeepAlive::ID,
+            0,
+            handle_keep_alive,
+        );
+        world.register_handler(
+            "MovePlayerPos",
+            ConnectionState::Play,
+            MovePlayerPos::ID,
+            0,
+            handle_move_player_pos,
+        );
+        world.register_handler(
+            "MovePlayerPosRot",
+            ConnectionState::Play,
+            MovePlayerPosRot::ID,
+            0,
+            handle_move_player_pos_rot,
+        );
+        world.register_handler(
+            "MovePlayerRot",
+            ConnectionState::Play,
+            MovePlayerRot::ID,
+            0,
+            handle_move_player_rot,
+        );
+        world.register_handler(
+            "MovePlayerStatusOnly",
+            ConnectionState::Play,
+            MovePlayerStatusOnly::ID,
+            0,
+            handle_move_player_status_only,
+        );
 
         // Periodic keepalive (every ~15 seconds = 300 ticks)
         world
@@ -228,60 +253,66 @@ fn send_chunks_to_buffer(buffer: &mut PacketBuffer, chunks: &[Bytes]) {
     send_chunk_batch_finished(buffer, chunks.len() as i32);
 }
 
-fn handle_play_packet(packet_id: i32, data: &[u8], pos: &mut Position, rot: &mut Rotation) {
-    let mut cursor = std::io::Cursor::new(data);
+// Individual packet handlers for the new dispatch system
 
-    match packet_id {
-        AcceptTeleportation::ID => {
-            if let Ok(teleport_id) = mc_protocol::read_varint(&mut cursor) {
-                debug!("Client accepted teleport: {}", teleport_id);
-            }
-        }
-        ServerboundKeepAlive::ID => {
-            if let Ok(ka_id) = i64::decode(&mut cursor) {
-                debug!("Keep alive response: {}", ka_id);
-            }
-        }
-        MovePlayerPos::ID => {
-            // X, Y, Z, On Ground
-            if let (Ok(x), Ok(y), Ok(z)) = (
-                f64::decode(&mut cursor),
-                f64::decode(&mut cursor),
-                f64::decode(&mut cursor),
-            ) {
-                pos.x = x;
-                pos.y = y;
-                pos.z = z;
-            }
-        }
-        MovePlayerPosRot::ID => {
-            // X, Y, Z, Yaw, Pitch, On Ground
-            if let (Ok(x), Ok(y), Ok(z), Ok(yaw), Ok(pitch)) = (
-                f64::decode(&mut cursor),
-                f64::decode(&mut cursor),
-                f64::decode(&mut cursor),
-                f32::decode(&mut cursor),
-                f32::decode(&mut cursor),
-            ) {
-                pos.x = x;
-                pos.y = y;
-                pos.z = z;
-                rot.yaw = yaw;
-                rot.pitch = pitch;
-            }
-        }
-        MovePlayerRot::ID => {
-            // Yaw, Pitch, On Ground
-            if let (Ok(yaw), Ok(pitch)) = (f32::decode(&mut cursor), f32::decode(&mut cursor)) {
-                rot.yaw = yaw;
-                rot.pitch = pitch;
-            }
-        }
-        MovePlayerStatusOnly::ID => {
-            // Just On Ground flag, ignore
-        }
-        _ => {
-            // Other packets - ignore for now
-        }
+fn handle_accept_teleportation(_entity: EntityView<'_>, data: &[u8]) {
+    let mut cursor = std::io::Cursor::new(data);
+    if let Ok(teleport_id) = mc_protocol::read_varint(&mut cursor) {
+        debug!("Client accepted teleport: {}", teleport_id);
     }
+}
+
+fn handle_keep_alive(_entity: EntityView<'_>, data: &[u8]) {
+    let mut cursor = std::io::Cursor::new(data);
+    if let Ok(ka_id) = i64::decode(&mut cursor) {
+        debug!("Keep alive response: {}", ka_id);
+    }
+}
+
+fn handle_move_player_pos(entity: EntityView<'_>, data: &[u8]) {
+    let mut cursor = std::io::Cursor::new(data);
+    if let (Ok(x), Ok(y), Ok(z)) = (
+        f64::decode(&mut cursor),
+        f64::decode(&mut cursor),
+        f64::decode(&mut cursor),
+    ) {
+        entity.get::<&mut Position>(|pos| {
+            pos.x = x;
+            pos.y = y;
+            pos.z = z;
+        });
+    }
+}
+
+fn handle_move_player_pos_rot(entity: EntityView<'_>, data: &[u8]) {
+    let mut cursor = std::io::Cursor::new(data);
+    if let (Ok(x), Ok(y), Ok(z), Ok(yaw), Ok(pitch)) = (
+        f64::decode(&mut cursor),
+        f64::decode(&mut cursor),
+        f64::decode(&mut cursor),
+        f32::decode(&mut cursor),
+        f32::decode(&mut cursor),
+    ) {
+        entity.get::<(&mut Position, &mut Rotation)>(|(pos, rot)| {
+            pos.x = x;
+            pos.y = y;
+            pos.z = z;
+            rot.yaw = yaw;
+            rot.pitch = pitch;
+        });
+    }
+}
+
+fn handle_move_player_rot(entity: EntityView<'_>, data: &[u8]) {
+    let mut cursor = std::io::Cursor::new(data);
+    if let (Ok(yaw), Ok(pitch)) = (f32::decode(&mut cursor), f32::decode(&mut cursor)) {
+        entity.get::<&mut Rotation>(|rot| {
+            rot.yaw = yaw;
+            rot.pitch = pitch;
+        });
+    }
+}
+
+fn handle_move_player_status_only(_entity: EntityView<'_>, _data: &[u8]) {
+    // Just On Ground flag, ignore
 }
