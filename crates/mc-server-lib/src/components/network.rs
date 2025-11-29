@@ -49,8 +49,19 @@ pub struct Connection;
 
 /// Unique ID for routing packets to correct connection
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[flecs(meta)]
 pub struct ConnectionId(pub u64);
+
+/// Register ConnectionId with opaque serialization for flecs explorer
+pub fn register_connection_id_meta(world: &World) {
+    world
+        .component::<ConnectionId>()
+        .opaque_id(world.component_untyped().member(u64::id(), "id"))
+        .serialize(|s: &Serializer, data: &ConnectionId| {
+            s.member("id");
+            s.value(&data.0);
+            0
+        });
+}
 
 /// Current protocol state of the connection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Component)]
@@ -74,6 +85,25 @@ pub struct ProtocolState(pub ConnectionState);
 pub struct PacketBuffer {
     pub incoming: VecDeque<(i32, Bytes)>,
     pub outgoing: VecDeque<Bytes>,
+}
+
+/// Register PacketBuffer with opaque serialization showing queue lengths
+pub fn register_packet_buffer_meta(world: &World) {
+    world
+        .component::<PacketBuffer>()
+        .opaque_id(
+            world
+                .component_untyped()
+                .member(usize::id(), "incoming_count")
+                .member(usize::id(), "outgoing_count"),
+        )
+        .serialize(|s: &Serializer, data: &PacketBuffer| {
+            s.member("incoming_count");
+            s.value(&data.incoming.len());
+            s.member("outgoing_count");
+            s.value(&data.outgoing.len());
+            0
+        });
 }
 
 impl PacketBuffer {

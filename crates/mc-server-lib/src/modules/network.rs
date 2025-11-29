@@ -5,7 +5,7 @@ use flecs_ecs::prelude::*;
 
 use crate::components::{
     Connection, ConnectionId, DisconnectIngress, NetworkEgress, NetworkIngress, OutgoingPacket,
-    PacketBuffer, ProtocolState,
+    PacketBuffer, ProtocolState, register_connection_id_meta, register_packet_buffer_meta,
 };
 
 /// Singleton: Maps connection IDs to their ECS entities
@@ -28,6 +28,10 @@ impl Module for NetworkModule {
         world.component::<Connection>();
         world.component::<ConnectionId>();
         world.component::<PacketBuffer>();
+
+        // Register opaque meta for flecs explorer
+        register_connection_id_meta(world);
+        register_packet_buffer_meta(world);
 
         // NetworkIngress/NetworkEgress/ConnectionIndex singleton traits are registered in create_world()
 
