@@ -5,32 +5,36 @@
 //!
 //! # Plugin Interface
 //!
-//! Each plugin dylib must export these symbols:
-//! - `plugin_load(world: &World)` - Called to load/register the module
-//! - `plugin_unload(world: &World)` - Called before unloading to cleanup
-//! - `plugin_name() -> &'static str` - Returns the plugin name
+//! Each plugin dylib must export these C ABI symbols:
+//! - `plugin_load(world: *mut ecs_world_t)` - Called to load/register the module
+//! - `plugin_unload(world: *mut ecs_world_t)` - Called before unloading to cleanup
+//! - `plugin_name() -> *const c_char` - Returns the plugin name as a C string
 //!
 //! # Safety
 //!
-//! This loader assumes all plugins are compiled with the same Rust version
-//! and toolchain. ABI compatibility is NOT guaranteed across different
-//! Rust versions.
+//! Plugins use C ABI to avoid Rust ABI instability issues. Each plugin
+//! statically links its own copy of flecs, but receives the raw world pointer
+//! from the host.
 
 use std::collections::HashMap;
-use std::ffi::OsStr;
+use std::ffi::{CStr, OsStr};
+use std::os::raw::c_char;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
+use flecs_ecs::core::WorldProvider;
 use flecs_ecs::prelude::World;
+use flecs_ecs::sys::ecs_world_t;
 use libloading::{Library, Symbol};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
-/// Plugin function signatures
-type PluginLoadFn = extern "Rust" fn(&World);
-type PluginUnloadFn = extern "Rust" fn(&World);
-type PluginNameFn = extern "Rust" fn() -> &'static str;
+/// Plugin function signatures (C ABI)
+type PluginLoadFn = unsafe extern "C" fn(*mut ecs_world_t);
+type PluginUnloadFn = unsafe extern "C" fn(*mut ecs_world_t);
+type PluginNameFn = extern "C" fn() -> *const c_char;
+type PluginVersionFn = extern "C" fn() -> u32;
 
 /// Errors that can occur during plugin operations
 #[derive(Error, Debug)]
@@ -59,6 +63,8 @@ struct LoadedPlugin {
     path: PathBuf,
     /// Plugin name (cached from plugin_name())
     name: String,
+    /// Plugin version (optional, from plugin_version())
+    version: Option<u32>,
 }
 
 impl LoadedPlugin {
@@ -79,14 +85,27 @@ impl LoadedPlugin {
                     symbol: "plugin_name",
                 })?
         };
-        let name = name_fn().to_string();
+        let name_ptr = name_fn();
+        let name = unsafe { CStr::from_ptr(name_ptr) }
+            .to_string_lossy()
+            .into_owned();
 
-        info!("Loaded plugin '{}' from {}", name, path.display());
+        // Try to get version (optional)
+        let version = unsafe { library.get::<PluginVersionFn>(b"plugin_version") }
+            .ok()
+            .map(|f| f());
+
+        if let Some(v) = version {
+            info!("Loaded plugin '{}' v{} from {}", name, v, path.display());
+        } else {
+            info!("Loaded plugin '{}' from {}", name, path.display());
+        }
 
         Ok(Self {
             library,
             path: path.to_path_buf(),
             name,
+            version,
         })
     }
 
@@ -102,7 +121,9 @@ impl LoadedPlugin {
                 })?
         };
 
-        load_fn(world);
+        // Pass raw world pointer to avoid Rust ABI issues across dylib boundary
+        let world_ptr = world.world_ptr_mut();
+        unsafe { load_fn(world_ptr) };
         info!("Initialized plugin '{}'", self.name);
         Ok(())
     }
@@ -119,7 +140,9 @@ impl LoadedPlugin {
                 })?
         };
 
-        unload_fn(world);
+        // Pass raw world pointer to avoid Rust ABI issues across dylib boundary
+        let world_ptr = world.world_ptr_mut();
+        unsafe { unload_fn(world_ptr) };
         info!("Cleaned up plugin '{}'", self.name);
         Ok(())
     }
@@ -297,6 +320,10 @@ impl PluginLoader {
             }
         }
 
+        // Deduplicate paths (file watcher can send multiple events for same file)
+        paths_to_reload.sort_unstable();
+        paths_to_reload.dedup();
+
         // Now reload the plugins
         let mut reloaded = 0;
         for path in paths_to_reload {
@@ -306,6 +333,19 @@ impl PluginLoader {
             }
         }
 
+        reloaded
+    }
+
+    /// Reload all currently loaded plugins
+    pub fn reload_all(&mut self, world: &World) -> usize {
+        let paths: Vec<_> = self.plugins.keys().cloned().collect();
+        let mut reloaded = 0;
+        for path in paths {
+            match self.reload_plugin(&path, world) {
+                Ok(()) => reloaded += 1,
+                Err(e) => error!("Failed to reload plugin {}: {}", path.display(), e),
+            }
+        }
         reloaded
     }
 
@@ -319,9 +359,18 @@ impl PluginLoader {
         }
     }
 
-    /// Get the list of loaded plugin names
-    pub fn loaded_plugins(&self) -> Vec<&str> {
-        self.plugins.values().map(|p| p.name.as_str()).collect()
+    /// Get the list of loaded plugin names with versions
+    pub fn loaded_plugins(&self) -> Vec<String> {
+        self.plugins
+            .values()
+            .map(|p| {
+                if let Some(v) = p.version {
+                    format!("{} v{}", p.name, v)
+                } else {
+                    p.name.clone()
+                }
+            })
+            .collect()
     }
 }
 

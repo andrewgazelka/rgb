@@ -16,6 +16,7 @@ plugin-loader = { path = "../plugin-loader" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
+crossterm = "0.28"
 
 [lints]
 workspace = true

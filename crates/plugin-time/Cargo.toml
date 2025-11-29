@@ -10,4 +10,5 @@ description = "Hot-reloadable time module plugin for Minecraft server"
 crate-type = ["cdylib"]
 
 [dependencies]
+# Links to shared flecs_ecs.dylib - same instance as host
 flecs_ecs.workspace = true

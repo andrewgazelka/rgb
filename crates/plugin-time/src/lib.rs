@@ -2,7 +2,12 @@
 //!
 //! This plugin handles world time ticking and TPS tracking.
 
+use flecs_ecs::core::WorldRef;
 use flecs_ecs::prelude::*;
+use flecs_ecs::sys;
+
+/// Plugin version - change this to verify hot-reload works
+pub const PLUGIN_VERSION: u32 = 1;
 
 /// Singleton: World time tracking
 #[derive(Component, Debug)]
@@ -117,18 +122,20 @@ impl Module for TimeModule {
 /// Load the module into the world
 ///
 /// # Safety
-/// This function is called from the plugin loader. The world pointer must be valid.
+/// The world pointer must be valid and point to an initialized flecs world.
 #[unsafe(no_mangle)]
-pub extern "Rust" fn plugin_load(world: &World) {
+pub unsafe extern "C" fn plugin_load(world_ptr: *mut sys::ecs_world_t) {
+    let world = unsafe { WorldRef::from_ptr(world_ptr) };
     world.import::<TimeModule>();
 }
 
 /// Unload the module from the world
 ///
 /// # Safety
-/// This function is called from the plugin loader. The world pointer must be valid.
+/// The world pointer must be valid and point to an initialized flecs world.
 #[unsafe(no_mangle)]
-pub extern "Rust" fn plugin_unload(world: &World) {
+pub unsafe extern "C" fn plugin_unload(world_ptr: *mut sys::ecs_world_t) {
+    let world = unsafe { WorldRef::from_ptr(world_ptr) };
     // Delete the module entity and all its contents (systems, components registered by it)
     if let Some(module_entity) = world.try_lookup("::time") {
         module_entity.destruct();
@@ -137,6 +144,12 @@ pub extern "Rust" fn plugin_unload(world: &World) {
 
 /// Get the plugin name
 #[unsafe(no_mangle)]
-pub extern "Rust" fn plugin_name() -> &'static str {
-    "time"
+pub extern "C" fn plugin_name() -> *const std::ffi::c_char {
+    c"time".as_ptr()
+}
+
+/// Get the plugin version
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_version() -> u32 {
+    PLUGIN_VERSION
 }
