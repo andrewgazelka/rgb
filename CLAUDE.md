@@ -81,3 +81,42 @@ let stone = BlockState::by_name("minecraft:stone");
 ```
 
 **NEVER hardcode block state IDs** - they change between versions. Always use the registry.
+
+## Hot-Reloadable Plugins
+
+The server supports hot-reloadable Flecs modules via Rust dylibs.
+
+### Rust Version Pinning (CRITICAL)
+
+**All plugins MUST be compiled with the exact same Rust toolchain version.** Rust does not guarantee ABI stability across versions. The project uses:
+
+- **Rust version**: Pinned via `rust-toolchain.toml` or Nix flake
+- **Edition**: 2024
+
+When building plugins:
+1. Always use the same `rustc` version as the main server
+2. Never mix plugins compiled with different Rust versions
+3. Use `nix build` to ensure consistent toolchain
+
+### Plugin Structure
+
+Each plugin is a `cdylib` crate that exports:
+
+```rust
+#[unsafe(no_mangle)]
+pub extern "Rust" fn plugin_load(world: &World) { ... }
+
+#[unsafe(no_mangle)]
+pub extern "Rust" fn plugin_unload(world: &World) { ... }
+
+#[unsafe(no_mangle)]
+pub extern "Rust" fn plugin_name() -> &'static str { ... }
+```
+
+### Plugin Directory
+
+Place compiled `.dylib` (macOS), `.so` (Linux), or `.dll` (Windows) files in the `plugins/` directory. The server will:
+
+1. Load all plugins on startup
+2. Watch for file changes
+3. Hot-reload modified plugins automatically

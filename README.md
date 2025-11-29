@@ -6,30 +6,23 @@
   <code>nix run github:andrewgazelka/rgb</code>
 </p>
 
-A Minecraft server written entirely by AI (Claude Opus 4.5).
+A high-performance Minecraft server with hot-reloadable plugins and flat, readable code.
+
+## Features
+
+- **Hot-Reloadable Plugins**: Modify Rust dylib plugins or Skript handlers without restarting the server
+- **Data-Parallel Architecture**: Operations grouped by type (R, G, B), executed in parallel across all entities—no per-entity sequential loops
+- **Flat, Explicit Code**: No abstraction layers hiding behavior. Every line does exactly what it says.
+- **Latest Snapshots**: Targets Minecraft snapshot builds to stay ahead
 
 ## How It Works
 
-The animation above shows the parallelism model: all same-colored blocks pulse together. This is how the server processes entities—group by operation type (R, G, B), execute each group in parallel across all entities, then move to the next operation. No per-entity sequential loops; pure data-parallel execution.
+The animation shows the parallelism model: all same-colored blocks pulse together. This is how the server processes entities—group by operation type, execute each group in parallel, then move to the next. Pure data-parallel execution.
 
-**The experiment:** How far can AI-driven development go? This codebase is 100% AI-authored—no human code. We're pushing the boundaries of what's possible when an LLM has full control.
-
-## The Approach
-
-**AI needs autonomous testing.** Both client and server are in Rust so Opus can spin them up, run tests, and iterate without human intervention. Just `cargo test`—no manual Java clients, no clicking through menus.
-
-**Flat code, not abstractions.** LLMs don't need abstraction layers to manage complexity—they hold full context and reason about details directly. We keep code explicit so the AI can see exactly what every line does.
-
-## Why It Works
-
-- Minecraft removed obfuscation in snapshot **25w46a**—we can read the official source and match it directly in Rust
-- Self-contained: client + server + protocol, all Rust, all testable
-- Targets latest snapshots to stay ahead
-
-## Goals
+## Plugin Systems
 
 - **Skript Compatibility**: Hot-reloadable event handlers using the [Skript](https://github.com/SkriptLang/Skript) scripting language. The `skript-lang` crate provides parsing and AST for Skript files.
-- **Hot-Reloadable Rust Plugins**: Support for Rust dylib plugins that can be hot-reloaded at runtime without server restarts.
+- **Rust Dylib Plugins**: Native Rust plugins that can be hot-reloaded at runtime.
 
 ## Status
 
@@ -39,3 +32,12 @@ Early development. Targeting Minecraft snapshot builds.
 cargo test        # run tests
 ./ci.sh           # fmt, clippy, tests
 ```
+
+---
+
+<details>
+<summary>About this project</summary>
+
+This codebase is 100% AI-authored (Claude Opus 4.5). Both client and server are in Rust so the AI can spin up tests and iterate autonomously—just `cargo test`, no manual Java clients. Minecraft removed obfuscation in snapshot 25w46a, enabling direct source matching.
+
+</details>
