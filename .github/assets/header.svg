@@ -9,33 +9,27 @@
   <!-- Background -->
   <rect width="800" height="200" fill="url(#bg)"/>
 
-  <!-- RGB Checkerboard Pattern - staggered brick layout -->
+  <!-- RGB Checkerboard Pattern - staggered brick layout, 3 rows -->
   <g opacity="0.9">
-    <!-- Row 0: 5 cells -->
-    <rect x="50" y="40" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="85" y="40" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="120" y="40" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="155" y="40" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="190" y="40" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <!-- Row 0: R G B R G -->
+    <rect x="50" y="55" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="85" y="55" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="120" y="55" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="155" y="55" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="190" y="55" width="30" height="30" fill="#4ecdc4" rx="4"/>
 
-    <!-- Row 1: 4 cells, offset by half -->
-    <rect x="67" y="75" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="102" y="75" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="137" y="75" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="172" y="75" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <!-- Row 1: 4 cells, offset - B R G B -->
+    <rect x="67" y="90" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="102" y="90" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="137" y="90" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="172" y="90" width="30" height="30" fill="#45b7d1" rx="4"/>
 
-    <!-- Row 2: 5 cells -->
-    <rect x="50" y="110" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="85" y="110" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="120" y="110" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="155" y="110" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="190" y="110" width="30" height="30" fill="#45b7d1" rx="4"/>
-
-    <!-- Row 3: 4 cells, offset by half -->
-    <rect x="67" y="145" width="30" height="30" fill="#ff6b6b" rx="4"/>
-    <rect x="102" y="145" width="30" height="30" fill="#4ecdc4" rx="4"/>
-    <rect x="137" y="145" width="30" height="30" fill="#45b7d1" rx="4"/>
-    <rect x="172" y="145" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <!-- Row 2: R G B R G -->
+    <rect x="50" y="125" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="85" y="125" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="120" y="125" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="155" y="125" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="190" y="125" width="30" height="30" fill="#4ecdc4" rx="4"/>
   </g>
 
   <!-- Title -->
@@ -43,29 +37,4 @@
 
   <!-- Subtitle -->
   <text x="280" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#8b949e">Minecraft server written entirely by AI</text>
-
-  <!-- Decorative dots on right -->
-  <g opacity="0.4">
-    <circle cx="650" cy="70" r="4" fill="#ff6b6b"/>
-    <circle cx="670" cy="70" r="4" fill="#4ecdc4"/>
-    <circle cx="690" cy="70" r="4" fill="#45b7d1"/>
-    <circle cx="710" cy="70" r="4" fill="#ff6b6b"/>
-    <circle cx="730" cy="70" r="4" fill="#4ecdc4"/>
-
-    <circle cx="660" cy="90" r="4" fill="#45b7d1"/>
-    <circle cx="680" cy="90" r="4" fill="#ff6b6b"/>
-    <circle cx="700" cy="90" r="4" fill="#4ecdc4"/>
-    <circle cx="720" cy="90" r="4" fill="#45b7d1"/>
-
-    <circle cx="650" cy="110" r="4" fill="#4ecdc4"/>
-    <circle cx="670" cy="110" r="4" fill="#45b7d1"/>
-    <circle cx="690" cy="110" r="4" fill="#ff6b6b"/>
-    <circle cx="710" cy="110" r="4" fill="#4ecdc4"/>
-    <circle cx="730" cy="110" r="4" fill="#45b7d1"/>
-
-    <circle cx="660" cy="130" r="4" fill="#ff6b6b"/>
-    <circle cx="680" cy="130" r="4" fill="#4ecdc4"/>
-    <circle cx="700" cy="130" r="4" fill="#45b7d1"/>
-    <circle cx="720" cy="130" r="4" fill="#ff6b6b"/>
-  </g>
 </svg>
