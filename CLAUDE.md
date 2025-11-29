@@ -26,20 +26,27 @@ This is a Minecraft server implementation targeting version 1.21.11-pre3.
 
 ### Decompiled Minecraft Source Code
 
-**IMPORTANT**: Always look within the decompiled Minecraft code for protocol details instead of using web search. The decompiled code is the authoritative source for packet formats.
+**CRITICAL**: The decompiled Minecraft source is the **SINGLE SOURCE OF TRUTH**. Always consult it first before web searches or wikis. The wiki can be outdated or wrong - the decompiled code never lies.
 
-Minecraft removed obfuscation starting with snapshot **25w46a** (first snapshot after Mounts of Mayhem launch). For earlier versions like 1.21.11-pre3, the code is still obfuscated.
+Decompiled source location: `/tmp/mc-decompile-1.21.11-pre3/decompiled/net/minecraft/`
 
-To get readable source code, decompile a **post-obfuscation-removal snapshot** (25w46a or later):
-- Download: `https://piston-data.mojang.com/v1/objects/{hash}/client.jar`
-- Decompile with CFR: `java -jar cfr.jar client.jar --outputdir /tmp/mc-decompile-new/decompiled`
-- Use `/tmp/mc-decompile-new/decompiled/net/minecraft/` for readable class names
+To decompile 1.21.11-pre3:
+```bash
+# Download client jar (get hash from version manifest)
+curl -o client.jar 'https://piston-data.mojang.com/v1/objects/<hash>/client.jar'
+# Decompile with CFR
+java -jar cfr.jar client.jar --outputdir /tmp/mc-decompile-1.21.11-pre3/decompiled
+```
 
-The packet format is the same between versions - only the class/method names differ.
-
-Key decompiled locations:
-- Packets: `/tmp/mc-decompile-new/decompiled/net/minecraft/network/protocol/game/`
-- Codecs: `/tmp/mc-decompile-new/decompiled/net/minecraft/network/codec/ByteBufCodecs.java`
-- Chunk sections: `/tmp/mc-decompile-new/decompiled/net/minecraft/world/level/chunk/`
-- Paletted containers: `/tmp/mc-decompile-new/decompiled/net/minecraft/world/level/chunk/PalettedContainer.java`
+**Key decompiled locations**:
+- Packets: `network/protocol/game/`
+- Codecs: `network/codec/ByteBufCodecs.java`
+- Chunk sections: `world/level/chunk/`
+- Paletted containers: `world/level/chunk/PalettedContainer.java`
+- Biomes/Sky color: `data/worldgen/biome/OverworldBiomes.java`
+- Dimension types: `data/worldgen/DimensionTypes.java`
+- Light data: `network/protocol/game/ClientboundLightUpdatePacketData.java`
+- Environment attributes (sky_color, fog_color): `world/attribute/EnvironmentAttributes.java`
+- Attribute map serialization: `world/attribute/EnvironmentAttributeMap.java`
+- Sky rendering: `client/renderer/SkyRenderer.java`
 

@@ -12,7 +12,7 @@ use tracing::{debug, info, warn};
 // Import packet types for their IDs
 use mc_packets::play::clientbound::{
     ChunkBatchFinished, ChunkBatchStart, GameEvent, KeepAlive as ClientboundKeepAlive,
-    LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetChunkCacheCenter,
+    LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetChunkCacheCenter, SetTime,
 };
 use mc_packets::play::serverbound::{
     AcceptTeleportation, KeepAlive as ServerboundKeepAlive, MovePlayerPos, MovePlayerPosRot,
@@ -514,8 +514,33 @@ impl Connection {
     }
 
     async fn handle(&mut self) -> anyhow::Result<()> {
+        use std::time::{Duration, Instant};
+
+        let keepalive_interval = Duration::from_secs(15);
+        let mut last_keepalive = Instant::now();
+
         loop {
-            let (packet_id, data) = self.read_packet().await?;
+            // In Play state, use timeout to send keepalives periodically
+            let timeout = if self.state == ConnectionState::Play {
+                let elapsed = last_keepalive.elapsed();
+                if elapsed >= keepalive_interval {
+                    // Time to send keepalive
+                    self.send_keepalive().await?;
+                    last_keepalive = Instant::now();
+                }
+                keepalive_interval.saturating_sub(elapsed)
+            } else {
+                Duration::from_secs(60) // Long timeout for non-play states
+            };
+
+            let read_result = tokio::time::timeout(timeout, self.read_packet()).await;
+
+            let (packet_id, data) = match read_result {
+                Ok(Ok(packet)) => packet,
+                Ok(Err(e)) => return Err(e),
+                Err(_) => continue, // Timeout - loop will send keepalive
+            };
+
             if packet_id == -1 {
                 continue;
             }
@@ -1128,9 +1153,28 @@ impl Connection {
         // Send chunks around spawn with batch packets
         self.send_spawn_chunks().await?;
 
-        // Start keep-alive task
-        self.start_keepalive().await?;
+        // Send time (daytime = 6000 ticks, noon)
+        self.send_time(0, 6000).await?;
 
+        // Send initial keep-alive
+        self.send_keepalive().await?;
+
+        Ok(())
+    }
+
+    async fn send_time(&mut self, world_age: i64, time_of_day: i64) -> anyhow::Result<()> {
+        // Set Time packet
+        let mut data = Vec::new();
+        WriteBytesExt::write_i64::<BigEndian>(&mut data, world_age)?;
+        WriteBytesExt::write_i64::<BigEndian>(&mut data, time_of_day)?;
+        // Boolean: tick day time (true = day/night cycle continues)
+        false.encode(&mut data)?; // false = fixed time
+
+        self.send_packet(SetTime::ID, &data).await?;
+        debug!(
+            "Sent Set Time: world_age={}, time_of_day={}",
+            world_age, time_of_day
+        );
         Ok(())
     }
 
@@ -1286,11 +1330,17 @@ impl Connection {
         Ok(())
     }
 
-    async fn start_keepalive(&mut self) -> anyhow::Result<()> {
-        // Send initial keep-alive
+    async fn send_keepalive(&mut self) -> anyhow::Result<()> {
+        // Send keep-alive with current timestamp
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+
         let mut data = Vec::new();
-        WriteBytesExt::write_i64::<BigEndian>(&mut data, 0)?;
+        WriteBytesExt::write_i64::<BigEndian>(&mut data, timestamp)?;
         self.send_packet(ClientboundKeepAlive::ID, &data).await?;
+        debug!("Sent Keep Alive: {}", timestamp);
         Ok(())
     }
 
@@ -1355,8 +1405,11 @@ fn create_dimension_type_nbt() -> Vec<u8> {
     // Use the actual 1.21 dimension type format
     let json = serde_json::json!({
         "ambient_light": 0.0,
+        "bed_works": true,
         "coordinate_scale": 1.0,
+        "effects": "minecraft:overworld",  // CRITICAL: This controls sky rendering!
         "has_ceiling": false,
+        "has_raids": true,
         "has_skylight": true,
         "height": 384,
         "infiniburn": "#minecraft:infiniburn_overworld",
@@ -1367,17 +1420,33 @@ fn create_dimension_type_nbt() -> Vec<u8> {
             "type": "minecraft:uniform",
             "max_inclusive": 7,
             "min_inclusive": 0
-        }
+        },
+        "natural": true,
+        "piglin_safe": false,
+        "respawn_anchor_works": false,
+        "ultrawarm": false
     });
 
     json_to_network_nbt(&json)
 }
 
 fn create_biome_nbt() -> Vec<u8> {
+    // Plains biome sky color calculated from temperature 0.8
+    // calculateSkyColor(0.8) in OverworldBiomes.java gives approximately 0x78A7FF
+    let sky_color: i32 = 0x78A7FF;
+    let fog_color: i32 = 0xC0D8FF; // Light blue-white fog
+
+    // In 1.21.11+, sky_color is in attributes using EnvironmentAttributeMap
+    // When using override() modifier (default), the value is serialized directly (not wrapped)
+    // See EnvironmentAttributeMap.Entry.createCodec() - Either.left for override values
     let json = serde_json::json!({
         "has_precipitation": true,
         "temperature": 0.8,
         "downfall": 0.4,
+        "attributes": {
+            "visual/sky_color": sky_color,
+            "visual/fog_color": fog_color
+        },
         "effects": {
             "water_color": 0x3F76E4i32
         }
