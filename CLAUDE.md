@@ -55,7 +55,7 @@ java -jar cfr.jar client.jar --outputdir /tmp/mc-decompile-1.21.11-pre3/decompil
 
 Use `nix run .#mc-data-gen` to generate Mojang's data reports (blocks, items, packets, etc).
 
-Data files in `crates/mc-packets/data/`:
+Data files in `crates/mc-data/data/`:
 - `blocks.json` - All block states with IDs (from Mojang data generator)
 - `packets-ids.json` - Packet IDs
 - `protocol.json` - Protocol version info
@@ -65,7 +65,7 @@ Data files in `crates/mc-packets/data/`:
 Block state IDs are auto-generated from `blocks.json`. Use the registry instead of hardcoding IDs:
 
 ```rust
-use mc_packets::{BlockState, blocks};
+use mc_data::{BlockState, blocks};
 
 // Use block constants (default states)
 let air = blocks::AIR;           // BlockState(0)

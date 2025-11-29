@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 mc-protocol = { path = "../mc-protocol" }
-mc-packets = { path = "../mc-packets" }
+mc-data = { path = "../mc-data" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

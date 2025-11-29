@@ -2,7 +2,7 @@ use std::io::Cursor;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use mc_packets::Packet;
+use mc_data::Packet;
 use mc_protocol::{Decode, Encode, Uuid, read_varint, write_varint};
 use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -10,11 +10,11 @@ use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, warn};
 
 // Import packet types for their IDs
-use mc_packets::play::clientbound::{
+use mc_data::play::clientbound::{
     ChunkBatchFinished, ChunkBatchStart, GameEvent, KeepAlive as ClientboundKeepAlive,
     LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetChunkCacheCenter, SetTime,
 };
-use mc_packets::play::serverbound::{
+use mc_data::play::serverbound::{
     self as play_serverbound, AcceptTeleportation, KeepAlive as ServerboundKeepAlive,
     MovePlayerPos, MovePlayerPosRot, MovePlayerRot, MovePlayerStatusOnly,
 };
@@ -609,8 +609,8 @@ impl Connection {
                 info!("Status request");
                 let status = ServerStatus {
                     version: Version {
-                        name: mc_packets::PROTOCOL_NAME.to_string(),
-                        protocol: mc_packets::PROTOCOL_VERSION,
+                        name: mc_data::PROTOCOL_NAME.to_string(),
+                        protocol: mc_data::PROTOCOL_VERSION,
                     },
                     players: Players {
                         max: 100,
@@ -1608,7 +1608,7 @@ fn write_superflat_section(data: &mut Vec<u8>) {
     //   2. palette.write() - for HashMapPalette: VarInt(size) + size * VarInt(global_id)
     //   3. writeFixedSizeLongArray() - NO length prefix! Just raw longs
 
-    use mc_packets::blocks;
+    use mc_data::blocks;
 
     // Bits per entry - need at least 2 bits for 4 block types
     // Minecraft uses palette when bits <= 8, direct when bits > 8
@@ -1667,7 +1667,7 @@ async fn main() -> anyhow::Result<()> {
     info!(
         "Minecraft server listening on {} (version {})",
         addr,
-        mc_packets::PROTOCOL_NAME
+        mc_data::PROTOCOL_NAME
     );
 
     loop {

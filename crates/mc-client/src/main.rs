@@ -221,7 +221,7 @@ impl Client {
         let mut data = Vec::new();
 
         // Protocol Version (VarInt)
-        write_varint(&mut data, mc_packets::PROTOCOL_VERSION)?;
+        write_varint(&mut data, mc_data::PROTOCOL_VERSION)?;
 
         // Server Address (String)
         host.encode(&mut data)?;
@@ -234,7 +234,7 @@ impl Client {
 
         self.send_packet(0, &data).await?;
         self.state = ConnectionState::Login;
-        info!("Sent Handshake (protocol {})", mc_packets::PROTOCOL_VERSION);
+        info!("Sent Handshake (protocol {})", mc_data::PROTOCOL_VERSION);
         Ok(())
     }
 

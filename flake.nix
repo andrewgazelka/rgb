@@ -306,7 +306,7 @@ JAVA_EOF
         mcGen = pkgs.writeShellScriptBin "mc-gen" ''
           set -euo pipefail
           VERSION="''${1:-${mcVersion}}"
-          DATA_DIR="./crates/mc-packets/data"
+          DATA_DIR="./crates/mc-data/data"
 
           TEMP_DIR=$(mktemp -d)
           trap "rm -rf $TEMP_DIR" EXIT
@@ -338,7 +338,7 @@ JAVA_EOF
 
           echo ""
           echo "Updated data files in $DATA_DIR"
-          echo "Run \`cargo build -p mc-packets\` to rebuild with new data."
+          echo "Run \`cargo build -p mc-data\` to rebuild with new data."
         '';
 
       in {
