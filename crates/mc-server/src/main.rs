@@ -11,8 +11,8 @@ use tracing::{debug, info, warn};
 
 // Import packet types for their IDs
 use mc_packets::play::clientbound::{
-    GameEvent, KeepAlive as ClientboundKeepAlive, LevelChunkWithLight, Login as PlayLogin,
-    PlayerPosition, SetChunkCacheCenter,
+    ChunkBatchFinished, ChunkBatchStart, GameEvent, KeepAlive as ClientboundKeepAlive,
+    LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetChunkCacheCenter,
 };
 use mc_packets::play::serverbound::{
     AcceptTeleportation, KeepAlive as ServerboundKeepAlive, MovePlayerPos, MovePlayerPosRot,
@@ -1122,11 +1122,11 @@ impl Connection {
         // Send game event to start waiting for chunks
         self.send_game_event_start_waiting().await?;
 
-        // Send chunks around spawn
-        self.send_spawn_chunks().await?;
-
-        // Send Set Center Chunk
+        // Send Set Center Chunk BEFORE chunks so client knows where to expect them
         self.send_set_center_chunk(0, 0).await?;
+
+        // Send chunks around spawn with batch packets
+        self.send_spawn_chunks().await?;
 
         // Start keep-alive task
         self.start_keepalive().await?;
@@ -1186,30 +1186,41 @@ impl Connection {
     }
 
     async fn send_spawn_chunks(&mut self) -> anyhow::Result<()> {
-        // Send a 3x3 grid of chunks around spawn
-        for cx in -1..=1 {
-            for cz in -1..=1 {
+        // Start chunk batch
+        self.send_packet(ChunkBatchStart::ID, &[]).await?;
+
+        // Send a larger grid of chunks around spawn (view distance)
+        let view_distance = 8i32;
+        let mut chunk_count = 0;
+        for cx in -view_distance..=view_distance {
+            for cz in -view_distance..=view_distance {
                 self.send_chunk(cx, cz).await?;
+                chunk_count += 1;
             }
         }
+
+        // Finish chunk batch with chunk count
+        let mut data = Vec::new();
+        write_varint(&mut data, chunk_count)?;
+        self.send_packet(ChunkBatchFinished::ID, &data).await?;
+
         Ok(())
     }
 
     async fn send_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> anyhow::Result<()> {
         // Chunk Data and Update Light (0x27)
-        // Based on decompiled aer.java (level_chunk_with_light)
+        // Based on decompiled ClientboundLevelChunkWithLightPacket.java
         let mut data = Vec::new();
 
         // Chunk X, Z (Int)
         WriteBytesExt::write_i32::<BigEndian>(&mut data, chunk_x)?;
         WriteBytesExt::write_i32::<BigEndian>(&mut data, chunk_z)?;
 
-        // ========== Chunk Data (aeq) ==========
+        // ========== Chunk Data (ClientboundLevelChunkPacketData) ==========
 
-        // Heightmaps: Map<euq.a, long[]>
+        // Heightmaps: Map<Heightmap.Types, long[]>
         // Format: VarInt count, then for each: VarInt enum_id + VarInt array_len + longs
-        // Try with empty heightmaps first to test if the issue is elsewhere
-        write_varint(&mut data, 0)?; // 0 heightmap entries (empty map)
+        write_varint(&mut data, 0)?; // 0 heightmap entries (empty map for now)
 
         // Chunk section data (byte array with VarInt length prefix)
         let chunk_data = create_superflat_chunk_data();
@@ -1219,34 +1230,56 @@ impl Connection {
         // Block Entities (VarInt count + array)
         write_varint(&mut data, 0)?; // No block entities
 
-        // ========== Light Data (aev) ==========
-        // BitSet format: VarInt count of longs, then longs
+        // ========== Light Data (ClientboundLightUpdatePacketData) ==========
+        // For a superflat world, all sections above ground should have full sky light (15)
+        // There are 24 chunk sections (-64 to 320), plus 2 extra for lighting (above and below)
+        // Total: 26 light sections (indices 0-25)
 
-        // Sky light mask (BitSet) - which sections have sky light
-        write_varint(&mut data, 0)?; // empty bitset (0 longs)
+        // Sky light mask (BitSet) - which sections have sky light data
+        // For superflat: sections 5-25 have sky light (above Y=0)
+        // Section 4 is at Y=0-15 which contains the ground, sections 5+ are all air
+        let mut sky_mask: u64 = 0;
+        // Set bits for sections 1-25 (all above bedrock, in light section coordinates)
+        // Light sections are indexed from -1 relative to chunk sections
+        // So light section 0 = chunk Y = -80 to -65 (below world)
+        // Light section 5 = chunk section 4 (Y=0-15) and above
+        for i in 5..=25 {
+            sky_mask |= 1u64 << i;
+        }
+        write_varint(&mut data, 1)?; // 1 long in bitset
+        WriteBytesExt::write_i64::<BigEndian>(&mut data, sky_mask as i64)?;
 
-        // Block light mask (BitSet)
-        write_varint(&mut data, 0)?;
+        // Block light mask (BitSet) - which sections have block light data
+        write_varint(&mut data, 0)?; // No block light data
 
-        // Empty sky light mask (BitSet) - which sections are fully lit
-        write_varint(&mut data, 0)?;
+        // Empty sky light mask (BitSet) - which sections have NO sky light (all zeros)
+        // Sections 0-4 (underground) have no sky light
+        let mut empty_sky_mask: u64 = 0;
+        for i in 0..5 {
+            empty_sky_mask |= 1u64 << i;
+        }
+        write_varint(&mut data, 1)?;
+        WriteBytesExt::write_i64::<BigEndian>(&mut data, empty_sky_mask as i64)?;
 
         // Empty block light mask (BitSet)
         write_varint(&mut data, 0)?;
 
-        // Sky Light Arrays (List<byte[2048]>)
-        write_varint(&mut data, 0)?; // 0 arrays
+        // Sky Light Arrays (List<byte[2048]>) - one for each bit set in sky_mask
+        // Count how many sections have sky light
+        let sky_section_count = (5..=25).count(); // 21 sections
+        write_varint(&mut data, sky_section_count as i32)?;
+
+        // Each light array is 2048 bytes (4 bits per block, 16x16x16 = 4096 blocks = 2048 bytes)
+        // Full brightness = 15 for all blocks = 0xFF for each byte (two 15s packed)
+        let full_light = vec![0xFFu8; 2048];
+        for _ in 0..sky_section_count {
+            // Each array is prefixed with VarInt length
+            write_varint(&mut data, 2048)?;
+            data.extend_from_slice(&full_light);
+        }
 
         // Block Light Arrays (List<byte[2048]>)
-        write_varint(&mut data, 0)?; // 0 arrays
-
-        // Debug: print chunk packet data breakdown
-        info!("Chunk packet data size: {} bytes", data.len());
-        info!("First 50 bytes: {:02x?}", &data[..50.min(data.len())]);
-        info!(
-            "Bytes 8-20 (after coords): {:02x?}",
-            &data[8..20.min(data.len())]
-        );
+        write_varint(&mut data, 0)?; // No block light arrays
 
         self.send_packet(LevelChunkWithLight::ID, &data).await?;
         debug!("Sent chunk ({}, {})", chunk_x, chunk_z);
