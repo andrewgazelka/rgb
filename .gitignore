@@ -29,3 +29,6 @@ build/
 *.class
 *.jar
 !gradle/wrapper/*.jar
+
+# Hot-reloadable plugins (compiled dylibs)
+plugins/

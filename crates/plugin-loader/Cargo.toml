@@ -13,5 +13,18 @@ notify.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 
-[lints]
-workspace = true
+[lints.clippy]
+# Inherit from workspace
+allow_attributes = "allow"
+allow_attributes_without_reason = "allow"
+
+[lints.rust]
+# Dynamic library loading requires unsafe code
+unsafe_code = "allow"
+# Inherit rest from workspace
+deprecated_safe = { level = "deny", priority = -1 }
+future_incompatible = { level = "deny", priority = -1 }
+keyword_idents = { level = "deny", priority = -1 }
+rust_2018_idioms = { level = "deny", priority = -1 }
+dead_code = "allow"
+mismatched_lifetime_syntaxes = "allow"

@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
 
     // Enable REST API for Flecs Explorer
     world.set(flecs::rest::Rest::default());
-    world.import::<flecs::stats::Stats>();
+    world.import::<flecs_ecs::addons::stats::Stats>();
 
     loop {
         let start = std::time::Instant::now();

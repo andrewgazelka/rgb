@@ -182,10 +182,10 @@ impl PluginLoader {
 
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension() == Some(OsStr::new(ext)) {
-                if let Err(e) = self.load_plugin(&path, world) {
-                    error!("Failed to load plugin {}: {}", path.display(), e);
-                }
+            if path.extension() == Some(OsStr::new(ext))
+                && let Err(e) = self.load_plugin(&path, world)
+            {
+                error!("Failed to load plugin {}: {}", path.display(), e);
             }
         }
 
@@ -269,7 +269,9 @@ impl PluginLoader {
         };
 
         let ext = Self::dylib_extension();
-        let mut reloaded = 0;
+
+        // Collect paths to reload first (to avoid borrow issues)
+        let mut paths_to_reload = Vec::new();
 
         // Process all pending events
         while let Ok(event_result) = rx.try_recv() {
@@ -278,8 +280,10 @@ impl PluginLoader {
             };
 
             // We care about modify and create events
-            use notify::EventKind;
-            let dominated = matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_));
+            let dominated = matches!(
+                event.kind,
+                notify::EventKind::Modify(_) | notify::EventKind::Create(_)
+            );
 
             if !dominated {
                 continue;
@@ -288,11 +292,17 @@ impl PluginLoader {
             for path in event.paths {
                 if path.extension() == Some(OsStr::new(ext)) {
                     debug!("Detected change in plugin: {}", path.display());
-                    match self.reload_plugin(&path, world) {
-                        Ok(()) => reloaded += 1,
-                        Err(e) => error!("Failed to reload plugin {}: {}", path.display(), e),
-                    }
+                    paths_to_reload.push(path);
                 }
+            }
+        }
+
+        // Now reload the plugins
+        let mut reloaded = 0;
+        for path in paths_to_reload {
+            match self.reload_plugin(&path, world) {
+                Ok(()) => reloaded += 1,
+                Err(e) => error!("Failed to reload plugin {}: {}", path.display(), e),
             }
         }
 
