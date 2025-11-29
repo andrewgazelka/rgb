@@ -2,6 +2,10 @@
   <img src=".github/assets/header.svg" alt="rgb" width="100%"/>
 </p>
 
+<p align="center">
+  <code>nix run github:andrewgazelka/rgb</code>
+</p>
+
 A Minecraft server written entirely by AI (Claude Opus 4.5).
 
 **The experiment:** How far can AI-driven development go? This codebase is 100% AI-authored—no human code. We're pushing the boundaries of what's possible when an LLM has full control.
