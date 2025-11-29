@@ -5,6 +5,7 @@ use flecs_ecs::prelude::*;
 
 /// Chunk coordinates
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[flecs(meta)]
 pub struct ChunkPos {
     pub x: i32,
     pub z: i32,

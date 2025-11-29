@@ -81,4 +81,3 @@ let stone = BlockState::by_name("minecraft:stone");
 ```
 
 **NEVER hardcode block state IDs** - they change between versions. Always use the registry.
-

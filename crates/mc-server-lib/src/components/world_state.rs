@@ -7,6 +7,7 @@ use super::ChunkPos;
 
 /// Singleton: World time tracking
 #[derive(Component, Debug)]
+#[flecs(meta)]
 pub struct WorldTime {
     pub world_age: i64,
     pub time_of_day: i64,

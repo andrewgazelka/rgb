@@ -296,3 +296,14 @@ pub fn create_chunk_batch_finished(count: i32) -> anyhow::Result<Vec<u8>> {
     write_varint(&mut data, count)?;
     Ok(data)
 }
+
+/// Create action bar text packet (position display above hotbar)
+/// The text component is encoded as NBT string
+pub fn create_action_bar_text(text: &str) -> anyhow::Result<Vec<u8>> {
+    use mc_protocol::nbt;
+    // Text component as NBT compound with "text" field
+    let compound = nbt! {
+        "text" => text,
+    };
+    Ok(compound.to_network_bytes())
+}

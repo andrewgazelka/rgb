@@ -2,7 +2,8 @@ use bytes::Bytes;
 use flecs_ecs::prelude::*;
 use mc_data::play::clientbound::{
     ChunkBatchFinished, ChunkBatchStart, GameEvent, KeepAlive as ClientboundKeepAlive,
-    LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetChunkCacheCenter, SetTime,
+    LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetActionBarText, SetChunkCacheCenter,
+    SetTime,
 };
 use mc_data::play::serverbound::{
     AcceptTeleportation, KeepAlive as ServerboundKeepAlive, MovePlayerPos, MovePlayerPosRot,
@@ -17,9 +18,9 @@ use crate::components::{
     NeedsSpawnChunks, PacketBuffer, Position, ProtocolState, Rotation,
 };
 use crate::packets::{
-    create_chunk_batch_finished, create_game_event_start_waiting, create_keepalive,
-    create_play_login, create_player_position, create_set_center_chunk, create_set_time,
-    encode_packet,
+    create_action_bar_text, create_chunk_batch_finished, create_game_event_start_waiting,
+    create_keepalive, create_play_login, create_player_position, create_set_center_chunk,
+    create_set_time, encode_packet,
 };
 
 fn send_play_login(buffer: &mut PacketBuffer, entity_id: i32) {
@@ -71,6 +72,12 @@ fn send_chunk_batch_finished(buffer: &mut PacketBuffer, count: i32) {
     }
 }
 
+fn send_action_bar(buffer: &mut PacketBuffer, text: &str) {
+    if let Ok(data) = create_action_bar_text(text) {
+        buffer.push_outgoing(encode_packet(SetActionBarText::ID, &data));
+    }
+}
+
 /// Play module - handles gameplay
 #[derive(Component)]
 pub struct PlayModule;
@@ -107,7 +114,7 @@ impl Module for PlayModule {
                         let buf = &mut buffer[i];
 
                         // 1. Send Play Login - creates player and level on client
-                        send_play_login(buf, entity_id.0);
+                        send_play_login(buf, entity_id.value);
 
                         // 2. Send game event (start waiting for chunks) - client waits for chunks
                         send_game_event_start_waiting(buf);
@@ -168,6 +175,19 @@ impl Module for PlayModule {
                 // Send keepalive every 300 ticks (15 seconds at 20 TPS)
                 if world_time.world_age % 300 == 0 {
                     send_keepalive(buffer);
+                }
+            });
+
+        // Send position to action bar (every 10 ticks = 0.5 seconds)
+        world
+            .system_named::<(&mut PacketBuffer, &Position, &WorldTime)>("SendPositionActionBar")
+            .with(Connection)
+            .with(InPlayState)
+            .each(|(buffer, pos, world_time)| {
+                // Update every 10 ticks (0.5 seconds at 20 TPS)
+                if world_time.world_age % 10 == 0 {
+                    let text = format!("X: {:.1} Y: {:.1} Z: {:.1}", pos.x, pos.y, pos.z);
+                    send_action_bar(buffer, &text);
                 }
             });
     }

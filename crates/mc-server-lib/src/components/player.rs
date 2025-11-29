@@ -6,18 +6,38 @@ pub struct Player;
 
 /// Player's username
 #[derive(Component, Debug, Clone)]
-pub struct PlayerName(pub String);
+#[flecs(meta)]
+pub struct Name {
+    pub value: String,
+}
 
-/// Player's UUID
+/// Player's UUID (stored as u128, serialized as hex string for flecs explorer)
 #[derive(Component, Debug, Clone, Copy)]
-pub struct PlayerUuid(pub u128);
+pub struct Uuid(pub u128);
+
+/// Register Uuid with opaque serialization (u128 -> hex string)
+pub fn register_uuid_meta(world: &World) {
+    world
+        .component::<Uuid>()
+        .opaque_id(world.component_untyped().member(String::id(), "uuid"))
+        .serialize(|s: &Serializer, data: &Uuid| {
+            s.member("uuid");
+            let hex = format!("{:032x}", data.0);
+            s.value(&hex);
+            0
+        });
+}
 
 /// Entity ID assigned by server (for protocol)
 #[derive(Component, Debug, Clone, Copy)]
-pub struct EntityId(pub i32);
+#[flecs(meta)]
+pub struct EntityId {
+    pub value: i32,
+}
 
 /// Player position in world
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -39,6 +59,7 @@ impl Position {
 
 /// Player rotation
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct Rotation {
     pub yaw: f32,
     pub pitch: f32,
@@ -53,6 +74,7 @@ impl Rotation {
 
 /// Player's current chunk position (for view distance tracking)
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct ChunkPosition {
     pub x: i32,
     pub z: i32,
@@ -67,13 +89,16 @@ impl ChunkPosition {
 
 /// Player game mode
 #[derive(Component, Debug, Clone, Copy, Default)]
-pub struct GameMode(pub u8);
+#[flecs(meta)]
+pub struct GameMode {
+    pub value: u8,
+}
 
 impl GameMode {
-    pub const SURVIVAL: Self = Self(0);
-    pub const CREATIVE: Self = Self(1);
-    pub const ADVENTURE: Self = Self(2);
-    pub const SPECTATOR: Self = Self(3);
+    pub const SURVIVAL: Self = Self { value: 0 };
+    pub const CREATIVE: Self = Self { value: 1 };
+    pub const ADVENTURE: Self = Self { value: 2 };
+    pub const SPECTATOR: Self = Self { value: 3 };
 }
 
 /// Tag: Player has completed login and is in Play state
@@ -90,4 +115,7 @@ pub struct ViewCenterDirty;
 
 /// Tag: Player is awaiting teleport confirmation
 #[derive(Component, Debug, Clone, Copy)]
-pub struct AwaitingTeleportAck(pub i32);
+#[flecs(meta)]
+pub struct AwaitingTeleportAck {
+    pub teleport_id: i32,
+}

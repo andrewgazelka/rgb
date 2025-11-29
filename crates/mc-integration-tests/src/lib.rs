@@ -103,18 +103,23 @@ pub fn is_enabled() -> bool {
 /// Get the path to the mc-server binary
 #[must_use]
 pub fn server_binary_path() -> PathBuf {
-    std::env::var("MC_SERVER_BINARY")
+    // First, determine the workspace root
+    let workspace_root = std::env::var("CARGO_MANIFEST_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            // Try to find it relative to the workspace
-            let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("."));
+        .ok()
+        .and_then(|manifest| manifest.parent().and_then(|p| p.parent()).map(PathBuf::from))
+        .unwrap_or_else(|| PathBuf::from("."));
 
-            manifest_dir
-                .parent()
-                .and_then(|p| p.parent())
-                .map(|workspace| workspace.join("target/release/mc-server"))
-                .unwrap_or_else(|| PathBuf::from("target/release/mc-server"))
-        })
+    // If MC_SERVER_BINARY is set, use it (resolve relative paths from workspace root)
+    if let Ok(path) = std::env::var("MC_SERVER_BINARY") {
+        let path = PathBuf::from(&path);
+        if path.is_absolute() {
+            return path;
+        }
+        // Make relative path absolute from workspace root (not current dir)
+        return workspace_root.join(path);
+    }
+
+    // Default: workspace/target/release/mc-server
+    workspace_root.join("target/release/mc-server")
 }

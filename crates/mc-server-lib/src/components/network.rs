@@ -49,10 +49,13 @@ pub struct Connection;
 
 /// Unique ID for routing packets to correct connection
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[flecs(meta)]
 pub struct ConnectionId(pub u64);
 
 /// Current protocol state of the connection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Component)]
+#[repr(C)]
+#[flecs(meta)]
 pub enum ConnectionState {
     #[default]
     Handshaking,
@@ -63,6 +66,7 @@ pub enum ConnectionState {
 }
 
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct ProtocolState(pub ConnectionState);
 
 /// Buffer for incoming/outgoing packets per connection

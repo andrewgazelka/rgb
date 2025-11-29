@@ -4,6 +4,7 @@ pub const CHUNK_SIZE: usize = 16;
 pub const REGION_SIZE: usize = 4;
 
 #[derive(Component, Copy, Clone, Hash, Eq, PartialEq, Debug, Default)]
+#[flecs(meta)]
 pub struct ChunkPos {
     pub x: i32,
     pub y: i32,

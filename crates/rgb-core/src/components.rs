@@ -54,6 +54,7 @@ impl Default for NextCellData {
 
 /// Parallel processing color (0-8) based on region position
 #[derive(Component, Copy, Clone)]
+#[flecs(meta)]
 pub struct SimColor(pub u8);
 
 /// Tag: chunk needs texture update
@@ -101,7 +102,9 @@ pub struct NeighborSE;
 pub struct NeighborSW;
 
 /// Direction enum for neighbor lookups
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Component)]
+#[repr(C)]
+#[flecs(meta)]
 pub enum Direction {
     N,
     S,

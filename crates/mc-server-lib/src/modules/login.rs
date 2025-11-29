@@ -3,8 +3,8 @@ use tracing::{debug, info};
 
 use crate::EntityIdCounter;
 use crate::components::{
-    ChunkPosition, Connection, ConnectionState, EntityId, GameMode, PacketBuffer, Player,
-    PlayerName, PlayerUuid, Position, ProtocolState, Rotation,
+    ChunkPosition, Connection, ConnectionState, EntityId, GameMode, Name, PacketBuffer, Player,
+    Position, ProtocolState, Rotation, Uuid, register_uuid_meta,
 };
 use crate::packets::{
     create_known_packs, create_login_success, encode_packet, offline_uuid, parse_login_start,
@@ -40,8 +40,9 @@ impl Module for LoginModule {
 
         // Register components
         world.component::<Player>();
-        world.component::<PlayerName>();
-        world.component::<PlayerUuid>();
+        world.component::<Name>();
+        world.component::<Uuid>();
+        register_uuid_meta(world); // Custom opaque serialization for u128
         world.component::<EntityId>();
         world.component::<Position>();
         world.component::<Rotation>();
@@ -79,9 +80,11 @@ impl Module for LoginModule {
                                 // Add player components
                                 let entity_id = entity_counter.next();
                                 e.add(Player);
-                                e.set(PlayerName(name.clone()));
-                                e.set(PlayerUuid(player_uuid));
-                                e.set(EntityId(entity_id));
+                                e.set(Name {
+                                    value: name.clone(),
+                                });
+                                e.set(Uuid(player_uuid));
+                                e.set(EntityId { value: entity_id });
                                 e.set(Position::new(0.0, 4.0, 0.0));
                                 e.set(Rotation::new(0.0, 0.0));
                                 e.set(ChunkPosition::new(0, 0));

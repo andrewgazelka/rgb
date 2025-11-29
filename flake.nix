@@ -318,7 +318,7 @@ JAVA_EOF
           ls -la build/libs/*.jar 2>/dev/null || echo "No JAR found in build/libs"
         '';
 
-        # Run integration tests with Xvfb for headless Minecraft
+        # Run integration tests (xvfb-run on Linux for headless, native window on macOS)
         runIntegrationTests = pkgs.writeShellScriptBin "run-integration-tests" ''
           set -euo pipefail
 
@@ -333,12 +333,19 @@ JAVA_EOF
           echo "Building Fabric test agent..."
           ${buildFabricTestAgent}/bin/build-fabric-test-agent "."
 
-          # Run tests with virtual framebuffer
+          # Run tests
           echo "Running integration tests..."
           export MC_INTEGRATION_TESTS=1
+          export MC_FABRIC_CLIENT=1
           export MC_SERVER_BINARY="target/release/mc-server"
 
-          ${pkgs.xvfb-run}/bin/xvfb-run -a cargo nextest run -p mc-integration-tests "$@"
+          ${if pkgs.stdenv.isLinux then ''
+            # Linux: use virtual framebuffer for headless testing
+            ${pkgs.xvfb-run}/bin/xvfb-run -a cargo nextest run -p mc-integration-tests "$@"
+          '' else ''
+            # macOS: run with native display (Minecraft window will open)
+            cargo nextest run -p mc-integration-tests "$@"
+          ''}
         '';
 
         # Extract and update JSON data files for packet generation
@@ -413,7 +420,6 @@ JAVA_EOF
             pkgs.curl
             pkgs.jq
             pkgs.gradle
-            pkgs.xvfb-run
             mcDataGen
             mcGen
             packetExtractor

@@ -20,7 +20,7 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            binary_path: PathBuf::from("target/release/mc-server"),
+            binary_path: crate::server_binary_path(),
             startup_timeout: Duration::from_secs(30),
         }
     }
@@ -38,7 +38,7 @@ impl ServerProcess {
     /// # Errors
     /// Returns an error if the server fails to spawn or doesn't start within the timeout
     pub async fn spawn(config: ServerConfig) -> Result<Self> {
-        info!("Spawning server with auto-assigned port");
+        info!("Spawning server from {:?}", config.binary_path);
 
         let mut cmd = Command::new(&config.binary_path);
         cmd.env("MC_PORT", "0") // Port 0 = auto-assign
