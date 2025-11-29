@@ -13,14 +13,13 @@ path = "src/main.rs"
 [dependencies]
 mc-protocol = { path = "../mc-protocol" }
 mc-data = { path = "../mc-data" }
+mc-server-lib = { path = "../mc-server-lib" }
 tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
-byteorder = "1"
-fastnbt = "2"
+bytes.workspace = true
+crossbeam-channel.workspace = true
 
 [lints]
 workspace = true

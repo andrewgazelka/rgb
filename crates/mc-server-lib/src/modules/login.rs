@@ -48,10 +48,7 @@ impl Module for LoginModule {
         world.component::<ChunkPosition>();
         world.component::<GameMode>();
 
-        // Register EntityIdCounter singleton
-        world
-            .component::<EntityIdCounter>()
-            .add_trait::<flecs::Singleton>();
+        // EntityIdCounter singleton trait is registered in create_world()
 
         // Handle login packets
         world
@@ -64,7 +61,10 @@ impl Module for LoginModule {
                     return;
                 }
 
+                debug!("HandleLogin: checking for packets (state={:?})", state.0);
+
                 while let Some((packet_id, data)) = buffer.pop_incoming() {
+                    debug!("HandleLogin: got packet_id={}", packet_id);
                     match packet_id {
                         0 => {
                             // Login Start

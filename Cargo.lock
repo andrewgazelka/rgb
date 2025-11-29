@@ -1090,12 +1090,11 @@ name = "mc-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "byteorder",
- "fastnbt",
+ "bytes",
+ "crossbeam-channel",
  "mc-data",
  "mc-protocol",
- "serde",
- "serde_json",
+ "mc-server-lib",
  "tokio",
  "tracing",
  "tracing-subscriber",

@@ -13,7 +13,7 @@ name = "mc-server"
 
 [workspace.dependencies]
 rayon = "1.10"
-flecs_ecs = "0.2"
+flecs_ecs = { version = "0.2", features = ["flecs_app", "flecs_rest", "flecs_stats"] }
 crossbeam-channel = "0.5"
 bytes = "1"
 anyhow = "1"

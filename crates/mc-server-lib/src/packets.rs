@@ -170,65 +170,74 @@ pub fn create_known_packs() -> anyhow::Result<Vec<u8>> {
 pub fn create_play_login(entity_id: i32) -> anyhow::Result<Vec<u8>> {
     let mut data = Vec::new();
 
-    // Entity ID (Int)
+    // === ClientboundLoginPacket fields ===
+
+    // 1. Entity ID (Int - 4 bytes BE)
     data.write_i32::<BigEndian>(entity_id)?;
 
-    // Is Hardcore (Boolean)
+    // 2. Is Hardcore (Boolean)
     false.encode(&mut data)?;
 
-    // Dimension Count (VarInt) + Dimension Names
-    write_varint(&mut data, 1)?;
+    // 3. Dimension Count (VarInt) + Dimension Names (Collection of ResourceKey<Level>)
+    write_varint(&mut data, 1)?; // 1 dimension
     "minecraft:overworld".to_string().encode(&mut data)?;
 
-    // Max Players (VarInt)
+    // 4. Max Players (VarInt)
     write_varint(&mut data, 100)?;
 
-    // View Distance (VarInt)
+    // 5. View Distance / Chunk Radius (VarInt)
     write_varint(&mut data, 8)?;
 
-    // Simulation Distance (VarInt)
+    // 6. Simulation Distance (VarInt)
     write_varint(&mut data, 8)?;
 
-    // Reduced Debug Info (Boolean)
+    // 7. Reduced Debug Info (Boolean)
     false.encode(&mut data)?;
 
-    // Enable Respawn Screen (Boolean)
+    // 8. Enable Respawn Screen / Show Death Screen (Boolean)
     true.encode(&mut data)?;
 
-    // Do Limited Crafting (Boolean)
+    // 9. Do Limited Crafting (Boolean)
     false.encode(&mut data)?;
 
-    // Dimension Type (VarInt - registry ID)
+    // === CommonPlayerSpawnInfo fields ===
+
+    // 10. Dimension Type (Holder<DimensionType> - registry reference)
+    // Uses holderRegistry encoding (plain registry ID as VarInt)
+    // Registry ID 0 = first dimension type (overworld)
     write_varint(&mut data, 0)?;
 
-    // Dimension Name (Identifier)
+    // 11. Dimension (ResourceKey<Level> - identifier string)
     "minecraft:overworld".to_string().encode(&mut data)?;
 
-    // Hashed Seed (Long)
+    // 12. Hashed Seed (Long - 8 bytes BE)
     data.write_i64::<BigEndian>(0)?;
 
-    // Game Mode (Unsigned Byte)
-    data.write_u8(1)?; // Creative
+    // 13. Game Mode (Byte, not unsigned!)
+    data.write_u8(1)?; // Creative = 1
 
-    // Previous Game Mode (Byte)
+    // 14. Previous Game Mode (Byte, -1 for none)
     data.write_i8(-1)?;
 
-    // Is Debug (Boolean)
+    // 15. Is Debug (Boolean)
     false.encode(&mut data)?;
 
-    // Is Flat (Boolean)
+    // 16. Is Flat (Boolean)
     true.encode(&mut data)?;
 
-    // Has Death Location (Boolean)
+    // 17. Last Death Location (Optional<GlobalPos>)
+    // writeOptional: false = not present
     false.encode(&mut data)?;
 
-    // Portal Cooldown (VarInt)
+    // 18. Portal Cooldown (VarInt)
     write_varint(&mut data, 0)?;
 
-    // Sea Level (VarInt)
+    // 19. Sea Level (VarInt)
     write_varint(&mut data, 63)?;
 
-    // Enforces Secure Chat (Boolean)
+    // === Back to ClientboundLoginPacket ===
+
+    // 20. Enforces Secure Chat (Boolean)
     false.encode(&mut data)?;
 
     Ok(data)

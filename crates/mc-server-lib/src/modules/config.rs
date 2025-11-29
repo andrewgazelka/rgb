@@ -75,46 +75,66 @@ impl Module for ConfigurationModule {
 }
 
 fn send_registry(buffer: &mut PacketBuffer, data: Vec<u8>) {
+    // Extract registry name for debugging (it's the first string in the data)
+    let mut cursor = std::io::Cursor::new(&data);
+    if let Ok(name) = <String as mc_protocol::Decode>::decode(&mut cursor) {
+        debug!("Sending registry: {} ({} bytes)", name, data.len());
+    }
     let packet = encode_packet(7, &data);
     buffer.push_outgoing(packet);
 }
 
 fn send_registry_data(buffer: &mut PacketBuffer) {
-    if let Ok(data) = create_dimension_type_registry() {
-        send_registry(buffer, data);
+    match create_dimension_type_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create dimension_type registry: {}", e),
     }
-    if let Ok(data) = create_biome_registry() {
-        send_registry(buffer, data);
+    match create_biome_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create biome registry: {}", e),
     }
-    if let Ok(data) = create_damage_type_registry() {
-        send_registry(buffer, data);
+    match create_damage_type_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create damage_type registry: {}", e),
     }
-    if let Ok(data) = create_cat_variant_registry() {
-        send_registry(buffer, data);
+    match create_cat_variant_registry() {
+        Ok(data) => {
+            debug!("Sending cat_variant registry with {} bytes", data.len());
+            send_registry(buffer, data);
+        }
+        Err(e) => tracing::error!("Failed to create cat_variant registry: {}", e),
     }
-    if let Ok(data) = create_chicken_variant_registry() {
-        send_registry(buffer, data);
+    match create_chicken_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create chicken_variant registry: {}", e),
     }
-    if let Ok(data) = create_cow_variant_registry() {
-        send_registry(buffer, data);
+    match create_cow_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create cow_variant registry: {}", e),
     }
-    if let Ok(data) = create_frog_variant_registry() {
-        send_registry(buffer, data);
+    match create_frog_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create frog_variant registry: {}", e),
     }
-    if let Ok(data) = create_pig_variant_registry() {
-        send_registry(buffer, data);
+    match create_pig_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create pig_variant registry: {}", e),
     }
-    if let Ok(data) = create_wolf_variant_registry() {
-        send_registry(buffer, data);
+    match create_wolf_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create wolf_variant registry: {}", e),
     }
-    if let Ok(data) = create_wolf_sound_variant_registry() {
-        send_registry(buffer, data);
+    match create_wolf_sound_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create wolf_sound_variant registry: {}", e),
     }
-    if let Ok(data) = create_zombie_nautilus_variant_registry() {
-        send_registry(buffer, data);
+    match create_zombie_nautilus_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create zombie_nautilus_variant registry: {}", e),
     }
-    if let Ok(data) = create_painting_variant_registry() {
-        send_registry(buffer, data);
+    match create_painting_variant_registry() {
+        Ok(data) => send_registry(buffer, data),
+        Err(e) => tracing::error!("Failed to create painting_variant registry: {}", e),
     }
 
     debug!("Sent all registry data");

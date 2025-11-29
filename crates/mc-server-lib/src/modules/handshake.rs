@@ -1,5 +1,5 @@
 use flecs_ecs::prelude::*;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::components::{Connection, ConnectionState, PacketBuffer, ProtocolState};
 use crate::packets::{create_status_response, encode_packet, parse_handshake};
@@ -32,7 +32,10 @@ impl Module for HandshakeModule {
                     return;
                 }
 
+                debug!("HandleHandshake: checking for packets");
+
                 if let Some((packet_id, data)) = buffer.pop_incoming() {
+                    debug!("HandleHandshake: got packet_id={}", packet_id);
                     if packet_id == 0 {
                         // Handshake packet
                         if let Ok((protocol_version, next_state)) = parse_handshake(&data) {
