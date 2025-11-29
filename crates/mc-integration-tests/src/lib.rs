@@ -107,7 +107,12 @@ pub fn server_binary_path() -> PathBuf {
     let workspace_root = std::env::var("CARGO_MANIFEST_DIR")
         .map(PathBuf::from)
         .ok()
-        .and_then(|manifest| manifest.parent().and_then(|p| p.parent()).map(PathBuf::from))
+        .and_then(|manifest| {
+            manifest
+                .parent()
+                .and_then(|p| p.parent())
+                .map(PathBuf::from)
+        })
         .unwrap_or_else(|| PathBuf::from("."));
 
     // If MC_SERVER_BINARY is set, use it (resolve relative paths from workspace root)

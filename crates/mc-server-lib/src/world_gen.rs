@@ -488,28 +488,47 @@ pub fn create_dimension_type_registry() -> anyhow::Result<Vec<u8>> {
     "minecraft:overworld".to_string().encode(&mut data)?;
     true.encode(&mut data)?;
 
+    // DimensionType format for 1.21.11-pre3:
+    // - has_fixed_time (optional, default false)
+    // - has_skylight
+    // - has_ceiling
+    // - coordinate_scale
+    // - min_y
+    // - height
+    // - logical_height
+    // - infiniburn (block tag)
+    // - ambient_light
+    // - monster_spawn_light_level (IntProvider)
+    // - monster_spawn_block_light_limit
+    // - skybox (optional: "none", "overworld", "end")
+    // - cardinal_light (optional: "default", "nether")
+    // - attributes (EnvironmentAttributeMap with sky_color, fog_color, etc.)
+    // - timelines (optional, HolderSet)
+    //
+    // Sky color for temperature 0.8: calculateSkyColor(0.8) = 0x78A7FF (7907327)
     let nbt_data = nbt! {
-        "ambient_light" => 0.0f32,
-        "bed_works" => true,
-        "coordinate_scale" => 1.0f64,
-        "effects" => "minecraft:overworld",
-        "has_ceiling" => false,
-        "has_raids" => true,
         "has_skylight" => true,
-        "height" => 384i32,
-        "infiniburn" => "#minecraft:infiniburn_overworld",
-        "logical_height" => 384i32,
+        "has_ceiling" => false,
+        "coordinate_scale" => 1.0f64,
         "min_y" => -64i32,
-        "monster_spawn_block_light_limit" => 0i32,
+        "height" => 384i32,
+        "logical_height" => 384i32,
+        "infiniburn" => "#minecraft:infiniburn_overworld",
+        "ambient_light" => 0.0f32,
         "monster_spawn_light_level" => nbt! {
             "type" => "minecraft:uniform",
             "min_inclusive" => 0i32,
             "max_inclusive" => 7i32,
         },
-        "natural" => true,
-        "piglin_safe" => false,
-        "respawn_anchor_works" => false,
-        "ultrawarm" => false,
+        "monster_spawn_block_light_limit" => 0i32,
+        "skybox" => "overworld",
+        "attributes" => nbt! {
+            "minecraft:visual/fog_color" => 0xC0D8FFi32,
+            "minecraft:visual/sky_color" => 0x78A7FFi32,
+            // Cloud color is ARGB - 0xCC alpha (80%) with white (0xFFFFFF)
+            "minecraft:visual/cloud_color" => 0xCCFFFFFFu32 as i32,
+            "minecraft:visual/cloud_height" => 192.33f32,
+        },
     };
     data.extend_from_slice(&nbt_data.to_network_bytes());
 
@@ -524,15 +543,17 @@ pub fn create_biome_registry() -> anyhow::Result<Vec<u8>> {
     "minecraft:plains".to_string().encode(&mut data)?;
     true.encode(&mut data)?;
 
+    // Biome format for 1.21.11-pre3:
+    // - ClimateSettings: has_precipitation, temperature, downfall
+    // - attributes (optional): EnvironmentAttributeMap for positional overrides
+    //   (sky_color is now in dimension type, biome can override based on temperature)
+    // - effects: BiomeSpecialEffects with water_color
     let nbt_data = nbt! {
         "has_precipitation" => true,
         "temperature" => 0.8f32,
         "downfall" => 0.4f32,
         "effects" => nbt! {
-            "sky_color" => 0x78A7FFi32,
-            "fog_color" => 0xC0D8FFi32,
             "water_color" => 0x3F76E4i32,
-            "water_fog_color" => 0x050533i32,
         },
     };
     data.extend_from_slice(&nbt_data.to_network_bytes());
