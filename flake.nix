@@ -306,7 +306,11 @@ JAVA_EOF
 
           mkdir -p "$PACKETS_DIR"
 
-          ${pkgs.python3}/bin/python3 ${./tools/gen_packets.py} "$PACKETS_IDS" "$PACKETS_FIELDS" "$PACKETS_DIR" "$PROTOCOL_VERSION" "$VERSION"
+          # Build and run the Rust generator
+          cargo run --release -p mc-packets-gen -- "$PACKETS_IDS" "$PACKETS_FIELDS" "$PACKETS_DIR" "$PROTOCOL_VERSION" "$VERSION"
+
+          # Format generated code
+          cargo fmt -p mc-packets
 
           echo ""
           echo "Generated packets in $PACKETS_DIR"

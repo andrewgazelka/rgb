@@ -1,4 +1,6 @@
-# rgb
+<p align="center">
+  <img src=".github/assets/header.svg" alt="rgb" width="100%"/>
+</p>
 
 A Minecraft server written entirely by AI (Claude Opus 4.5).
 

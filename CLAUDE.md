@@ -6,6 +6,20 @@ Use `cargo nextest run` for tests
 
 Avoid anonymous tuples with >2 elements. Use named structs instead for clarity.
 
+## Dependencies
+
+All dependencies must be defined at the workspace level in the root `Cargo.toml`, then referenced with `.workspace = true` in individual crates:
+
+```toml
+# Root Cargo.toml
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+
+# Crate Cargo.toml
+[dependencies]
+tokio.workspace = true
+```
+
 ## Project: Minecraft Server in Rust
 
 This is a Minecraft server implementation targeting version 1.21.11-pre3.

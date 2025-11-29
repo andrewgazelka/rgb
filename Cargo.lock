@@ -1039,6 +1039,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mc-packets-gen"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
 name = "mc-protocol"
 version = "0.1.0"
 dependencies = [

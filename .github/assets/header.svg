@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d1117"/>
+      <stop offset="100%" style="stop-color:#161b22"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="200" fill="url(#bg)"/>
+
+  <!-- RGB Checkerboard Pattern -->
+  <g opacity="0.9">
+    <!-- Row 1 -->
+    <rect x="50" y="50" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="85" y="50" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="120" y="50" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="155" y="50" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="190" y="50" width="30" height="30" fill="#4ecdc4" rx="4"/>
+
+    <!-- Row 2 -->
+    <rect x="50" y="85" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="85" y="85" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="120" y="85" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="155" y="85" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="190" y="85" width="30" height="30" fill="#ff6b6b" rx="4"/>
+
+    <!-- Row 3 -->
+    <rect x="50" y="120" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="85" y="120" width="30" height="30" fill="#45b7d1" rx="4"/>
+    <rect x="120" y="120" width="30" height="30" fill="#ff6b6b" rx="4"/>
+    <rect x="155" y="120" width="30" height="30" fill="#4ecdc4" rx="4"/>
+    <rect x="190" y="120" width="30" height="30" fill="#45b7d1" rx="4"/>
+  </g>
+
+  <!-- Title -->
+  <text x="280" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700" fill="#ffffff">rgb</text>
+
+  <!-- Subtitle -->
+  <text x="280" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#8b949e">Minecraft server written entirely by AI</text>
+
+  <!-- Decorative dots on right -->
+  <g opacity="0.4">
+    <circle cx="650" cy="70" r="4" fill="#ff6b6b"/>
+    <circle cx="670" cy="70" r="4" fill="#4ecdc4"/>
+    <circle cx="690" cy="70" r="4" fill="#45b7d1"/>
+    <circle cx="710" cy="70" r="4" fill="#ff6b6b"/>
+    <circle cx="730" cy="70" r="4" fill="#4ecdc4"/>
+
+    <circle cx="660" cy="90" r="4" fill="#45b7d1"/>
+    <circle cx="680" cy="90" r="4" fill="#ff6b6b"/>
+    <circle cx="700" cy="90" r="4" fill="#4ecdc4"/>
+    <circle cx="720" cy="90" r="4" fill="#45b7d1"/>
+
+    <circle cx="650" cy="110" r="4" fill="#4ecdc4"/>
+    <circle cx="670" cy="110" r="4" fill="#45b7d1"/>
+    <circle cx="690" cy="110" r="4" fill="#ff6b6b"/>
+    <circle cx="710" cy="110" r="4" fill="#4ecdc4"/>
+    <circle cx="730" cy="110" r="4" fill="#45b7d1"/>
+
+    <circle cx="660" cy="130" r="4" fill="#ff6b6b"/>
+    <circle cx="680" cy="130" r="4" fill="#4ecdc4"/>
+    <circle cx="700" cy="130" r="4" fill="#45b7d1"/>
+    <circle cx="720" cy="130" r="4" fill="#ff6b6b"/>
+  </g>
+</svg>
