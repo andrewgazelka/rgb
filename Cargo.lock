@@ -1105,6 +1105,7 @@ dependencies = [
 name = "mc-server-lib"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "byteorder",
  "bytes",
  "crossbeam-channel",

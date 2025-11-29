@@ -13,14 +13,16 @@ fn try_parse_login(data: &[u8]) -> Option<(String, u128)> {
 }
 
 fn send_login_success(buffer: &mut PacketBuffer, uuid: u128, name: &str) {
-    if let Ok(response_data) = create_login_success(uuid, name) {
+    let result: anyhow::Result<Vec<u8>> = create_login_success(uuid, name);
+    if let Ok(response_data) = result {
         let packet = encode_packet(2, &response_data);
         buffer.push_outgoing(packet);
     }
 }
 
 fn send_known_packs(buffer: &mut PacketBuffer) {
-    if let Ok(data) = create_known_packs() {
+    let result: anyhow::Result<Vec<u8>> = create_known_packs();
+    if let Ok(data) = result {
         let packet = encode_packet(14, &data);
         buffer.push_outgoing(packet);
     }
