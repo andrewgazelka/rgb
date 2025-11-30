@@ -7,7 +7,7 @@ authors.workspace = true
 description = "TCP listener module - spawns async network server"
 
 [lib]
-crate-type = ["dylib", "rlib"]
+# crate-type = ["dylib", "rlib"]  # Disabled for static linking
 
 [dependencies]
 flecs_ecs.workspace = true

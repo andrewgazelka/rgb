@@ -54,21 +54,18 @@ impl Module for NetworkSystemsModule {
                                 let is_new = !conn_index.map.contains_key(&conn_id);
                                 if is_new {
                                     let name = format!("connection:{}", conn_id);
+                                    // Create buffer with the first packet already in it
+                                    let mut buffer = PacketBuffer::new();
+                                    buffer.push_incoming(packet.packet_id, packet.data);
+
                                     let entity = world
                                         .entity_named(&name)
                                         .add(Connection)
                                         .set(ConnectionId(conn_id))
-                                        .set(PacketBuffer::new())
+                                        .set(buffer)
                                         .set(ProtocolState::default())
                                         .id();
                                     conn_index.map.insert(conn_id, entity);
-
-                                    // Queue packet for next tick
-                                    conn_index.pending_packets.push((
-                                        conn_id,
-                                        packet.packet_id,
-                                        packet.data,
-                                    ));
                                 } else {
                                     let entity = conn_index.map[&conn_id];
                                     let entity_view = world.entity_from_id(entity);

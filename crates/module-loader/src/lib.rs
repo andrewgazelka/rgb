@@ -78,9 +78,8 @@ pub fn ensure_flecs_global() {
         for path in &paths_to_try {
             if path.exists() || path.to_str() == Some(lib_name) {
                 debug!("Trying to load flecs_ecs from: {}", path.display());
-                let result = unsafe {
-                    Library::open(Some(path), libc::RTLD_NOW | libc::RTLD_GLOBAL)
-                };
+                let result =
+                    unsafe { Library::open(Some(path), libc::RTLD_NOW | libc::RTLD_GLOBAL) };
                 match result {
                     Ok(lib) => {
                         info!("Loaded flecs_ecs with RTLD_GLOBAL from: {}", path.display());
@@ -152,9 +151,7 @@ impl LoadedModule {
 
         // Use RTLD_NOW | RTLD_GLOBAL so symbols are available to other modules
         // This is essential for modules to share the same flecs_ecs symbols
-        let library = unsafe {
-            Library::open(Some(path), libc::RTLD_NOW | libc::RTLD_GLOBAL)?
-        };
+        let library = unsafe { Library::open(Some(path), libc::RTLD_NOW | libc::RTLD_GLOBAL)? };
 
         Self::load_inner(library, path)
     }
@@ -174,7 +171,6 @@ impl LoadedModule {
 
     /// Common loading logic after library is opened
     fn load_inner(library: Library, path: &Path) -> Result<Self, ModuleError> {
-
         // Get module name
         let name_fn: Symbol<ModuleNameFn> = unsafe {
             library

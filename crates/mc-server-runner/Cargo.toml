@@ -12,11 +12,27 @@ path = "src/main.rs"
 
 [dependencies]
 flecs_ecs.workspace = true
-module-loader = { path = "../module-loader" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 eyre.workspace = true
 crossterm = "0.28"
+
+# Component crates
+module-network-components = { path = "../module/network-components" }
+module-time-components = { path = "../module/time-components" }
+module-login-components = { path = "../module/login-components" }
+module-chunk-components = { path = "../module/chunk-components" }
+
+# System modules - statically linked
+module-listener = { path = "../module/listener" }
+module-handshake = { path = "../module/handshake" }
+module-login = { path = "../module/login" }
+module-config = { path = "../module/config" }
+module-play = { path = "../module/play" }
+module-chunk = { path = "../module/chunk" }
+# module-network = { path = "../module/network" }  # Replaced by module-network-systems
+module-network-systems = { path = "../module/network-systems" }
+module-time = { path = "../module/time" }
 
 [lints]
 workspace = true

@@ -7,7 +7,9 @@ use flecs_ecs::prelude::*;
 use mc_protocol::{Decode, write_varint};
 use module_loader::register_module;
 use module_login_components::{LoginComponentsModule, NeedsSpawnChunks};
-use module_network_components::{Connection, ConnectionState, NetworkComponentsModule, PacketBuffer, ProtocolState};
+use module_network_components::{
+    Connection, ConnectionState, NetworkComponentsModule, PacketBuffer, ProtocolState,
+};
 use registry::{
     create_biome_registry, create_cat_variant_registry, create_chicken_variant_registry,
     create_cow_variant_registry, create_damage_type_registry, create_dimension_type_registry,

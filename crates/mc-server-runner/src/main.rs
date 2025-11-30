@@ -1,18 +1,10 @@
-//! Generic Flecs module runner with hot-reload support
-//!
-//! This binary:
-//! 1. Creates an empty Flecs world
-//! 2. Loads all modules from the `modules/` directory
-//! 3. Runs the game loop with hot-reload support
+//! Minecraft server runner with Flecs ECS
 //!
 //! Commands:
-//! - `r` or `reload` - Reload all modules
-//! - `l` or `list` - List loaded modules
 //! - `q` or `quit` - Quit the server
 //! - `help` - Show help
 
 use std::io::{self, Write};
-use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -21,13 +13,10 @@ use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use crossterm::terminal::{self, ClearType};
 use crossterm::{cursor, execute};
 use flecs_ecs::prelude::*;
-use module_loader::ModuleLoader;
-use tracing::{error, info};
+use tracing::info;
 
 /// Commands that can be sent from the input thread
 enum Command {
-    Reload,
-    List,
     Quit,
     Help,
     Unknown(String),
@@ -39,36 +28,43 @@ fn main() -> eyre::Result<()> {
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("mc_server_runner=info".parse()?)
-                .add_directive("module_loader=info".parse()?),
+                .add_directive("module_listener=info".parse()?)
+                .add_directive("module_handshake=info".parse()?)
+                .add_directive("module_login=info".parse()?)
+                .add_directive("module_config=info".parse()?)
+                .add_directive("module_play=info".parse()?)
+                .add_directive("module_chunk=info".parse()?),
         )
         .init();
 
-    info!("Starting Flecs module runner");
+    info!("Starting Minecraft server");
 
-    // Determine modules directory
-    let modules_dir = std::env::var("MODULES_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("modules"));
-
-    info!("Modules directory: {}", modules_dir.display());
-
-    // Create empty Flecs world - modules will register everything
+    // Create Flecs world
     let world = World::new();
 
-    // Create module loader
-    let mut loader = ModuleLoader::new(&modules_dir);
+    // Import all modules statically
+    // Order matters: components first, then systems that depend on them
+    world.import::<module_network_components::NetworkComponentsModule>();
+    world.import::<module_time_components::TimeComponentsModule>();
+    world.import::<module_login_components::LoginComponentsModule>();
+    world.import::<module_chunk_components::ChunkComponentsModule>();
 
-    // Load all modules from the directory
-    if let Err(e) = loader.load_all(&world) {
-        error!("Failed to load modules: {}", e);
-    }
+    // Network layer
+    world.import::<module_listener::ListenerModule>();
+    world.import::<module_network_systems::NetworkSystemsModule>();
 
-    // Start watching for file changes
-    if let Err(e) = loader.start_watching() {
-        error!("Failed to start file watcher: {}", e);
-    }
+    // Protocol handling
+    world.import::<module_handshake::HandshakeModule>();
+    world.import::<module_login::LoginModule>();
+    world.import::<module_config::ConfigurationModule>();
+    world.import::<module_play::PlayModule>();
+    world.import::<module_chunk::ChunkModule>();
+    world.import::<module_time::TimeModule>();
 
-    info!("Loaded modules: {:?}", loader.loaded_modules());
+    // Generate spawn chunks
+    module_chunk::generate_spawn_chunks(&world, 8);
+
+    info!("Loaded all modules");
 
     // Configuration
     let rest_port: u16 = std::env::var("REST_PORT")
@@ -112,38 +108,16 @@ fn main() -> eyre::Result<()> {
     while running {
         let start = std::time::Instant::now();
 
-        // Poll for module changes (file watcher)
-        let reloaded = loader.poll_reload(&world);
-        if reloaded > 0 {
-            clear_line();
-            info!("Reloaded {} module(s)", reloaded);
-            print_prompt();
-        }
-
         // Check for commands
         while let Ok(cmd) = cmd_rx.try_recv() {
             clear_line();
             match cmd {
-                Command::Reload => {
-                    info!("Manual reload requested");
-                    let count = loader.reload_all(&world);
-                    info!("Reloaded {} module(s)", count);
-                }
-                Command::List => {
-                    let modules = loader.loaded_modules();
-                    info!("Loaded modules ({}):", modules.len());
-                    for name in modules {
-                        info!("  - {}", name);
-                    }
-                }
                 Command::Quit => {
                     info!("Shutting down...");
                     running = false;
                 }
                 Command::Help => {
                     info!("\r\nCommands:");
-                    info!("  r, reload  - Reload all modules");
-                    info!("  l, list    - List loaded modules");
                     info!("  q, quit    - Quit the server");
                     info!("  help       - Show this help");
                 }
@@ -174,7 +148,6 @@ fn main() -> eyre::Result<()> {
 
     // Cleanup
     terminal::disable_raw_mode().ok();
-    loader.unload_all(&world);
 
     Ok(())
 }
@@ -228,8 +201,6 @@ fn input_thread(tx: mpsc::Sender<Command>) {
 
 fn parse_command(input: &str) -> Command {
     match input.trim().to_lowercase().as_str() {
-        "r" | "reload" => Command::Reload,
-        "l" | "list" => Command::List,
         "q" | "quit" | "exit" => Command::Quit,
         "help" | "h" | "?" => Command::Help,
         other => Command::Unknown(other.to_string()),
@@ -254,6 +225,6 @@ fn clear_line() {
 
 #[allow(clippy::print_stdout)]
 fn update_title(tick: u64) {
-    print!("\x1b]0;Module Runner - Tick: {tick}\x07");
+    print!("\x1b]0;MC Server - Tick: {tick}\x07");
     io::stdout().flush().ok();
 }

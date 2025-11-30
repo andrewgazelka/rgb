@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Network module - handles packet ingress/egress and connection management"
 
 [lib]
-crate-type = ["dylib", "rlib"]
+# crate-type = ["dylib", "rlib"]  # Disabled for static linking
 
 [dependencies]
 flecs_ecs.workspace = true
