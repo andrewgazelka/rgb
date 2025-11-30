@@ -69,24 +69,20 @@ let source = r#"on join:
 "#;
 let script = parse(source).unwrap();
 
-let _ = span; // spans ignored for brevity
-assert_eq!(script, Script {
-    items: vec![Item::Event(EventHandler {
+assert_matches!(&script, Script {
+    items: [Item::Event(EventHandler {
         event: "join",
         body: Block {
-            stmts: vec![Stmt::Effect(Effect {
+            stmts: [Stmt::Effect(Effect {
                 kind: EffectKind::Send {
-                    message: Box::new(Expr::Literal(Literal {
-                        kind: LiteralKind::String("Hello!"),
-                        span,
-                    })),
-                    target: Some(Box::new(Expr::Ident("player", span))),
+                    message: box Expr::Literal(Literal { kind: LiteralKind::String("Hello!"), .. }),
+                    target: Some(box Expr::Ident("player", _)),
                 },
-                span,
+                ..
             })],
-            span,
+            ..
         },
-        span,
+        ..
     })],
 });
 ```
