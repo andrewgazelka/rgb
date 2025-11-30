@@ -2,13 +2,14 @@ pub mod components;
 pub mod modules;
 pub mod packet_dispatch;
 mod packets;
-mod world_gen;
+pub mod world_gen;
 
 pub use components::*;
 pub use flecs_ecs::prelude::*;
 pub use modules::*;
 pub use packet_dispatch::*;
 pub use packets::*;
+pub use world_gen::*;
 
 use crossbeam_channel::{Receiver, Sender};
 

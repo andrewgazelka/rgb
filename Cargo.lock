@@ -1458,7 +1458,9 @@ name = "module-chunk"
 version = "0.1.0"
 dependencies = [
  "flecs_ecs",
+ "mc-server-lib",
  "module-loader",
+ "tracing",
 ]
 
 [[package]]
@@ -1466,7 +1468,10 @@ name = "module-config"
 version = "0.1.0"
 dependencies = [
  "flecs_ecs",
+ "mc-protocol",
+ "mc-server-lib",
  "module-loader",
+ "tracing",
 ]
 
 [[package]]
@@ -1501,8 +1506,11 @@ dependencies = [
 name = "module-login"
 version = "0.1.0"
 dependencies = [
+ "eyre",
  "flecs_ecs",
+ "mc-server-lib",
  "module-loader",
+ "tracing",
 ]
 
 [[package]]
@@ -1539,8 +1547,14 @@ dependencies = [
 name = "module-play"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "eyre",
  "flecs_ecs",
+ "mc-data",
+ "mc-protocol",
+ "mc-server-lib",
  "module-loader",
+ "tracing",
 ]
 
 [[package]]
