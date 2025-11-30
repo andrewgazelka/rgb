@@ -16,7 +16,11 @@ impl Module for ChunkModule {
         world.component::<ChunkData>();
         world.component::<ChunkLoaded>();
 
-        // ChunkIndex singleton trait is registered in create_world()
+        // Set up ChunkIndex singleton
+        world
+            .component::<ChunkIndex>()
+            .add_trait::<flecs::Singleton>();
+        world.set(ChunkIndex::new());
 
         // Observer: Add chunk to index when loaded
         world

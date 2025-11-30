@@ -1310,9 +1310,15 @@ name = "mc-server-runner"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytes",
+ "crossbeam-channel",
  "crossterm",
  "flecs_ecs",
+ "mc-data",
+ "mc-protocol",
+ "mc-server-lib",
  "plugin-loader",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1871,6 +1877,7 @@ name = "plugin-time"
 version = "0.1.0"
 dependencies = [
  "flecs_ecs",
+ "mc-server-lib",
 ]
 
 [[package]]

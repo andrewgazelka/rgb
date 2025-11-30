@@ -12,3 +12,4 @@ crate-type = ["dylib"]
 [dependencies]
 # Links to shared flecs_ecs.dylib - same instance as host
 flecs_ecs.workspace = true
+mc-server-lib = { path = "../mc-server-lib" }

@@ -10,7 +10,17 @@ impl Module for TimeModule {
     fn module(world: &World) {
         world.module::<TimeModule>("time");
 
-        // WorldTime singleton trait is registered in create_world() before modules are imported
+        // Register and set up singletons
+        world.component::<WorldTime>();
+        world.component::<TpsTracker>();
+        world
+            .component::<WorldTime>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<TpsTracker>()
+            .add_trait::<flecs::Singleton>();
+        world.set(WorldTime::default());
+        world.set(TpsTracker::default());
 
         // Tick world time each frame
         world

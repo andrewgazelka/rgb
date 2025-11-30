@@ -14,12 +14,15 @@ path = "src/main.rs"
 flecs_ecs.workspace = true
 plugin-loader = { path = "../plugin-loader" }
 mc-server-lib = { path = "../mc-server-lib" }
-mc-net = { path = "../mc-net" }
+mc-protocol = { path = "../mc-protocol" }
+mc-data = { path = "../mc-data" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
 crossterm = "0.28"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+crossbeam-channel.workspace = true
+bytes.workspace = true
+tokio = { version = "1", features = ["full"] }
 
 [lints]
 workspace = true

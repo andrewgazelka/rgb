@@ -5,7 +5,7 @@ use flecs_ecs::prelude::*;
 
 use crate::components::{
     Connection, ConnectionId, DisconnectIngress, NetworkEgress, NetworkIngress, OutgoingPacket,
-    PacketBuffer, ProtocolState, register_connection_id_meta, register_packet_buffer_meta,
+    PacketBuffer, ProtocolState,
 };
 
 /// Singleton: Maps connection IDs to their ECS entities
@@ -29,11 +29,17 @@ impl Module for NetworkModule {
         world.component::<ConnectionId>();
         world.component::<PacketBuffer>();
 
-        // Register opaque meta for flecs explorer
-        register_connection_id_meta(world);
-        register_packet_buffer_meta(world);
+        // Note: Opaque meta registration disabled for now due to TypeId instability
+        // across dylib boundaries. The flecs explorer will show raw data instead.
+        // TODO: Fix flecs_ecs to use name-based lookup instead of TypeId
+        // register_connection_id_meta(world);
+        // register_packet_buffer_meta(world);
 
-        // NetworkIngress/NetworkEgress/ConnectionIndex singleton traits are registered in create_world()
+        // Set up ConnectionIndex singleton (NetworkIngress/NetworkEgress are set by host)
+        world
+            .component::<ConnectionIndex>()
+            .add_trait::<flecs::Singleton>();
+        world.set(ConnectionIndex::default());
 
         // INGRESS: First system in tick (OnLoad phase)
         // Drains all packets from channel, creates connection entities as needed, routes to buffers

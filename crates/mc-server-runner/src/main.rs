@@ -1,7 +1,9 @@
 //! Minecraft server runner with hot-reloadable plugin support
 //!
-//! This binary loads Flecs modules from dylib plugins in the `plugins/` directory
-//! and supports hot-reloading when plugins are modified.
+//! This binary:
+//! 1. Sets up network channels and singletons
+//! 2. Loads plugins from the `plugins/` directory
+//! 3. Runs the game loop with hot-reload support
 //!
 //! Commands:
 //! - `r` or `reload` - Reload all plugins
@@ -9,18 +11,32 @@
 //! - `q` or `quit` - Quit the server
 //! - `help` - Show help
 
-use std::io::{self, Write};
+use std::collections::HashMap;
+use std::io::{self, Cursor, Write};
 use std::path::PathBuf;
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use bytes::Bytes;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use crossterm::terminal::{self, ClearType};
 use crossterm::{cursor, execute};
 use flecs_ecs::prelude::*;
+use mc_protocol::read_varint;
+use mc_server_lib::{
+    DisconnectEvent, DisconnectIngress, IncomingPacket, NetworkChannels, NetworkEgress,
+    NetworkIngress,
+};
 use plugin_loader::PluginLoader;
-use tracing::{error, info};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::RwLock;
+use tracing::{debug, error, info};
+
+/// Active connections map (connection_id -> sender for that connection)
+type ConnectionMap = Arc<RwLock<HashMap<u64, tokio::sync::mpsc::Sender<Bytes>>>>;
 
 /// Commands that can be sent from the input thread
 enum Command {
@@ -37,11 +53,15 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("mc_server_runner=info".parse()?)
-                .add_directive("plugin_loader=info".parse()?),
+                .add_directive("plugin_loader=info".parse()?)
+                .add_directive("mc_server_lib=debug".parse()?),
         )
         .init();
 
-    info!("Starting Minecraft server with hot-reloadable plugins");
+    info!(
+        "Starting Minecraft server with hot-reloadable plugins (version {})",
+        mc_data::PROTOCOL_NAME
+    );
 
     // Determine plugins directory
     let plugins_dir = std::env::var("PLUGINS_DIR")
@@ -50,8 +70,32 @@ fn main() -> anyhow::Result<()> {
 
     info!("Plugins directory: {}", plugins_dir.display());
 
-    // Create the Flecs world
+    // Create network channels for ECS <-> async bridge
+    let channels = NetworkChannels::new();
+
+    // Create empty Flecs world - plugins will register everything
     let world = World::new();
+
+    // Set up network channel singletons (these are needed by plugins)
+    world
+        .component::<NetworkIngress>()
+        .add_trait::<flecs::Singleton>();
+    world
+        .component::<NetworkEgress>()
+        .add_trait::<flecs::Singleton>();
+    world
+        .component::<DisconnectIngress>()
+        .add_trait::<flecs::Singleton>();
+
+    world.set(NetworkIngress {
+        rx: channels.ingress_rx.clone(),
+    });
+    world.set(NetworkEgress {
+        tx: channels.egress_tx.clone(),
+    });
+    world.set(DisconnectIngress {
+        rx: channels.disconnect_rx.clone(),
+    });
 
     // Create plugin loader
     let mut loader = PluginLoader::new(&plugins_dir);
@@ -68,6 +112,9 @@ fn main() -> anyhow::Result<()> {
 
     info!("Loaded plugins: {:?}", loader.loaded_plugins());
 
+    // Generate spawn chunks (after plugins loaded ChunkModule)
+    mc_server_lib::generate_spawn_chunks(&world, 8);
+
     // Configuration
     let rest_port: u16 = std::env::var("REST_PORT")
         .ok()
@@ -79,6 +126,11 @@ fn main() -> anyhow::Result<()> {
         .and_then(|p| p.parse().ok())
         .unwrap_or(20.0);
 
+    let mc_port: u16 = std::env::var("MC_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(25565);
+
     info!(
         "Flecs Explorer available at https://www.flecs.dev/explorer (connect to localhost:{})",
         rest_port
@@ -88,11 +140,21 @@ fn main() -> anyhow::Result<()> {
     world.set(flecs::rest::Rest::default());
     world.import::<flecs_ecs::addons::stats::Stats>();
 
+    // Start async network runtime in background
+    let ingress_tx = channels.ingress_tx.clone();
+    let egress_rx = channels.egress_rx.clone();
+    let disconnect_tx = channels.disconnect_tx.clone();
+
+    thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+        rt.block_on(run_network(mc_port, ingress_tx, egress_rx, disconnect_tx));
+    });
+
     // Set up command input channel
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>();
 
     // Spawn input thread
-    let input_handle = thread::spawn(move || {
+    thread::spawn(move || {
         input_thread(cmd_tx);
     });
 
@@ -174,20 +236,153 @@ fn main() -> anyhow::Result<()> {
     terminal::disable_raw_mode().ok();
     loader.unload_all(&world);
 
-    // Wait for input thread (it will exit when it detects we're done)
-    drop(input_handle);
-
     Ok(())
+}
+
+async fn run_network(
+    port: u16,
+    ingress_tx: crossbeam_channel::Sender<IncomingPacket>,
+    egress_rx: crossbeam_channel::Receiver<mc_server_lib::OutgoingPacket>,
+    disconnect_tx: crossbeam_channel::Sender<DisconnectEvent>,
+) {
+    let connections: ConnectionMap = Arc::new(RwLock::new(HashMap::new()));
+    let connections_clone = connections.clone();
+
+    // Spawn egress handler
+    let rt_handle = tokio::runtime::Handle::current();
+    std::thread::spawn(move || {
+        while let Ok(packet) = egress_rx.recv() {
+            let connections = connections_clone.clone();
+            let data = packet.data;
+            let conn_id = packet.connection_id;
+            rt_handle.block_on(async move {
+                let connections = connections.read().await;
+                if let Some(tx) = connections.get(&conn_id) {
+                    let _ = tx.send(data).await;
+                }
+            });
+        }
+    });
+
+    // Start TCP listener
+    let addr = format!("0.0.0.0:{port}");
+    let listener = TcpListener::bind(&addr).await.expect("Failed to bind");
+    let actual_port = listener.local_addr().unwrap().port();
+    info!("SERVER_PORT={}", actual_port);
+    info!("Minecraft server listening on 0.0.0.0:{}", actual_port);
+
+    let mut next_conn_id: u64 = 1;
+
+    loop {
+        let (stream, addr) = listener.accept().await.expect("Failed to accept");
+        info!("Connection from {}", addr);
+
+        let conn_id = next_conn_id;
+        next_conn_id += 1;
+
+        let ingress_tx = ingress_tx.clone();
+        let disconnect_tx = disconnect_tx.clone();
+        let connections = connections.clone();
+
+        tokio::spawn(async move {
+            let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(256);
+
+            {
+                let mut conns = connections.write().await;
+                conns.insert(conn_id, tx);
+            }
+
+            let result = handle_connection(stream, conn_id, ingress_tx, rx).await;
+
+            {
+                let mut conns = connections.write().await;
+                conns.remove(&conn_id);
+            }
+
+            let _ = disconnect_tx.send(DisconnectEvent {
+                connection_id: conn_id,
+            });
+
+            if let Err(e) = result {
+                debug!("Connection {} closed: {}", conn_id, e);
+            }
+        });
+    }
+}
+
+async fn handle_connection(
+    stream: TcpStream,
+    conn_id: u64,
+    ingress_tx: crossbeam_channel::Sender<IncomingPacket>,
+    mut egress_rx: tokio::sync::mpsc::Receiver<Bytes>,
+) -> anyhow::Result<()> {
+    let (mut reader, mut writer) = stream.into_split();
+
+    let writer_handle = tokio::spawn(async move {
+        while let Some(data) = egress_rx.recv().await {
+            if writer.write_all(&data).await.is_err() {
+                break;
+            }
+            if writer.flush().await.is_err() {
+                break;
+            }
+        }
+    });
+
+    loop {
+        let Ok(length) = read_varint_async(&mut reader).await else {
+            break;
+        };
+
+        if length <= 0 {
+            continue;
+        }
+
+        let mut data = vec![0u8; length as usize];
+        if reader.read_exact(&mut data).await.is_err() {
+            break;
+        }
+
+        let mut cursor = Cursor::new(&data);
+        let packet_id = read_varint(&mut cursor)?;
+        let remaining = data[cursor.position() as usize..].to_vec();
+
+        let _ = ingress_tx.send(IncomingPacket {
+            connection_id: conn_id,
+            packet_id,
+            data: remaining.into(),
+        });
+    }
+
+    writer_handle.abort();
+    Ok(())
+}
+
+async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<i32> {
+    let mut result = 0i32;
+    let mut shift = 0;
+    loop {
+        let mut buf = [0u8; 1];
+        reader.read_exact(&mut buf).await?;
+        let byte = buf[0];
+        result |= ((byte & 0x7F) as i32) << shift;
+        if byte & 0x80 == 0 {
+            break;
+        }
+        shift += 7;
+        if shift >= 32 {
+            anyhow::bail!("VarInt too large");
+        }
+    }
+    Ok(result)
 }
 
 fn input_thread(tx: mpsc::Sender<Command>) {
     let mut input_buffer = String::new();
 
     loop {
-        // Poll for keyboard events with a small timeout
         if event::poll(Duration::from_millis(50)).unwrap_or(false) {
             if let Ok(Event::Key(key_event)) = event::read() {
-                // Handle Ctrl+C
                 if key_event.modifiers.contains(KeyModifiers::CONTROL)
                     && key_event.code == KeyCode::Char('c')
                 {
@@ -207,13 +402,11 @@ fn input_thread(tx: mpsc::Sender<Command>) {
                     }
                     KeyCode::Char(c) => {
                         input_buffer.push(c);
-                        // Echo character
                         print!("{c}");
                         io::stdout().flush().ok();
                     }
                     KeyCode::Backspace => {
                         if input_buffer.pop().is_some() {
-                            // Move cursor back, print space, move back again
                             print!("\x08 \x08");
                             io::stdout().flush().ok();
                         }
@@ -247,11 +440,15 @@ fn print_prompt() {
 
 fn clear_line() {
     let mut stdout = io::stdout();
-    execute!(stdout, cursor::MoveToColumn(0), terminal::Clear(ClearType::CurrentLine)).ok();
+    execute!(
+        stdout,
+        cursor::MoveToColumn(0),
+        terminal::Clear(ClearType::CurrentLine)
+    )
+    .ok();
 }
 
 fn update_title(tick: u64) {
-    // Set terminal title with tick count
     print!("\x1b]0;MC Server - Tick: {tick}\x07");
     io::stdout().flush().ok();
 }
