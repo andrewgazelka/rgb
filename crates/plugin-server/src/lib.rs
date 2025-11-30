@@ -24,16 +24,15 @@ impl Module for ServerModule {
         world.module::<ServerModule>("server");
 
         // Import all server modules
-        // Note: TimeModule must be imported before PlayModule since PlayModule
-        // creates systems that query WorldTime/TpsTracker singletons
-        world.import::<NetworkModule>();
+        // Order matters! Modules that set up singletons must come before modules that query them.
+        world.import::<NetworkModule>(); // Sets up ConnectionIndex
         world.import::<PacketDispatchModule>();
-        world.import::<TimeModule>(); // Must be before PlayModule (sets up WorldTime singleton)
-        world.import::<ChunkModule>(); // Must be before PlayModule (sets up ChunkIndex singleton)
+        world.import::<TimeModule>(); // Sets up WorldTime, TpsTracker
+        world.import::<ChunkModule>(); // Sets up ChunkIndex
+        world.import::<LoginModule>(); // Sets up EntityIdCounter
         world.import::<HandshakeModule>();
-        world.import::<LoginModule>();
         world.import::<ConfigurationModule>();
-        world.import::<PlayModule>();
+        world.import::<PlayModule>(); // Queries WorldTime, TpsTracker, ChunkIndex, EntityId
     }
 }
 

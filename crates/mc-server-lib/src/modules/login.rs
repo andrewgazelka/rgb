@@ -49,7 +49,11 @@ impl Module for LoginModule {
         world.component::<ChunkPosition>();
         world.component::<GameMode>();
 
-        // EntityIdCounter singleton trait is registered in create_world()
+        // Set up EntityIdCounter singleton
+        world
+            .component::<EntityIdCounter>()
+            .add_trait::<flecs::Singleton>();
+        world.set(EntityIdCounter::default());
 
         // Handle login packets
         world
