@@ -13,7 +13,7 @@ use std::collections::{HashMap, VecDeque};
 use bytes::Bytes;
 use crossbeam_channel::{Receiver, Sender};
 use flecs_ecs::prelude::*;
-use module_loader::register_plugin;
+use module_loader::register_module;
 
 // ============================================================================
 // Components
@@ -195,7 +195,7 @@ impl Module for NetworkComponentsModule {
 // Plugin exports
 // ============================================================================
 
-register_plugin! {
+register_module! {
     name: "network-components",
     version: 1,
     module: NetworkComponentsModule,

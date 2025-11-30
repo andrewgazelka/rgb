@@ -3,9 +3,10 @@
 use flecs_ecs::core::Entity;
 
 /// A runtime value in Skript.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Value {
     /// No value / unset.
+    #[default]
     None,
     /// Boolean value.
     Boolean(bool),
@@ -85,12 +86,6 @@ impl Value {
     }
 }
 
-impl Default for Value {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 /// Format a number for display, avoiding unnecessary decimals.
 fn format_number(n: f64) -> String {
     if n.fract() == 0.0 {
@@ -120,7 +115,7 @@ mod tests {
         assert!((Value::None.as_number() - 0.0).abs() < f64::EPSILON);
         assert!((Value::Boolean(true).as_number() - 1.0).abs() < f64::EPSILON);
         assert!((Value::Number(42.0).as_number() - 42.0).abs() < f64::EPSILON);
-        assert!((Value::Text("3.14".to_string()).as_number() - 3.14).abs() < f64::EPSILON);
+        assert!((Value::Text("3.15".to_string()).as_number() - 3.15).abs() < f64::EPSILON);
     }
 
     #[test]

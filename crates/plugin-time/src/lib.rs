@@ -5,31 +5,20 @@
 use flecs_ecs::prelude::*;
 use mc_server_lib::TimeModule;
 
-/// Plugin version - change this to verify hot-reload works
-pub const PLUGIN_VERSION: u32 = 1;
+/// Wrapper module for TimeModule
+#[derive(Component)]
+pub struct TimePluginModule;
 
-/// Load the module into the world
-#[unsafe(no_mangle)]
-pub fn plugin_load(world: &World) {
-    world.import::<TimeModule>();
-}
-
-/// Unload the module from the world
-#[unsafe(no_mangle)]
-pub fn plugin_unload(world: &World) {
-    if let Some(module_entity) = world.try_lookup("::time") {
-        module_entity.destruct();
+impl Module for TimePluginModule {
+    fn module(world: &World) {
+        world.module::<TimePluginModule>("time_plugin");
+        world.import::<TimeModule>();
     }
 }
 
-/// Get the plugin name
-#[unsafe(no_mangle)]
-pub fn plugin_name() -> &'static str {
-    "time"
-}
-
-/// Get the plugin version
-#[unsafe(no_mangle)]
-pub fn plugin_version() -> u32 {
-    PLUGIN_VERSION
+module_loader::register_module! {
+    name: "time",
+    version: 1,
+    module: TimePluginModule,
+    path: "::time_plugin",
 }

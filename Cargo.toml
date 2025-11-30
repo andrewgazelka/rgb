@@ -46,6 +46,7 @@ rayon = "1.10"
 flecs_ecs = { path = "../Flecs-Rust/flecs_ecs", features = ["flecs_app", "flecs_rest", "flecs_stats", "flecs_build_shared_c"] }
 crossbeam-channel = "0.5"
 bytes = "1"
+byteorder = "1"
 eyre = "0.6"
 color-eyre = "0.6"
 wgpu = "24"

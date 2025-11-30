@@ -1,25 +1,25 @@
-//! Dynamic plugin loader for hot-reloadable Flecs modules
+//! Dynamic module loader for hot-reloadable Flecs modules
 //!
 //! This crate provides functionality to load, unload, and hot-reload
-//! Rust dylib plugins that export Flecs modules.
+//! Rust dylib modules that export Flecs modules.
 //!
-//! # Plugin Interface
+//! # Module Interface
 //!
-//! Each plugin dylib must export these Rust ABI symbols:
-//! - `plugin_load(world: &World)` - Called to load/register the module
-//! - `plugin_unload(world: &World)` - Called before unloading to cleanup
-//! - `plugin_name() -> &'static str` - Returns the plugin name
-//! - `plugin_version() -> u32` - (optional) Returns the plugin version
+//! Each module dylib must export these Rust ABI symbols:
+//! - `module_load(world: &World)` - Called to load/register the module
+//! - `module_unload(world: &World)` - Called before unloading to cleanup
+//! - `module_name() -> &'static str` - Returns the module name
+//! - `module_version() -> u32` - (optional) Returns the module version
 //!
-//! # Using the `register_plugin!` macro
+//! # Using the `register_module!` macro
 //!
-//! Instead of manually writing the plugin exports, use the macro:
+//! Instead of manually writing the module exports, use the macro:
 //!
 //! ```ignore
-//! use plugin_loader::register_plugin;
+//! use module_loader::register_module;
 //!
-//! register_plugin! {
-//!     name: "my-plugin",
+//! register_module! {
+//!     name: "my-module",
 //!     version: 1,
 //!     module: MyModule,
 //!     path: "::my_module",
@@ -28,8 +28,8 @@
 //!
 //! # Safety
 //!
-//! Plugins use Rust ABI which requires the same compiler version.
-//! Both host and plugins must link to the same `libflecs_ecs.dylib`.
+//! Modules use Rust ABI which requires the same compiler version.
+//! Both host and modules must link to the same `libflecs_ecs.dylib`.
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -42,22 +42,22 @@ use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
-/// Plugin function signatures (Rust ABI - requires same compiler version)
-type PluginLoadFn = fn(&World);
-type PluginUnloadFn = fn(&World);
-type PluginNameFn = fn() -> &'static str;
-type PluginVersionFn = fn() -> u32;
+/// Module function signatures (Rust ABI - requires same compiler version)
+type ModuleLoadFn = fn(&World);
+type ModuleUnloadFn = fn(&World);
+type ModuleNameFn = fn() -> &'static str;
+type ModuleVersionFn = fn() -> u32;
 
-/// Errors that can occur during plugin operations
+/// Errors that can occur during module operations
 #[derive(Error, Debug)]
 pub enum ModuleError {
     #[error("Failed to load library: {0}")]
     LibraryLoad(#[from] libloading::Error),
 
-    #[error("Missing required symbol '{symbol}' in plugin")]
+    #[error("Missing required symbol '{symbol}' in module")]
     MissingSymbol { symbol: &'static str },
 
-    #[error("Plugin not found: {0}")]
+    #[error("Module not found: {0}")]
     NotFound(PathBuf),
 
     #[error("IO error: {0}")]
@@ -67,47 +67,47 @@ pub enum ModuleError {
     Watch(#[from] notify::Error),
 }
 
-/// A loaded plugin instance
+/// A loaded module instance
 struct LoadedModule {
     /// The loaded dynamic library
     library: Library,
-    /// Path to the plugin file
+    /// Path to the module file
     path: PathBuf,
-    /// Plugin name (cached from plugin_name())
+    /// Module name (cached from module_name())
     name: String,
-    /// Plugin version (optional, from plugin_version())
+    /// Module version (optional, from module_version())
     version: Option<u32>,
 }
 
 impl LoadedModule {
-    /// Load a plugin from the given path
+    /// Load a module from the given path
     ///
     /// # Safety
-    /// The plugin must be compiled with the same Rust version as the loader.
+    /// The module must be compiled with the same Rust version as the loader.
     unsafe fn load(path: &Path) -> Result<Self, ModuleError> {
-        debug!("Loading plugin from: {}", path.display());
+        debug!("Loading module from: {}", path.display());
 
         let library = unsafe { Library::new(path)? };
 
-        // Get plugin name
-        let name_fn: Symbol<'_, PluginNameFn> = unsafe {
+        // Get module name
+        let name_fn: Symbol<'_, ModuleNameFn> = unsafe {
             library
-                .get(b"plugin_name")
+                .get(b"module_name")
                 .map_err(|_| ModuleError::MissingSymbol {
-                    symbol: "plugin_name",
+                    symbol: "module_name",
                 })?
         };
         let name = name_fn();
 
         // Try to get version (optional)
-        let version = unsafe { library.get::<PluginVersionFn>(b"plugin_version") }
+        let version = unsafe { library.get::<ModuleVersionFn>(b"module_version") }
             .ok()
             .map(|f| f());
 
         if let Some(v) = version {
-            info!("Loaded plugin '{}' v{} from {}", name, v, path.display());
+            info!("Loaded module '{}' v{} from {}", name, v, path.display());
         } else {
-            info!("Loaded plugin '{}' from {}", name, path.display());
+            info!("Loaded module '{}' from {}", name, path.display());
         }
 
         Ok(Self {
@@ -118,47 +118,47 @@ impl LoadedModule {
         })
     }
 
-    /// Initialize the plugin by calling plugin_load
+    /// Initialize the module by calling module_load
     fn init(&self, world: &World) -> Result<(), ModuleError> {
-        debug!("Initializing plugin '{}'", self.name);
+        debug!("Initializing module '{}'", self.name);
 
-        let load_fn: Symbol<'_, PluginLoadFn> = unsafe {
+        let load_fn: Symbol<'_, ModuleLoadFn> = unsafe {
             self.library
-                .get(b"plugin_load")
+                .get(b"module_load")
                 .map_err(|_| ModuleError::MissingSymbol {
-                    symbol: "plugin_load",
+                    symbol: "module_load",
                 })?
         };
 
         load_fn(world);
-        info!("Initialized plugin '{}'", self.name);
+        info!("Initialized module '{}'", self.name);
         Ok(())
     }
 
-    /// Cleanup the plugin by calling plugin_unload
+    /// Cleanup the module by calling module_unload
     fn cleanup(&self, world: &World) -> Result<(), ModuleError> {
-        debug!("Cleaning up plugin '{}'", self.name);
+        debug!("Cleaning up module '{}'", self.name);
 
-        let unload_fn: Symbol<'_, PluginUnloadFn> = unsafe {
+        let unload_fn: Symbol<'_, ModuleUnloadFn> = unsafe {
             self.library
-                .get(b"plugin_unload")
+                .get(b"module_unload")
                 .map_err(|_| ModuleError::MissingSymbol {
-                    symbol: "plugin_unload",
+                    symbol: "module_unload",
                 })?
         };
 
         unload_fn(world);
-        info!("Cleaned up plugin '{}'", self.name);
+        info!("Cleaned up module '{}'", self.name);
         Ok(())
     }
 }
 
-/// Plugin loader and manager
+/// Module loader and manager
 pub struct ModuleLoader {
-    /// Directory to scan for plugins
+    /// Directory to scan for modules
     modules_dir: PathBuf,
-    /// Currently loaded plugins (keyed by file path)
-    plugins: HashMap<PathBuf, LoadedModule>,
+    /// Currently loaded modules (keyed by file path)
+    modules: HashMap<PathBuf, LoadedModule>,
     /// File watcher for hot-reload
     watcher: Option<RecommendedWatcher>,
     /// Channel for file change events
@@ -166,11 +166,11 @@ pub struct ModuleLoader {
 }
 
 impl ModuleLoader {
-    /// Create a new plugin loader for the given directory
+    /// Create a new module loader for the given directory
     pub fn new(modules_dir: impl Into<PathBuf>) -> Self {
         Self {
             modules_dir: modules_dir.into(),
-            plugins: HashMap::new(),
+            modules: HashMap::new(),
             watcher: None,
             watch_rx: None,
         }
@@ -187,22 +187,22 @@ impl ModuleLoader {
         }
     }
 
-    /// Scan the plugins directory and load all plugins
+    /// Scan the modules directory and load all modules
     pub fn load_all(&mut self, world: &World) -> Result<(), ModuleError> {
         let ext = Self::dylib_extension();
         info!(
-            "Scanning for plugins in: {} (*.{})",
+            "Scanning for modules in: {} (*.{})",
             self.modules_dir.display(),
             ext
         );
 
         if !self.modules_dir.exists() {
             warn!(
-                "Plugins directory does not exist: {}",
+                "Modules directory does not exist: {}",
                 self.modules_dir.display()
             );
             std::fs::create_dir_all(&self.modules_dir)?;
-            info!("Created plugins directory");
+            info!("Created modules directory");
             return Ok(());
         }
 
@@ -211,52 +211,52 @@ impl ModuleLoader {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension() == Some(OsStr::new(ext))
-                && let Err(e) = self.load_plugin(&path, world)
+                && let Err(e) = self.load_module(&path, world)
             {
-                error!("Failed to load plugin {}: {}", path.display(), e);
+                error!("Failed to load module {}: {}", path.display(), e);
             }
         }
 
         Ok(())
     }
 
-    /// Load a single plugin from the given path
-    pub fn load_plugin(&mut self, path: &Path, world: &World) -> Result<(), ModuleError> {
-        // Unload existing plugin at this path if any
-        if self.plugins.contains_key(path) {
-            self.unload_plugin(path, world)?;
+    /// Load a single module from the given path
+    pub fn load_module(&mut self, path: &Path, world: &World) -> Result<(), ModuleError> {
+        // Unload existing module at this path if any
+        if self.modules.contains_key(path) {
+            self.unload_module(path, world)?;
         }
 
-        let plugin = unsafe { LoadedModule::load(path)? };
-        plugin.init(world)?;
-        self.plugins.insert(path.to_path_buf(), plugin);
+        let module = unsafe { LoadedModule::load(path)? };
+        module.init(world)?;
+        self.modules.insert(path.to_path_buf(), module);
 
         Ok(())
     }
 
-    /// Unload a plugin at the given path
-    pub fn unload_plugin(&mut self, path: &Path, world: &World) -> Result<(), ModuleError> {
-        if let Some(plugin) = self.plugins.remove(path) {
-            plugin.cleanup(world)?;
+    /// Unload a module at the given path
+    pub fn unload_module(&mut self, path: &Path, world: &World) -> Result<(), ModuleError> {
+        if let Some(module) = self.modules.remove(path) {
+            module.cleanup(world)?;
             // Library is dropped here, unloading the dylib
-            info!("Unloaded plugin '{}' from {}", plugin.name, path.display());
+            info!("Unloaded module '{}' from {}", module.name, path.display());
         }
         Ok(())
     }
 
-    /// Reload a plugin (unload then load)
-    pub fn reload_plugin(&mut self, path: &Path, world: &World) -> Result<(), ModuleError> {
-        info!("Reloading plugin: {}", path.display());
-        self.unload_plugin(path, world)?;
+    /// Reload a module (unload then load)
+    pub fn reload_module(&mut self, path: &Path, world: &World) -> Result<(), ModuleError> {
+        info!("Reloading module: {}", path.display());
+        self.unload_module(path, world)?;
 
         // Small delay to ensure file is fully written
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        self.load_plugin(path, world)?;
+        self.load_module(path, world)?;
         Ok(())
     }
 
-    /// Start watching the plugins directory for changes
+    /// Start watching the modules directory for changes
     pub fn start_watching(&mut self) -> Result<(), ModuleError> {
         let (tx, rx) = mpsc::channel();
 
@@ -270,7 +270,7 @@ impl ModuleLoader {
         watcher.watch(&self.modules_dir, RecursiveMode::NonRecursive)?;
 
         info!(
-            "Started watching plugins directory: {}",
+            "Started watching modules directory: {}",
             self.modules_dir.display()
         );
 
@@ -284,13 +284,13 @@ impl ModuleLoader {
     pub fn stop_watching(&mut self) {
         self.watcher = None;
         self.watch_rx = None;
-        info!("Stopped watching plugins directory");
+        info!("Stopped watching modules directory");
     }
 
-    /// Poll for file changes and reload modified plugins
+    /// Poll for file changes and reload modified modules
     ///
-    /// Call this each frame/tick to check for plugin updates.
-    /// Returns the number of plugins reloaded.
+    /// Call this each frame/tick to check for module updates.
+    /// Returns the number of modules reloaded.
     pub fn poll_reload(&mut self, world: &World) -> usize {
         let Some(rx) = &self.watch_rx else {
             return 0;
@@ -319,7 +319,7 @@ impl ModuleLoader {
 
             for path in event.paths {
                 if path.extension() == Some(OsStr::new(ext)) {
-                    debug!("Detected change in plugin: {}", path.display());
+                    debug!("Detected change in module: {}", path.display());
                     paths_to_reload.push(path);
                 }
             }
@@ -329,44 +329,44 @@ impl ModuleLoader {
         paths_to_reload.sort_unstable();
         paths_to_reload.dedup();
 
-        // Now reload the plugins
+        // Now reload the modules
         let mut reloaded = 0;
         for path in paths_to_reload {
-            match self.reload_plugin(&path, world) {
+            match self.reload_module(&path, world) {
                 Ok(()) => reloaded += 1,
-                Err(e) => error!("Failed to reload plugin {}: {}", path.display(), e),
+                Err(e) => error!("Failed to reload module {}: {}", path.display(), e),
             }
         }
 
         reloaded
     }
 
-    /// Reload all currently loaded plugins
+    /// Reload all currently loaded modules
     pub fn reload_all(&mut self, world: &World) -> usize {
-        let paths: Vec<_> = self.plugins.keys().cloned().collect();
+        let paths: Vec<_> = self.modules.keys().cloned().collect();
         let mut reloaded = 0;
         for path in paths {
-            match self.reload_plugin(&path, world) {
+            match self.reload_module(&path, world) {
                 Ok(()) => reloaded += 1,
-                Err(e) => error!("Failed to reload plugin {}: {}", path.display(), e),
+                Err(e) => error!("Failed to reload module {}: {}", path.display(), e),
             }
         }
         reloaded
     }
 
-    /// Unload all plugins
+    /// Unload all modules
     pub fn unload_all(&mut self, world: &World) {
-        let paths: Vec<_> = self.plugins.keys().cloned().collect();
+        let paths: Vec<_> = self.modules.keys().cloned().collect();
         for path in paths {
-            if let Err(e) = self.unload_plugin(&path, world) {
-                error!("Failed to unload plugin {}: {}", path.display(), e);
+            if let Err(e) = self.unload_module(&path, world) {
+                error!("Failed to unload module {}: {}", path.display(), e);
             }
         }
     }
 
     /// Get the list of loaded module names with versions
     pub fn loaded_modules(&self) -> Vec<String> {
-        self.plugins
+        self.modules
             .values()
             .map(|p| {
                 if let Some(v) = p.version {
@@ -381,26 +381,26 @@ impl ModuleLoader {
 
 impl Drop for ModuleLoader {
     fn drop(&mut self) {
-        // Note: We can't unload plugins here because we don't have the world reference
+        // Note: We can't unload modules here because we don't have the world reference
         // The caller should call unload_all() before dropping the loader
-        if !self.plugins.is_empty() {
+        if !self.modules.is_empty() {
             warn!(
-                "ModuleLoader dropped with {} plugins still loaded",
-                self.plugins.len()
+                "ModuleLoader dropped with {} modules still loaded",
+                self.modules.len()
             );
         }
     }
 }
 
-/// Register a Flecs module as a hot-reloadable plugin.
+/// Register a Flecs module as a hot-reloadable module.
 ///
-/// This macro generates the required `no_mangle` exports for the plugin loader.
+/// This macro generates the required `no_mangle` exports for the module loader.
 ///
 /// # Example
 ///
 /// ```ignore
 /// use flecs_ecs::prelude::*;
-/// use plugin_loader::register_plugin;
+/// use module_loader::register_module;
 ///
 /// #[derive(Component)]
 /// pub struct MyModule;
@@ -412,15 +412,15 @@ impl Drop for ModuleLoader {
 ///     }
 /// }
 ///
-/// register_plugin! {
-///     name: "my-plugin",
+/// register_module! {
+///     name: "my-module",
 ///     version: 1,
 ///     module: MyModule,
 ///     path: "::my_module",
 /// }
 /// ```
 #[macro_export]
-macro_rules! register_plugin {
+macro_rules! register_module {
     {
         name: $name:literal,
         version: $version:expr,
@@ -428,24 +428,24 @@ macro_rules! register_plugin {
         path: $path:literal $(,)?
     } => {
         #[unsafe(no_mangle)]
-        pub fn plugin_load(world: &::flecs_ecs::prelude::World) {
+        pub fn module_load(world: &::flecs_ecs::prelude::World) {
             world.import::<$module>();
         }
 
         #[unsafe(no_mangle)]
-        pub fn plugin_unload(world: &::flecs_ecs::prelude::World) {
+        pub fn module_unload(world: &::flecs_ecs::prelude::World) {
             if let Some(e) = world.try_lookup($path) {
                 e.destruct();
             }
         }
 
         #[unsafe(no_mangle)]
-        pub fn plugin_name() -> &'static str {
+        pub fn module_name() -> &'static str {
             $name
         }
 
         #[unsafe(no_mangle)]
-        pub fn plugin_version() -> u32 {
+        pub fn module_version() -> u32 {
             $version
         }
     };

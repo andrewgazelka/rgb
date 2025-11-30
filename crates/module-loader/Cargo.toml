@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 description = "Dynamic loader for hot-reloadable Flecs modules"
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 flecs_ecs.workspace = true
 libloading.workspace = true

@@ -11,9 +11,13 @@ crate-type = ["dylib"]
 [dependencies]
 flecs_ecs.workspace = true
 module-loader = { path = "../../module-loader" }
-mc-server-lib = { path = "../../mc-server-lib" }
-mc-data = { path = "../../mc-data" }
+module-network-components = { path = "../network-components" }
+module-login = { path = "../login" }
+module-chunk = { path = "../chunk" }
+module-time-components = { path = "../time-components" }
 mc-protocol = { path = "../../mc-protocol" }
+mc-data = { path = "../../mc-data" }
+byteorder.workspace = true
 bytes.workspace = true
 eyre.workspace = true
 tracing.workspace = true

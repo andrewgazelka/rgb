@@ -1,17 +1,36 @@
 //! Configuration module - handles configuration phase
 
+mod registry;
+
+use bytes::{BufMut, Bytes, BytesMut};
 use flecs_ecs::prelude::*;
-use mc_protocol::Decode;
-use mc_server_lib::{
-    Connection, ConnectionState, NeedsSpawnChunks, PacketBuffer, ProtocolState,
+use mc_protocol::{write_varint, Decode};
+use module_login::NeedsSpawnChunks;
+use module_loader::register_module;
+use module_network_components::{Connection, ConnectionState, PacketBuffer, ProtocolState};
+use registry::{
     create_biome_registry, create_cat_variant_registry, create_chicken_variant_registry,
     create_cow_variant_registry, create_damage_type_registry, create_dimension_type_registry,
     create_frog_variant_registry, create_painting_variant_registry, create_pig_variant_registry,
     create_wolf_sound_variant_registry, create_wolf_variant_registry,
-    create_zombie_nautilus_variant_registry, encode_packet,
+    create_zombie_nautilus_variant_registry,
 };
-use module_loader::register_plugin;
 use tracing::{debug, info};
+
+fn encode_packet(packet_id: i32, data: &[u8]) -> Bytes {
+    let mut packet_id_bytes = Vec::new();
+    write_varint(&mut packet_id_bytes, packet_id).expect("varint write");
+
+    let length = packet_id_bytes.len() + data.len();
+    let mut length_bytes = Vec::new();
+    write_varint(&mut length_bytes, length as i32).expect("varint write");
+
+    let mut buf = BytesMut::with_capacity(length_bytes.len() + packet_id_bytes.len() + data.len());
+    buf.put_slice(&length_bytes);
+    buf.put_slice(&packet_id_bytes);
+    buf.put_slice(data);
+    buf.freeze()
+}
 
 /// Configuration module - handles configuration phase
 #[derive(Component)]
@@ -20,9 +39,6 @@ pub struct ConfigurationModule;
 impl Module for ConfigurationModule {
     fn module(world: &World) {
         world.module::<ConfigurationModule>("configuration");
-
-        // Register components
-        world.component::<NeedsSpawnChunks>();
 
         // Handle configuration packets
         world
@@ -74,9 +90,8 @@ impl Module for ConfigurationModule {
 }
 
 fn send_registry(buffer: &mut PacketBuffer, data: Vec<u8>) {
-    // Extract registry name for debugging (it's the first string in the data)
     let mut cursor = std::io::Cursor::new(&data);
-    if let Ok(name) = <String as mc_protocol::Decode>::decode(&mut cursor) {
+    if let Ok(name) = <String as Decode>::decode(&mut cursor) {
         debug!("Sending registry: {} ({} bytes)", name, data.len());
     }
     let packet = encode_packet(7, &data);
@@ -84,62 +99,47 @@ fn send_registry(buffer: &mut PacketBuffer, data: Vec<u8>) {
 }
 
 fn send_registry_data(buffer: &mut PacketBuffer) {
-    match create_dimension_type_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create dimension_type registry: {}", e),
+    if let Ok(data) = create_dimension_type_registry() {
+        send_registry(buffer, data);
     }
-    match create_biome_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create biome registry: {}", e),
+    if let Ok(data) = create_biome_registry() {
+        send_registry(buffer, data);
     }
-    match create_damage_type_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create damage_type registry: {}", e),
+    if let Ok(data) = create_damage_type_registry() {
+        send_registry(buffer, data);
     }
-    match create_cat_variant_registry() {
-        Ok(data) => {
-            debug!("Sending cat_variant registry with {} bytes", data.len());
-            send_registry(buffer, data);
-        }
-        Err(e) => tracing::error!("Failed to create cat_variant registry: {}", e),
+    if let Ok(data) = create_cat_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_chicken_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create chicken_variant registry: {}", e),
+    if let Ok(data) = create_chicken_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_cow_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create cow_variant registry: {}", e),
+    if let Ok(data) = create_cow_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_frog_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create frog_variant registry: {}", e),
+    if let Ok(data) = create_frog_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_pig_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create pig_variant registry: {}", e),
+    if let Ok(data) = create_pig_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_wolf_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create wolf_variant registry: {}", e),
+    if let Ok(data) = create_wolf_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_wolf_sound_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create wolf_sound_variant registry: {}", e),
+    if let Ok(data) = create_wolf_sound_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_zombie_nautilus_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create zombie_nautilus_variant registry: {}", e),
+    if let Ok(data) = create_zombie_nautilus_variant_registry() {
+        send_registry(buffer, data);
     }
-    match create_painting_variant_registry() {
-        Ok(data) => send_registry(buffer, data),
-        Err(e) => tracing::error!("Failed to create painting_variant registry: {}", e),
+    if let Ok(data) = create_painting_variant_registry() {
+        send_registry(buffer, data);
     }
 
     debug!("Sent all registry data");
 }
 
-register_plugin! {
+register_module! {
     name: "config",
     version: 1,
     module: ConfigurationModule,

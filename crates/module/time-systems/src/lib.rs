@@ -48,7 +48,7 @@ impl Module for TimeSystemsModule {
 // Plugin exports
 // ============================================================================
 
-register_plugin! {
+register_module! {
     name: "time-systems",
     version: 1,
     module: TimeSystemsModule,

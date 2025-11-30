@@ -7,7 +7,7 @@
 //! NO SYSTEMS - just component definitions
 
 use flecs_ecs::prelude::*;
-use module_loader::register_plugin;
+use module_loader::register_module;
 
 // ============================================================================
 // Components
@@ -107,7 +107,7 @@ impl Module for TimeComponentsModule {
 // Plugin exports
 // ============================================================================
 
-register_plugin! {
+register_module! {
     name: "time-components",
     version: 1,
     module: TimeComponentsModule,

@@ -244,26 +244,9 @@ impl Module for NetworkModule {
 // Plugin exports
 // ============================================================================
 
-pub const PLUGIN_VERSION: u32 = 1;
-
-#[unsafe(no_mangle)]
-pub fn plugin_load(world: &World) {
-    world.import::<NetworkModule>();
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_unload(world: &World) {
-    if let Some(e) = world.try_lookup("::network") {
-        e.destruct();
-    }
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_name() -> &'static str {
-    "network"
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_version() -> u32 {
-    PLUGIN_VERSION
+module_loader::register_module! {
+    name: "network",
+    version: 1,
+    module: NetworkModule,
+    path: "::network",
 }

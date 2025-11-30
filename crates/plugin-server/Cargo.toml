@@ -12,6 +12,7 @@ crate-type = ["dylib"]
 [dependencies]
 flecs_ecs.workspace = true
 mc-server-lib = { path = "../mc-server-lib" }
+module-loader = { path = "../module-loader" }
 
 [lints]
 workspace = true

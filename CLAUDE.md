@@ -88,9 +88,9 @@ let stone = BlockState::by_name("minecraft:stone");
 
 **NEVER hardcode block state IDs** - they change between versions. Always use the registry.
 
-## Hot-Reloadable Plugins (WIP)
+## Hot-Reloadable Modules (WIP)
 
-**STATUS: NOT YET WORKING** - Plugin infrastructure exists but component sharing across dylibs fails.
+**STATUS: NOT YET WORKING** - Module infrastructure exists but component sharing across dylibs fails.
 
 ### The Problem
 
@@ -98,50 +98,50 @@ Flecs hot-reloading with Rust dylibs has a fundamental issue: each dylib gets it
 
 ### Solution: Shared `flecs_ecs` dylib
 
-Build `flecs_ecs` as a Rust dylib (`crate-type = ["dylib"]`) so both host and plugins link to a single shared `libflecs_ecs.dylib`.
+Build `flecs_ecs` as a Rust dylib (`crate-type = ["dylib"]`) so both host and modules link to a single shared `libflecs_ecs.dylib`.
 
-**Rust ABI stability**: We accept unstable Rust ABI because we pin the compiler version via Nix flake. All plugins MUST be compiled with the exact same `rustc` version as the host.
+**Rust ABI stability**: We accept unstable Rust ABI because we pin the compiler version via Nix flake. All modules MUST be compiled with the exact same `rustc` version as the host.
 
 ### Alternative Solutions
 
-1. **Use a scripting language** - Lua, WASM, or Rhai for plugin logic
-2. **Use flecs C API directly** - Bypass the Rust bindings entirely in plugins
+1. **Use a scripting language** - Lua, WASM, or Rhai for module logic
+2. **Use flecs C API directly** - Bypass the Rust bindings entirely in modules
 
 ### Current Infrastructure
 
-The plugin loading infrastructure is in place:
-- `plugin-loader` crate: Dynamic library loading with file watching
-- `mc-server-runner` binary: Loads plugins from `plugins/` directory
-- `plugin-time` example: Template for plugin structure
+The module loading infrastructure is in place:
+- `module-loader` crate: Dynamic library loading with file watching
+- `mc-server-runner` binary: Loads modules from `modules/` directory
+- `module-time` example: Template for module structure
 
-### Plugin Structure (C ABI)
+### Module Structure (C ABI)
 
-Plugins use C ABI to avoid Rust ABI issues:
+Modules use C ABI to avoid Rust ABI issues:
 
 ```rust
 use flecs_ecs::core::WorldRef;
 use flecs_ecs::sys;
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn plugin_load(world_ptr: *mut sys::ecs_world_t) {
+pub unsafe extern "C" fn module_load(world_ptr: *mut sys::ecs_world_t) {
     let world = unsafe { WorldRef::from_ptr(world_ptr) };
     // ... register module
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn plugin_unload(world_ptr: *mut sys::ecs_world_t) {
+pub unsafe extern "C" fn module_unload(world_ptr: *mut sys::ecs_world_t) {
     // ... cleanup
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_name() -> *const std::ffi::c_char {
-    c"my-plugin".as_ptr()
+pub extern "C" fn module_name() -> *const std::ffi::c_char {
+    c"my-module".as_ptr()
 }
 ```
 
-### Linking Plugins (Development)
+### Linking Modules (Development)
 
 ```bash
-./scripts/link-plugins.sh debug  # Symlink debug builds to plugins/
-./scripts/link-plugins.sh release  # Symlink release builds
+./scripts/link-modules.sh debug  # Symlink debug builds to modules/
+./scripts/link-modules.sh release  # Symlink release builds
 ```

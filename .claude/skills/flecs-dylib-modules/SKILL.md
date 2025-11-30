@@ -105,28 +105,28 @@ flecs_ecs.workspace = true
 module-time-components = { path = "../time-components" }
 ```
 
-## Plugin Interface (Rust ABI)
+## Module Interface (Rust ABI)
 
 Each module dylib exports:
 
 ```rust
 #[unsafe(no_mangle)]
-pub fn plugin_load(world: &World) {
+pub fn module_load(world: &World) {
     world.import::<MyModule>();
 }
 
 #[unsafe(no_mangle)]
-pub fn plugin_unload(world: &World) {
+pub fn module_unload(world: &World) {
     if let Some(e) = world.try_lookup("::my_module") {
         e.destruct();
     }
 }
 
 #[unsafe(no_mangle)]
-pub fn plugin_name() -> &'static str { "my_module" }
+pub fn module_name() -> &'static str { "my_module" }
 
 #[unsafe(no_mangle)]
-pub fn plugin_version() -> u32 { 1 }
+pub fn module_version() -> u32 { 1 }
 ```
 
 ## Critical: Singleton Setup
@@ -162,11 +162,11 @@ All modules must link to the SAME shared flecs libraries:
 
 ## Development Workflow
 
-Symlink dylibs to plugins/ directory:
+Symlink dylibs to modules/ directory:
 
 ```bash
-ln -s target/debug/libmodule_time_components.dylib plugins/
-ln -s target/debug/libmodule_time_systems.dylib plugins/
+ln -s target/debug/libmodule_time_components.dylib modules/
+ln -s target/debug/libmodule_time_systems.dylib modules/
 ```
 
 Rebuild updates dylib, file watcher triggers hot-reload.

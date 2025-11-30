@@ -194,7 +194,7 @@ impl Module for HandshakeModule {
 // Plugin exports
 // ============================================================================
 
-register_plugin! {
+register_module! {
     name: "handshake",
     version: 1,
     module: HandshakeModule,

@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 description = "Minecraft protocol encoding/decoding traits and utilities"
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 thiserror = "2"
 byteorder = "1"

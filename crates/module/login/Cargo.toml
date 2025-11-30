@@ -11,7 +11,9 @@ crate-type = ["dylib"]
 [dependencies]
 flecs_ecs.workspace = true
 module-loader = { path = "../../module-loader" }
-mc-server-lib = { path = "../../mc-server-lib" }
+module-network-components = { path = "../network-components" }
+mc-protocol = { path = "../../mc-protocol" }
+bytes.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 

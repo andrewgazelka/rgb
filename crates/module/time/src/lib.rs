@@ -125,26 +125,9 @@ impl Module for TimeModule {
 // Plugin exports
 // ============================================================================
 
-pub const PLUGIN_VERSION: u32 = 1;
-
-#[unsafe(no_mangle)]
-pub fn plugin_load(world: &World) {
-    world.import::<TimeModule>();
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_unload(world: &World) {
-    if let Some(e) = world.try_lookup("::time") {
-        e.destruct();
-    }
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_name() -> &'static str {
-    "time"
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_version() -> u32 {
-    PLUGIN_VERSION
+module_loader::register_module! {
+    name: "time",
+    version: 1,
+    module: TimeModule,
+    path: "::time",
 }

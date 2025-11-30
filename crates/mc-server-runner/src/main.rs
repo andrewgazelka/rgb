@@ -140,7 +140,7 @@ fn main() -> eyre::Result<()> {
     // Start async network runtime in background
     let ingress_tx = channels.ingress_tx.clone();
     let egress_rx = channels.egress_rx.clone();
-    let disconnect_tx = channels.disconnect_tx.clone();
+    let disconnect_tx = channels.disconnect_tx;
 
     thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
@@ -198,11 +198,11 @@ fn main() -> eyre::Result<()> {
                     running = false;
                 }
                 Command::Help => {
-                    println!("\r\nCommands:");
-                    println!("  r, reload  - Reload all modules");
-                    println!("  l, list    - List loaded modules");
-                    println!("  q, quit    - Quit the server");
-                    println!("  help       - Show this help");
+                    info!("\r\nCommands:");
+                    info!("  r, reload  - Reload all modules");
+                    info!("  l, list    - List loaded modules");
+                    info!("  q, quit    - Quit the server");
+                    info!("  help       - Show this help");
                 }
                 Command::Unknown(s) => {
                     if !s.is_empty() {
@@ -218,7 +218,7 @@ fn main() -> eyre::Result<()> {
         tick += 1;
 
         // Update title with tick count
-        if tick % 20 == 0 {
+        if tick.is_multiple_of(20) {
             update_title(tick);
         }
 
@@ -374,6 +374,7 @@ async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> eyre::Res
     Ok(result)
 }
 
+#[allow(clippy::print_stdout)]
 fn input_thread(tx: mpsc::Sender<Command>) {
     let mut input_buffer = String::new();
 
@@ -430,6 +431,7 @@ fn parse_command(input: &str) -> Command {
     }
 }
 
+#[allow(clippy::print_stdout)]
 fn print_prompt() {
     print!("\r> ");
     io::stdout().flush().ok();
@@ -445,6 +447,7 @@ fn clear_line() {
     .ok();
 }
 
+#[allow(clippy::print_stdout)]
 fn update_title(tick: u64) {
     print!("\x1b]0;MC Server - Tick: {tick}\x07");
     io::stdout().flush().ok();

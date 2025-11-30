@@ -6,11 +6,11 @@
   <code>nix run github:andrewgazelka/rgb</code>
 </p>
 
-A high-performance Minecraft server with hot-reloadable plugins and flat, readable code.
+A high-performance Minecraft server with hot-reloadable modules and flat, readable code.
 
 ## Features
 
-- **Hot-Reloadable Plugins**: Modify Rust dylib plugins or Skript handlers without restarting the server
+- **Hot-Reloadable Modules**: Modify Rust dylib modules or Skript handlers without restarting the server
 - **Data-Parallel Architecture**: Operations grouped by type (R, G, B), executed in parallel across all entities—no per-entity sequential loops
 - **Flat, Explicit Code**: No abstraction layers hiding behavior. Every line does exactly what it says.
 - **Latest Snapshots**: Targets Minecraft snapshot builds to stay ahead
@@ -19,10 +19,10 @@ A high-performance Minecraft server with hot-reloadable plugins and flat, readab
 
 The animation shows the parallelism model: all same-colored blocks pulse together. This is how the server processes entities—group by operation type, execute each group in parallel, then move to the next. Pure data-parallel execution.
 
-## Plugin Systems
+## Module Systems
 
 - **Skript Compatibility**: Hot-reloadable event handlers using the [Skript](https://github.com/SkriptLang/Skript) scripting language. The `skript-lang` crate provides parsing and AST for Skript files.
-- **Rust Dylib Plugins**: Native Rust plugins that can be hot-reloaded at runtime.
+- **Rust Dylib Modules**: Native Rust modules that can be hot-reloaded at runtime.
 
 ## Status
 

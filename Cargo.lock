@@ -1457,8 +1457,12 @@ dependencies = [
 name = "module-chunk"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
+ "bytes",
+ "eyre",
  "flecs_ecs",
- "mc-server-lib",
+ "mc-data",
+ "mc-protocol",
  "module-loader",
  "tracing",
 ]
@@ -1467,10 +1471,14 @@ dependencies = [
 name = "module-config"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
+ "bytes",
+ "eyre",
  "flecs_ecs",
  "mc-protocol",
- "mc-server-lib",
  "module-loader",
+ "module-login",
+ "module-network-components",
  "tracing",
 ]
 
@@ -1506,10 +1514,12 @@ dependencies = [
 name = "module-login"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "eyre",
  "flecs_ecs",
- "mc-server-lib",
+ "mc-protocol",
  "module-loader",
+ "module-network-components",
  "tracing",
 ]
 
@@ -1520,6 +1530,7 @@ dependencies = [
  "bytes",
  "crossbeam-channel",
  "flecs_ecs",
+ "module-loader",
  "tracing",
 ]
 
@@ -1547,13 +1558,17 @@ dependencies = [
 name = "module-play"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
  "bytes",
  "eyre",
  "flecs_ecs",
  "mc-data",
  "mc-protocol",
- "mc-server-lib",
+ "module-chunk",
  "module-loader",
+ "module-login",
+ "module-network-components",
+ "module-time-components",
  "tracing",
 ]
 
@@ -1571,6 +1586,7 @@ name = "module-time"
 version = "0.1.0"
 dependencies = [
  "flecs_ecs",
+ "module-loader",
 ]
 
 [[package]]
@@ -2083,6 +2099,7 @@ version = "0.1.0"
 dependencies = [
  "flecs_ecs",
  "mc-server-lib",
+ "module-loader",
 ]
 
 [[package]]
@@ -2091,6 +2108,7 @@ version = "0.1.0"
 dependencies = [
  "flecs_ecs",
  "mc-server-lib",
+ "module-loader",
 ]
 
 [[package]]

@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 description = "Minecraft server ECS library using Flecs"
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 flecs_ecs.workspace = true
 crossbeam-channel.workspace = true

@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 description = "Generated Minecraft data (packets, blocks, etc)"
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 mc-protocol = { path = "../mc-protocol" }
 serde.workspace = true

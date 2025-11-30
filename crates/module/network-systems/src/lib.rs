@@ -138,7 +138,7 @@ impl Module for NetworkSystemsModule {
 // Plugin exports
 // ============================================================================
 
-register_plugin! {
+register_module! {
     name: "network-systems",
     version: 1,
     module: NetworkSystemsModule,
