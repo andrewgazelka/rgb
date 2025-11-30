@@ -364,8 +364,8 @@ impl ModuleLoader {
         }
     }
 
-    /// Get the list of loaded plugin names with versions
-    pub fn loaded_plugins(&self) -> Vec<String> {
+    /// Get the list of loaded module names with versions
+    pub fn loaded_modules(&self) -> Vec<String> {
         self.plugins
             .values()
             .map(|p| {

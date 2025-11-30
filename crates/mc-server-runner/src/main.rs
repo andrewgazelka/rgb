@@ -1,13 +1,13 @@
-//! Minecraft server runner with hot-reloadable plugin support
+//! Minecraft server runner with hot-reloadable module support
 //!
 //! This binary:
 //! 1. Sets up network channels and singletons
-//! 2. Loads plugins from the `plugins/` directory
+//! 2. Loads modules from the `modules/` directory
 //! 3. Runs the game loop with hot-reload support
 //!
 //! Commands:
-//! - `r` or `reload` - Reload all plugins
-//! - `l` or `list` - List loaded plugins
+//! - `r` or `reload` - Reload all modules
+//! - `l` or `list` - List loaded modules
 //! - `q` or `quit` - Quit the server
 //! - `help` - Show help
 
@@ -59,24 +59,24 @@ fn main() -> eyre::Result<()> {
         .init();
 
     info!(
-        "Starting Minecraft server with hot-reloadable plugins (version {})",
+        "Starting Minecraft server with hot-reloadable modules (version {})",
         mc_data::PROTOCOL_NAME
     );
 
-    // Determine plugins directory
-    let plugins_dir = std::env::var("PLUGINS_DIR")
+    // Determine modules directory
+    let modules_dir = std::env::var("MODULES_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("plugins"));
+        .unwrap_or_else(|_| PathBuf::from("modules"));
 
-    info!("Plugins directory: {}", plugins_dir.display());
+    info!("Modules directory: {}", modules_dir.display());
 
     // Create network channels for ECS <-> async bridge
     let channels = NetworkChannels::new();
 
-    // Create empty Flecs world - plugins will register everything
+    // Create empty Flecs world - modules will register everything
     let world = World::new();
 
-    // Set up network channel singletons (these are needed by plugins)
+    // Set up network channel singletons (these are needed by modules)
     world
         .component::<NetworkIngress>()
         .add_trait::<flecs::Singleton>();
@@ -97,12 +97,12 @@ fn main() -> eyre::Result<()> {
         rx: channels.disconnect_rx.clone(),
     });
 
-    // Create plugin loader
-    let mut loader = ModuleLoader::new(&plugins_dir);
+    // Create module loader
+    let mut loader = ModuleLoader::new(&modules_dir);
 
-    // Load all plugins from the directory
+    // Load all modules from the directory
     if let Err(e) = loader.load_all(&world) {
-        error!("Failed to load plugins: {}", e);
+        error!("Failed to load modules: {}", e);
     }
 
     // Start watching for file changes
@@ -110,7 +110,7 @@ fn main() -> eyre::Result<()> {
         error!("Failed to start file watcher: {}", e);
     }
 
-    info!("Loaded plugins: {:?}", loader.loaded_plugins());
+    info!("Loaded modules: {:?}", loader.loaded_modules());
 
     // Configuration
     let rest_port: u16 = std::env::var("REST_PORT")
@@ -169,11 +169,11 @@ fn main() -> eyre::Result<()> {
     while running {
         let start = std::time::Instant::now();
 
-        // Poll for plugin changes (file watcher)
+        // Poll for module changes (file watcher)
         let reloaded = loader.poll_reload(&world);
         if reloaded > 0 {
             clear_line();
-            info!("Reloaded {} plugin(s)", reloaded);
+            info!("Reloaded {} module(s)", reloaded);
             print_prompt();
         }
 
@@ -184,12 +184,12 @@ fn main() -> eyre::Result<()> {
                 Command::Reload => {
                     info!("Manual reload requested");
                     let count = loader.reload_all(&world);
-                    info!("Reloaded {} plugin(s)", count);
+                    info!("Reloaded {} module(s)", count);
                 }
                 Command::List => {
-                    let plugins = loader.loaded_plugins();
-                    info!("Loaded plugins ({}):", plugins.len());
-                    for name in plugins {
+                    let modules = loader.loaded_modules();
+                    info!("Loaded modules ({}):", modules.len());
+                    for name in modules {
                         info!("  - {}", name);
                     }
                 }
@@ -199,8 +199,8 @@ fn main() -> eyre::Result<()> {
                 }
                 Command::Help => {
                     println!("\r\nCommands:");
-                    println!("  r, reload  - Reload all plugins");
-                    println!("  l, list    - List loaded plugins");
+                    println!("  r, reload  - Reload all modules");
+                    println!("  l, list    - List loaded modules");
                     println!("  q, quit    - Quit the server");
                     println!("  help       - Show this help");
                 }
