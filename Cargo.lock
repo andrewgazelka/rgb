@@ -1859,6 +1859,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin-server"
+version = "0.1.0"
+dependencies = [
+ "flecs_ecs",
+ "mc-server-lib",
+]
+
+[[package]]
 name = "plugin-time"
 version = "0.1.0"
 dependencies = [

@@ -1,5 +1,7 @@
 Things that have no self refernce should be free funciton not associated function like Self::get_cell
 
+NEVER use cdylib ; use rust dylib (assume compiler versions match)
+
 Run `./ci.sh` for CI checks (fmt, clippy, tests)
 
 Use `cargo nextest run` for tests

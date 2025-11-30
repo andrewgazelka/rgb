@@ -1,14 +1,17 @@
 [package]
-name = "plugin-time"
+name = "plugin-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Hot-reloadable time module plugin for Minecraft server"
+description = "Hot-reloadable Minecraft server plugin"
 
 [lib]
 crate-type = ["dylib"]
 
 [dependencies]
-# Links to shared flecs_ecs.dylib - same instance as host
 flecs_ecs.workspace = true
+mc-server-lib = { path = "../mc-server-lib" }
+
+[lints]
+workspace = true

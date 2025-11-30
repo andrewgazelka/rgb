@@ -13,10 +13,13 @@ path = "src/main.rs"
 [dependencies]
 flecs_ecs.workspace = true
 plugin-loader = { path = "../plugin-loader" }
+mc-server-lib = { path = "../mc-server-lib" }
+mc-net = { path = "../mc-net" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
 crossterm = "0.28"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [lints]
 workspace = true
