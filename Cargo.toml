@@ -19,6 +19,8 @@ members = [
     "crates/skript-lang",
     "crates/module/network",
     "crates/module/time",
+    "crates/module/time-components",
+    "crates/module/time-systems",
     "crates/module/chunk",
     "crates/module/login",
     "crates/module/handshake",

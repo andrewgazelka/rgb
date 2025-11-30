@@ -64,22 +64,31 @@ graph TD
 ```rust
 use skript_lang::{parse, Script, Item, EventHandler, Block, Stmt, Effect, EffectKind, Expr, Literal, LiteralKind};
 
-let source = "on join:\n\tsend \"Hello!\" to player\n";
+let source = r#"on join:
+	send "Hello!" to player
+"#;
 let script = parse(source).unwrap();
 
-// Script { items: [Event { event: "join", body: Block { stmts: [...] } }] }
-assert_eq!(script.items.len(), 1);
-
-let Item::Event(EventHandler { event, body, .. }) = &script.items[0] else { panic!() };
-assert_eq!(*event, "join");
-
-let Stmt::Effect(Effect { kind: EffectKind::Send { message, target }, .. }) = &body.stmts[0] else { panic!() };
-let Expr::Literal(Literal { kind: LiteralKind::String(msg), .. }) = message.as_ref() else { panic!() };
-assert_eq!(*msg, "Hello!");
-
-let Some(target) = target else { panic!() };
-let Expr::Ident(ident, _) = target.as_ref() else { panic!() };
-assert_eq!(*ident, "player");
+let _ = span; // spans ignored for brevity
+assert_eq!(script, Script {
+    items: vec![Item::Event(EventHandler {
+        event: "join",
+        body: Block {
+            stmts: vec![Stmt::Effect(Effect {
+                kind: EffectKind::Send {
+                    message: Box::new(Expr::Literal(Literal {
+                        kind: LiteralKind::String("Hello!"),
+                        span,
+                    })),
+                    target: Some(Box::new(Expr::Ident("player", span))),
+                },
+                span,
+            })],
+            span,
+        },
+        span,
+    })],
+});
 ```
 
 ## Features

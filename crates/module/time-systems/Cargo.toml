@@ -1,0 +1,16 @@
+[package]
+name = "module-time-systems"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+flecs_ecs.workspace = true
+module-time-components = { path = "../time-components" }
+
+[lints]
+workspace = true

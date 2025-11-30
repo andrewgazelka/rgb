@@ -1434,6 +1434,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "module-time-components"
+version = "0.1.0"
+dependencies = [
+ "flecs_ecs",
+]
+
+[[package]]
+name = "module-time-systems"
+version = "0.1.0"
+dependencies = [
+ "flecs_ecs",
+ "module-time-components",
+]
+
+[[package]]
 name = "naga"
 version = "24.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
