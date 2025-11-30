@@ -1,0 +1,19 @@
+[package]
+name = "module-network"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Network module - handles packet ingress/egress and connection management"
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+flecs_ecs.workspace = true
+bytes.workspace = true
+crossbeam-channel.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

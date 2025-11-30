@@ -1,6 +1,30 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = [
+    "crates/mc-client",
+    "crates/mc-data",
+    "crates/mc-protocol",
+    "crates/mc-protocol-derive",
+    "crates/mc-integration-tests",
+    "crates/mc-proxy",
+    "crates/mc-server",
+    "crates/mc-server-lib",
+    "crates/mc-server-runner",
+    "crates/plugin-loader",
+    "crates/plugin-server",
+    "crates/plugin-time",
+    "crates/rgb-app",
+    "crates/rgb-core",
+    "crates/rgb-life",
+    "crates/skript-lang",
+    "crates/module/network",
+    "crates/module/time",
+    "crates/module/chunk",
+    "crates/module/login",
+    "crates/module/handshake",
+    "crates/module/config",
+    "crates/module/play",
+]
 
 [workspace.package]
 version = "0.1.0"
