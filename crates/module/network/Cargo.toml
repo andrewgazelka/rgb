@@ -7,13 +7,14 @@ authors.workspace = true
 description = "Network module - handles packet ingress/egress and connection management"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["dylib", "rlib"]
 
 [dependencies]
 flecs_ecs.workspace = true
 bytes.workspace = true
 crossbeam-channel.workspace = true
 module-loader = { path = "../../module-loader" }
+module-network-components = { path = "../network-components" }
 tracing.workspace = true
 
 [lints]

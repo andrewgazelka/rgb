@@ -1,17 +1,16 @@
 [package]
-name = "module-time-systems"
+name = "module-login-components"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
 [lib]
-crate-type = ["dylib", "rlib"]
+# rlib (default) - component definitions, statically linked
 
 [dependencies]
 flecs_ecs.workspace = true
 module-loader = { path = "../../module-loader" }
-module-time-components = { path = "../time-components" }
 
 [lints]
 workspace = true

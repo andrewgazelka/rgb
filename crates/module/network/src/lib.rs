@@ -1,120 +1,25 @@
 //! Network module - handles packet ingress/egress and connection management
 //!
-//! This module provides:
-//! - `NetworkIngress` / `NetworkEgress` - channel endpoints for async I/O
-//! - `ConnectionIndex` - maps connection IDs to ECS entities
-//! - `PacketBuffer` - per-connection packet queues
-//! - Systems for routing packets to/from entities
+//! This module provides systems for:
+//! - Routing incoming packets to connection entities
+//! - Sending outgoing packets from entities to async layer
+//! - Handling disconnect events
 
-use std::collections::{HashMap, VecDeque};
-
-use bytes::Bytes;
-use crossbeam_channel::{Receiver, Sender};
 use flecs_ecs::prelude::*;
+use module_loader::register_module;
+use module_network_components::{
+    Connection, ConnectionId, ConnectionIndex, DisconnectIngress, NetworkComponentsModule,
+    NetworkEgress, NetworkIngress, OutgoingPacket, PacketBuffer, ProtocolState,
+};
 
-// ============================================================================
-// Components
-// ============================================================================
-
-/// Packet received from async network layer
-#[derive(Debug)]
-pub struct IncomingPacket {
-    pub connection_id: u64,
-    pub packet_id: i32,
-    pub data: Bytes,
-}
-
-/// Event signaling a connection has been closed
-#[derive(Debug)]
-pub struct DisconnectEvent {
-    pub connection_id: u64,
-}
-
-/// Singleton: Receiver for disconnect events from async layer
-#[derive(Component)]
-pub struct DisconnectIngress {
-    pub rx: Receiver<DisconnectEvent>,
-}
-
-/// Packet to send via async network layer
-#[derive(Debug)]
-pub struct OutgoingPacket {
-    pub connection_id: u64,
-    pub data: Bytes,
-}
-
-/// Singleton: Receiver for incoming packets from async layer
-#[derive(Component)]
-pub struct NetworkIngress {
-    pub rx: Receiver<IncomingPacket>,
-}
-
-/// Singleton: Sender for outgoing packets to async layer
-#[derive(Component)]
-pub struct NetworkEgress {
-    pub tx: Sender<OutgoingPacket>,
-}
-
-/// Tag: Entity is a network connection
-#[derive(Component, Default)]
-pub struct Connection;
-
-/// Unique ID for routing packets to correct connection
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ConnectionId(pub u64);
-
-/// Current protocol state of the connection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, Component)]
-#[repr(C)]
-pub enum ConnectionState {
-    #[default]
-    Handshaking,
-    Status,
-    Login,
-    Configuration,
-    Play,
-}
-
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct ProtocolState(pub ConnectionState);
-
-/// Buffer for incoming/outgoing packets per connection
-#[derive(Component, Default)]
-pub struct PacketBuffer {
-    pub incoming: VecDeque<(i32, Bytes)>,
-    pub outgoing: VecDeque<Bytes>,
-}
-
-impl PacketBuffer {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn push_incoming(&mut self, packet_id: i32, data: Bytes) {
-        self.incoming.push_back((packet_id, data));
-    }
-
-    pub fn pop_incoming(&mut self) -> Option<(i32, Bytes)> {
-        self.incoming.pop_front()
-    }
-
-    pub fn push_outgoing(&mut self, data: Bytes) {
-        self.outgoing.push_back(data);
-    }
-
-    pub fn pop_outgoing(&mut self) -> Option<Bytes> {
-        self.outgoing.pop_front()
-    }
-}
-
-/// Singleton: Maps connection IDs to their ECS entities
-#[derive(Component, Default)]
-pub struct ConnectionIndex {
-    pub map: HashMap<u64, Entity>,
-    /// Packets for newly created connections (deferred until next tick)
-    pub pending_packets: Vec<(u64, i32, Bytes)>,
-}
+// Re-export types from components module for convenience
+pub use module_network_components::{
+    Connection as ConnectionTag, ConnectionId as ConnId, ConnectionIndex as ConnIndex,
+    ConnectionState, DisconnectEvent, DisconnectIngress as DisconnectRx,
+    IncomingPacket as InPacket, NetworkChannels, NetworkComponentsModule as NetworkComponents,
+    NetworkEgress as EgressTx, NetworkIngress as IngressRx, OutgoingPacket as OutPacket,
+    PacketBuffer as PktBuffer, ProtocolState as ProtoState,
+};
 
 // ============================================================================
 // Module
@@ -128,17 +33,8 @@ impl Module for NetworkModule {
     fn module(world: &World) {
         world.module::<NetworkModule>("network");
 
-        // Register components
-        world.component::<Connection>();
-        world.component::<ConnectionId>();
-        world.component::<PacketBuffer>();
-        world.component::<ProtocolState>();
-
-        // Set up ConnectionIndex singleton
-        world
-            .component::<ConnectionIndex>()
-            .add_trait::<flecs::Singleton>();
-        world.set(ConnectionIndex::default());
+        // Import components module
+        world.import::<NetworkComponentsModule>();
 
         // INGRESS: First system in tick (OnLoad phase)
         world
@@ -151,7 +47,7 @@ impl Module for NetworkModule {
                     let world = it.world();
 
                     // Process pending packets from last tick
-                    let pending = std::mem::take(&mut conn_index.pending_packets);
+                    let pending = core::mem::take(&mut conn_index.pending_packets);
                     for (conn_id, packet_id, data) in pending {
                         if let Some(&entity) = conn_index.map.get(&conn_id) {
                             let entity_view = world.entity_from_id(entity);
@@ -244,7 +140,7 @@ impl Module for NetworkModule {
 // Plugin exports
 // ============================================================================
 
-module_loader::register_module! {
+register_module! {
     name: "network",
     version: 1,
     module: NetworkModule,

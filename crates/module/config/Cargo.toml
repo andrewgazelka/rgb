@@ -6,13 +6,13 @@ license.workspace = true
 authors.workspace = true
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["dylib", "rlib"]
 
 [dependencies]
 flecs_ecs.workspace = true
 module-loader = { path = "../../module-loader" }
 module-network-components = { path = "../network-components" }
-module-login = { path = "../login" }
+module-login-components = { path = "../login-components" }
 mc-protocol = { path = "../../mc-protocol" }
 byteorder.workspace = true
 bytes.workspace = true

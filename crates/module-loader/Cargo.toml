@@ -16,6 +16,9 @@ notify.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [lints.clippy]
 # Inherit from workspace
 allow_attributes = "allow"

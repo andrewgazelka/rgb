@@ -9,11 +9,13 @@ use mc_data::play::clientbound::{
     SetTime,
 };
 use mc_protocol::{Decode, Encode, Packet, nbt, write_varint};
-use module_chunk::{ChunkData, ChunkIndex, ChunkPos};
+use module_chunk_components::{ChunkComponentsModule, ChunkData, ChunkIndex, ChunkPos};
 use module_loader::register_module;
-use module_login::{EntityId, InPlayState, NeedsSpawnChunks, Position, Rotation};
-use module_network_components::{Connection, PacketBuffer};
-use module_time_components::{TpsTracker, WorldTime};
+use module_login_components::{
+    EntityId, InPlayState, LoginComponentsModule, NeedsSpawnChunks, Position, Rotation,
+};
+use module_network_components::{Connection, NetworkComponentsModule, PacketBuffer};
+use module_time_components::{TimeComponentsModule, TpsTracker, WorldTime};
 use tracing::debug;
 
 // ============================================================================
@@ -183,11 +185,11 @@ impl Module for PlayModule {
     fn module(world: &World) {
         world.module::<PlayModule>("play");
 
-        // Import dependencies - Flecs ensures they're initialized first
-        world.import::<module_chunk::ChunkModule>();
-        world.import::<module_login::LoginModule>();
-        world.import::<module_time_components::TimeComponentsModule>();
-        world.import::<module_network_components::NetworkComponentsModule>();
+        // Import component modules (rlib, statically linked)
+        world.import::<ChunkComponentsModule>();
+        world.import::<LoginComponentsModule>();
+        world.import::<TimeComponentsModule>();
+        world.import::<NetworkComponentsModule>();
 
         // Send spawn data to new players
         world

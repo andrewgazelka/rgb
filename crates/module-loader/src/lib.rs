@@ -37,10 +37,72 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
 use flecs_ecs::prelude::World;
+#[cfg(unix)]
+use libloading::os::unix::{Library, Symbol};
+#[cfg(windows)]
 use libloading::{Library, Symbol};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
+
+/// Ensure flecs_ecs shared library is loaded with RTLD_GLOBAL on Unix.
+/// This must be called before loading any modules that depend on flecs_ecs.
+#[cfg(unix)]
+pub fn ensure_flecs_global() {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| {
+        // Find libflecs_ecs.dylib/.so in the same directory as the executable
+        // or in the standard library paths
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()));
+
+        let lib_name = if cfg!(target_os = "macos") {
+            "libflecs_ecs.dylib"
+        } else {
+            "libflecs_ecs.so"
+        };
+
+        // Try paths in order: exe/../deps, exe dir, then let system find it
+        let paths_to_try: Vec<PathBuf> = [
+            exe_dir.as_ref().map(|d| d.join("deps").join(lib_name)),
+            exe_dir.as_ref().map(|d| d.join(lib_name)),
+            Some(PathBuf::from(lib_name)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        for path in &paths_to_try {
+            if path.exists() || path.to_str() == Some(lib_name) {
+                debug!("Trying to load flecs_ecs from: {}", path.display());
+                let result = unsafe {
+                    Library::open(Some(path), libc::RTLD_NOW | libc::RTLD_GLOBAL)
+                };
+                match result {
+                    Ok(lib) => {
+                        info!("Loaded flecs_ecs with RTLD_GLOBAL from: {}", path.display());
+                        // Intentionally leak the library so it stays loaded
+                        std::mem::forget(lib);
+                        return;
+                    }
+                    Err(e) => {
+                        debug!("Failed to load from {}: {}", path.display(), e);
+                    }
+                }
+            }
+        }
+
+        warn!("Could not load libflecs_ecs with RTLD_GLOBAL - module loading may fail");
+    });
+}
+
+#[cfg(not(unix))]
+pub fn ensure_flecs_global() {
+    // Windows handles symbol visibility differently
+}
 
 /// Module function signatures (Rust ABI - requires same compiler version)
 type ModuleLoadFn = fn(&World);
@@ -84,13 +146,37 @@ impl LoadedModule {
     ///
     /// # Safety
     /// The module must be compiled with the same Rust version as the loader.
+    #[cfg(unix)]
+    unsafe fn load(path: &Path) -> Result<Self, ModuleError> {
+        debug!("Loading module from: {}", path.display());
+
+        // Use RTLD_NOW | RTLD_GLOBAL so symbols are available to other modules
+        // This is essential for modules to share the same flecs_ecs symbols
+        let library = unsafe {
+            Library::open(Some(path), libc::RTLD_NOW | libc::RTLD_GLOBAL)?
+        };
+
+        Self::load_inner(library, path)
+    }
+
+    /// Load a module from the given path (Windows)
+    ///
+    /// # Safety
+    /// The module must be compiled with the same Rust version as the loader.
+    #[cfg(windows)]
     unsafe fn load(path: &Path) -> Result<Self, ModuleError> {
         debug!("Loading module from: {}", path.display());
 
         let library = unsafe { Library::new(path)? };
 
+        Self::load_inner(library, path)
+    }
+
+    /// Common loading logic after library is opened
+    fn load_inner(library: Library, path: &Path) -> Result<Self, ModuleError> {
+
         // Get module name
-        let name_fn: Symbol<'_, ModuleNameFn> = unsafe {
+        let name_fn: Symbol<ModuleNameFn> = unsafe {
             library
                 .get(b"module_name")
                 .map_err(|_| ModuleError::MissingSymbol {
@@ -122,7 +208,7 @@ impl LoadedModule {
     fn init(&self, world: &World) -> Result<(), ModuleError> {
         debug!("Initializing module '{}'", self.name);
 
-        let load_fn: Symbol<'_, ModuleLoadFn> = unsafe {
+        let load_fn: Symbol<ModuleLoadFn> = unsafe {
             self.library
                 .get(b"module_load")
                 .map_err(|_| ModuleError::MissingSymbol {
@@ -139,7 +225,7 @@ impl LoadedModule {
     fn cleanup(&self, world: &World) -> Result<(), ModuleError> {
         debug!("Cleaning up module '{}'", self.name);
 
-        let unload_fn: Symbol<'_, ModuleUnloadFn> = unsafe {
+        let unload_fn: Symbol<ModuleUnloadFn> = unsafe {
             self.library
                 .get(b"module_unload")
                 .map_err(|_| ModuleError::MissingSymbol {
@@ -189,6 +275,9 @@ impl ModuleLoader {
 
     /// Scan the modules directory and load all modules
     pub fn load_all(&mut self, world: &World) -> Result<(), ModuleError> {
+        // Ensure flecs_ecs is loaded with RTLD_GLOBAL before loading any modules
+        ensure_flecs_global();
+
         let ext = Self::dylib_extension();
         info!(
             "Scanning for modules in: {} (*.{})",

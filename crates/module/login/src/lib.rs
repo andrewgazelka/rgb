@@ -1,122 +1,17 @@
 //! Login module - handles login flow
 
-use std::sync::atomic::{AtomicI64, Ordering};
-
 use bytes::{BufMut, Bytes, BytesMut};
 use flecs_ecs::prelude::*;
 use mc_protocol::{Decode, Encode, write_varint};
 use module_loader::register_module;
-use module_network_components::{Connection, ConnectionState, PacketBuffer, ProtocolState};
+use module_network_components::{Connection, ConnectionState, NetworkComponentsModule, PacketBuffer, ProtocolState};
 use tracing::{debug, info};
 
-// ============================================================================
-// Player Components (defined here, used by other modules)
-// ============================================================================
-
-/// Tag: Entity is a player
-#[derive(Component, Default)]
-pub struct Player;
-
-/// Player's username
-#[derive(Component, Debug, Clone)]
-pub struct Name {
-    pub value: String,
-}
-
-/// Player's UUID
-#[derive(Component, Debug, Clone, Copy)]
-pub struct Uuid(pub u128);
-
-/// Entity ID assigned by server (for protocol)
-#[derive(Component, Debug, Clone, Copy)]
-pub struct EntityId {
-    pub value: i32,
-}
-
-/// Player position in world
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct Position {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-}
-
-impl Position {
-    #[must_use]
-    pub const fn new(x: f64, y: f64, z: f64) -> Self {
-        Self { x, y, z }
-    }
-
-    #[must_use]
-    pub fn chunk_pos(&self) -> (i32, i32) {
-        ((self.x as i32) >> 4, (self.z as i32) >> 4)
-    }
-}
-
-/// Player rotation
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct Rotation {
-    pub yaw: f32,
-    pub pitch: f32,
-}
-
-impl Rotation {
-    #[must_use]
-    pub const fn new(yaw: f32, pitch: f32) -> Self {
-        Self { yaw, pitch }
-    }
-}
-
-/// Player's current chunk position
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct ChunkPosition {
-    pub x: i32,
-    pub z: i32,
-}
-
-impl ChunkPosition {
-    #[must_use]
-    pub const fn new(x: i32, z: i32) -> Self {
-        Self { x, z }
-    }
-}
-
-/// Player game mode
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct GameMode {
-    pub value: u8,
-}
-
-impl GameMode {
-    pub const SURVIVAL: Self = Self { value: 0 };
-    pub const CREATIVE: Self = Self { value: 1 };
-    pub const ADVENTURE: Self = Self { value: 2 };
-    pub const SPECTATOR: Self = Self { value: 3 };
-}
-
-/// Tag: Player needs initial spawn chunks sent
-#[derive(Component, Default)]
-pub struct NeedsSpawnChunks;
-
-/// Tag: Player has completed login and is in Play state
-#[derive(Component, Default)]
-pub struct InPlayState;
-
-/// Singleton: Entity ID counter for protocol
-#[derive(Component)]
-pub struct EntityIdCounter(pub AtomicI64);
-
-impl Default for EntityIdCounter {
-    fn default() -> Self {
-        Self(AtomicI64::new(1))
-    }
-}
-
-impl EntityIdCounter {
-    pub fn next(&self) -> i32 {
-        self.0.fetch_add(1, Ordering::Relaxed) as i32
-    }
-}
+// Re-export components for convenience
+pub use module_login_components::{
+    ChunkPosition, EntityId, EntityIdCounter, GameMode, InPlayState, LoginComponentsModule, Name,
+    NeedsSpawnChunks, Player, Position, Rotation, Uuid,
+};
 
 // ============================================================================
 // Packet helpers
@@ -208,26 +103,9 @@ impl Module for LoginModule {
     fn module(world: &World) {
         world.module::<LoginModule>("login");
 
-        // Import dependencies
-        world.import::<module_network_components::NetworkComponentsModule>();
-
-        // Register player components
-        world.component::<Player>();
-        world.component::<Name>();
-        world.component::<Uuid>();
-        world.component::<EntityId>();
-        world.component::<Position>();
-        world.component::<Rotation>();
-        world.component::<ChunkPosition>();
-        world.component::<GameMode>();
-        world.component::<NeedsSpawnChunks>();
-        world.component::<InPlayState>();
-
-        // Set up EntityIdCounter singleton
-        world
-            .component::<EntityIdCounter>()
-            .add_trait::<flecs::Singleton>();
-        world.set(EntityIdCounter::default());
+        // Import dependencies (component modules)
+        world.import::<NetworkComponentsModule>();
+        world.import::<LoginComponentsModule>();
 
         // Handle login packets
         world

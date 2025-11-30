@@ -1424,8 +1424,18 @@ dependencies = [
  "flecs_ecs",
  "mc-data",
  "mc-protocol",
+ "module-chunk-components",
  "module-loader",
  "tracing",
+]
+
+[[package]]
+name = "module-chunk-components"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "flecs_ecs",
+ "module-loader",
 ]
 
 [[package]]
@@ -1438,7 +1448,7 @@ dependencies = [
  "flecs_ecs",
  "mc-protocol",
  "module-loader",
- "module-login",
+ "module-login-components",
  "module-network-components",
  "tracing",
 ]
@@ -1461,10 +1471,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "module-listener"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "crossbeam-channel",
+ "eyre",
+ "flecs_ecs",
+ "mc-protocol",
+ "module-loader",
+ "module-network-components",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "module-loader"
 version = "0.1.0"
 dependencies = [
  "flecs_ecs",
+ "libc",
  "libloading",
  "notify",
  "thiserror 2.0.17",
@@ -1480,8 +1506,17 @@ dependencies = [
  "flecs_ecs",
  "mc-protocol",
  "module-loader",
+ "module-login-components",
  "module-network-components",
  "tracing",
+]
+
+[[package]]
+name = "module-login-components"
+version = "0.1.0"
+dependencies = [
+ "flecs_ecs",
+ "module-loader",
 ]
 
 [[package]]
@@ -1492,6 +1527,7 @@ dependencies = [
  "crossbeam-channel",
  "flecs_ecs",
  "module-loader",
+ "module-network-components",
  "tracing",
 ]
 
@@ -1525,9 +1561,9 @@ dependencies = [
  "flecs_ecs",
  "mc-data",
  "mc-protocol",
- "module-chunk",
+ "module-chunk-components",
  "module-loader",
- "module-login",
+ "module-login-components",
  "module-network-components",
  "module-time-components",
  "tracing",
