@@ -62,14 +62,24 @@ graph TD
 ## Usage
 
 ```rust
-use skript_lang::parse;
+use skript_lang::{parse, Script, Item, EventHandler, Block, Stmt, Effect, EffectKind, Expr, Literal, LiteralKind};
 
-let source = r#"
-on join:
-    send "Hello!" to player
-"#;
-
+let source = "on join:\n\tsend \"Hello!\" to player\n";
 let script = parse(source).unwrap();
+
+// Script { items: [Event { event: "join", body: Block { stmts: [...] } }] }
+assert_eq!(script.items.len(), 1);
+
+let Item::Event(EventHandler { event, body, .. }) = &script.items[0] else { panic!() };
+assert_eq!(*event, "join");
+
+let Stmt::Effect(Effect { kind: EffectKind::Send { message, target }, .. }) = &body.stmts[0] else { panic!() };
+let Expr::Literal(Literal { kind: LiteralKind::String(msg), .. }) = message.as_ref() else { panic!() };
+assert_eq!(*msg, "Hello!");
+
+let Some(target) = target else { panic!() };
+let Expr::Ident(ident, _) = target.as_ref() else { panic!() };
+assert_eq!(*ident, "player");
 ```
 
 ## Features

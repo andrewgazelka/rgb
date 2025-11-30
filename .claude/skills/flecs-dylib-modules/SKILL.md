@@ -1,93 +1,113 @@
 ---
-name: flecs-dylib-plugins
-description: Hot-reloadable Flecs modules as Rust dylibs. Covers plugin architecture, singleton setup, and inter-plugin dependencies.
+name: flecs-dylib-modules
+description: Hot-reloadable Flecs modules as Rust dylibs. Covers module architecture, component vs system modules, and inter-module dependencies.
 ---
 
-# Flecs Dylib Plugins
+# Flecs Dylib Modules
 
 Hot-reloadable Flecs modules as Rust dylibs.
 
 ## When to Use
 
 Use this skill when you need to:
-- Create a new hot-reloadable plugin
-- Understand how plugins depend on each other
+- Create a new hot-reloadable module
+- Understand how modules depend on each other
 - Debug singleton/component registration issues
 
-## Architecture
+## Idiomatic Flecs: Separate Components from Systems
 
-Each plugin is a separate dylib crate that:
-1. Defines its own components/singletons
-2. Exports a Flecs `Module`
-3. Other plugins can depend on it via Cargo and use its types
+In Flecs, it's idiomatic to separate:
+- **Component modules** - define components/singletons only, no systems
+- **System modules** - import component modules, define systems that use them
 
-## Key Insight: No Central Types Crate Needed
+This separation enables:
+- Hot-reload systems without breaking component data
+- Multiple system modules sharing the same components
+- Cleaner dependency graphs
 
-Plugins export their types directly. Other plugins depend on them:
+### Example Structure
+
+```
+crates/module/
+├── time-components/     # WorldTime, TpsTracker (components only)
+├── time-systems/        # Systems that tick WorldTime (imports time-components)
+├── network-components/  # Connection, PacketBuffer, etc.
+├── network-systems/     # Ingress/egress systems
+└── play/                # Game systems (imports time-components, network-components)
+```
+
+## Component Module Pattern
 
 ```rust
-// crates/plugin-time/src/lib.rs (dylib)
-#[derive(Component)]
+// crates/module/time-components/src/lib.rs
+use flecs_ecs::prelude::*;
+
+#[derive(Component, Debug)]
 pub struct WorldTime {
     pub world_age: i64,
     pub time_of_day: i64,
 }
 
 #[derive(Component)]
-pub struct TimeModule;
+pub struct TimeComponentsModule;
 
-impl Module for TimeModule {
+impl Module for TimeComponentsModule {
     fn module(world: &World) {
-        world.module::<TimeModule>("time");
+        world.module::<TimeComponentsModule>("time::components");
+
+        // Register component and singleton
         world.component::<WorldTime>().add_trait::<flecs::Singleton>();
         world.set(WorldTime::default());
-        // systems...
+
+        // NO SYSTEMS HERE - just components
     }
 }
 ```
+
+## System Module Pattern
 
 ```rust
-// crates/plugin-play/src/lib.rs (dylib)
-use plugin_time::{TimeModule, WorldTime};  // Cargo dep on plugin-time
+// crates/module/time-systems/src/lib.rs
+use flecs_ecs::prelude::*;
+use module_time_components::{TimeComponentsModule, WorldTime};
 
 #[derive(Component)]
-pub struct PlayModule;
+pub struct TimeSystemsModule;
 
-impl Module for PlayModule {
+impl Module for TimeSystemsModule {
     fn module(world: &World) {
-        world.module::<PlayModule>("play");
-        world.import::<TimeModule>();  // Ensures singleton exists
+        world.module::<TimeSystemsModule>("time::systems");
 
-        world.system::<&WorldTime>()  // Use the type directly
-            .each(|time| { /* ... */ });
+        // Import component module (ensures components exist)
+        world.import::<TimeComponentsModule>();
+
+        // Define systems
+        world.system_named::<&mut WorldTime>("TickWorldTime")
+            .each(|time| {
+                time.world_age += 1;
+                time.time_of_day = (time.time_of_day + 1) % 24000;
+            });
     }
 }
 ```
 
-## Cargo.toml Setup
+## Module Dependencies via Cargo
+
+System modules depend on component modules via Cargo:
 
 ```toml
-# crates/plugin-time/Cargo.toml
+# crates/module/time-systems/Cargo.toml
 [lib]
 crate-type = ["dylib"]
 
 [dependencies]
 flecs_ecs.workspace = true
-```
-
-```toml
-# crates/plugin-play/Cargo.toml
-[lib]
-crate-type = ["dylib"]
-
-[dependencies]
-flecs_ecs.workspace = true
-plugin-time = { path = "../plugin-time" }  # For types only
+module-time-components = { path = "../time-components" }
 ```
 
 ## Plugin Interface (Rust ABI)
 
-Each plugin exports these functions:
+Each module dylib exports:
 
 ```rust
 #[unsafe(no_mangle)]
@@ -111,50 +131,49 @@ pub fn plugin_version() -> u32 { 1 }
 
 ## Critical: Singleton Setup
 
-Modules that define singletons MUST set them up:
-
 ```rust
 // WRONG - just registers component
 world.component::<WorldTime>();
 
-// RIGHT - registers as singleton AND sets initial value
+// RIGHT - register as singleton AND set value
 world.component::<WorldTime>().add_trait::<flecs::Singleton>();
 world.set(WorldTime::default());
 ```
 
-## Critical: Import Order via world.import()
+## Critical: world.import() for Dependencies
 
-`world.import::<Module>()` is idempotent. Call it to declare dependencies:
+`world.import::<Module>()` is idempotent - safe to call multiple times:
 
 ```rust
 impl Module for PlayModule {
     fn module(world: &World) {
-        world.import::<TimeModule>();   // Ensures TimeModule loaded first
-        world.import::<ChunkModule>();  // Ensures ChunkModule loaded first
-        // Now safe to query WorldTime, ChunkIndex, etc.
+        world.import::<TimeComponentsModule>();  // Ensures components exist
+        world.import::<NetworkComponentsModule>();
+        // Now safe to query WorldTime, PacketBuffer, etc.
     }
 }
 ```
 
-Load order of dylibs doesn't matter - each plugin's `import` calls handle dependencies.
-
 ## Shared Libraries Required
 
-Both host and all plugins must link to the SAME:
+All modules must link to the SAME shared flecs libraries:
 - `libflecs.dylib` (C library)
 - `libflecs_ecs.dylib` (Rust wrapper)
 
-In flecs_ecs Cargo.toml:
-```toml
-[lib]
-crate-type = ["dylib"]
-```
+## Development Workflow
 
-## Symlink for Development
+Symlink dylibs to plugins/ directory:
 
-During dev, symlink built dylibs to plugins/:
 ```bash
-ln -s target/debug/libplugin_time.dylib plugins/
+ln -s target/debug/libmodule_time_components.dylib plugins/
+ln -s target/debug/libmodule_time_systems.dylib plugins/
 ```
 
-Rebuild updates the dylib, file watcher triggers hot-reload.
+Rebuild updates dylib, file watcher triggers hot-reload.
+
+## Hot-Reload Benefits
+
+With component/system separation:
+- Reload `time-systems` → systems restart with existing component data
+- Reload `time-components` → resets singletons (use sparingly)
+- Add new system module → extends functionality without touching existing modules

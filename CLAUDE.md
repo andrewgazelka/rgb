@@ -2,6 +2,8 @@ Things that have no self refernce should be free funciton not associated functio
 
 NEVER use cdylib ; use rust dylib (assume compiler versions match)
 
+Prefer almost always using inline path like `core::mem::slice` instead of `use core::mem::slice` `slice::...`
+
 Run `./ci.sh` for CI checks (fmt, clippy, tests)
 
 Use `cargo nextest run` for tests
