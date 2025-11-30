@@ -32,3 +32,4 @@ build/
 
 # Hot-reloadable plugins (compiled dylibs)
 modules/
+world_data

@@ -36,6 +36,7 @@ fn encode_packet(packet_id: i32, data: &[u8]) -> Bytes {
 
 /// Configuration module - handles configuration phase
 #[derive(Component)]
+#[flecs(meta)]
 pub struct ConfigurationModule;
 
 impl Module for ConfigurationModule {

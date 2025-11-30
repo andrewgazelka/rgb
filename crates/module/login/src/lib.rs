@@ -139,7 +139,13 @@ impl Module for LoginModule {
                                 });
                                 e.set(Uuid(player_uuid));
                                 e.set(EntityId { value: entity_id });
-                                e.set(Position::new(0.0, 100.0, 0.0));
+
+                                // Position is auto-loaded when Uuid is set (via persist system)
+                                // If not found in DB, set default spawn position
+                                if !e.has(Position::id()) {
+                                    e.set(Position::SPAWN);
+                                }
+
                                 e.set(Rotation::new(0.0, 0.0));
                                 e.set(ChunkPosition::new(0, 0));
                                 e.set(GameMode::CREATIVE);

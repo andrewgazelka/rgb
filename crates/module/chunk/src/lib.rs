@@ -18,6 +18,7 @@ pub use module_chunk_components::{
 
 /// Chunk module - handles chunk loading and indexing
 #[derive(Component)]
+#[flecs(meta)]
 pub struct ChunkModule;
 
 impl Module for ChunkModule {

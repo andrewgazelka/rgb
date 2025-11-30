@@ -33,6 +33,7 @@ type ConnectionMap = Arc<RwLock<HashMap<u64, tokio::sync::mpsc::Sender<Bytes>>>>
 
 /// Listener module - spawns TCP server and bridges to ECS
 #[derive(Component)]
+#[flecs(meta)]
 pub struct ListenerModule;
 
 impl Module for ListenerModule {

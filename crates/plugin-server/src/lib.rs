@@ -14,6 +14,7 @@ use mc_server_lib::{
 
 /// Server module - imports all sub-modules
 #[derive(Component)]
+#[flecs(meta)]
 pub struct ServerModule;
 
 impl Module for ServerModule {

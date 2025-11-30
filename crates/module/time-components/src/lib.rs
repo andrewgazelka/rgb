@@ -15,6 +15,7 @@ use module_loader::register_module;
 
 /// Singleton: World time tracking
 #[derive(Component, Debug)]
+#[flecs(meta)]
 pub struct WorldTime {
     pub world_age: i64,
     pub time_of_day: i64,
@@ -39,6 +40,7 @@ impl WorldTime {
 
 /// Singleton: TPS (ticks per second) tracking with exponential moving averages
 #[derive(Component, Debug)]
+#[flecs(meta)]
 pub struct TpsTracker {
     /// TPS with 5-second smoothing
     pub tps_5s: f32,
@@ -83,6 +85,7 @@ impl TpsTracker {
 
 /// Time components module - registers time-related components only
 #[derive(Component)]
+#[flecs(meta)]
 pub struct TimeComponentsModule;
 
 impl Module for TimeComponentsModule {

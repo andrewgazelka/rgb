@@ -32,6 +32,8 @@ members = [
     "crates/module/config",
     "crates/module/play",
     "crates/module-skript",
+    "crates/persist",
+    "crates/persist-derive",
 ]
 
 [workspace.package]
@@ -70,6 +72,11 @@ notify = "7"
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+heed = "0.20"
+bincode = "1"
+inventory = "0.3"
+persist = { path = "crates/persist" }
+persist-derive = { path = "crates/persist-derive" }
 
 [workspace.lints.clippy]
 # Deny all categories

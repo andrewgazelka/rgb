@@ -4,6 +4,7 @@ use crate::pos::CHUNK_SIZE;
 
 /// Cell data for a chunk (16x16 grid of bools)
 #[derive(Component, Clone)]
+#[flecs(meta)]
 pub struct CellData {
     pub cells: [[bool; CHUNK_SIZE]; CHUNK_SIZE],
 }
@@ -40,6 +41,7 @@ impl CellData {
 
 /// Double-buffer for safe updates during simulation
 #[derive(Component, Clone)]
+#[flecs(meta)]
 pub struct NextCellData {
     pub cells: [[bool; CHUNK_SIZE]; CHUNK_SIZE],
 }
@@ -59,10 +61,12 @@ pub struct SimColor(pub u8);
 
 /// Tag: chunk needs texture update
 #[derive(Component, Default)]
+#[flecs(meta)]
 pub struct Dirty;
 
 /// Tag: chunk has live cells
 #[derive(Component, Default)]
+#[flecs(meta)]
 pub struct Active;
 
 // ============================================
@@ -71,34 +75,42 @@ pub struct Active;
 
 /// North neighbor (+y direction)
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborN;
 
 /// South neighbor (-y direction)
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborS;
 
 /// East neighbor (+x direction)
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborE;
 
 /// West neighbor (-x direction)
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborW;
 
 /// Northeast neighbor
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborNE;
 
 /// Northwest neighbor
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborNW;
 
 /// Southeast neighbor
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborSE;
 
 /// Southwest neighbor
 #[derive(Component)]
+#[flecs(meta)]
 pub struct NeighborSW;
 
 /// Direction enum for neighbor lookups

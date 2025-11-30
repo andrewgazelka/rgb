@@ -1,19 +1,20 @@
 [package]
-name = "module-login-components"
+name = "persist"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
-[lib]
-# rlib (default) - component definitions, statically linked
-
 [dependencies]
 flecs_ecs.workspace = true
-module-loader = { path = "../../module-loader" }
-persist.workspace = true
+heed.workspace = true
 serde.workspace = true
 bincode.workspace = true
+tracing.workspace = true
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true

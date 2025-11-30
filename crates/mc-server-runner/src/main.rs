@@ -42,6 +42,9 @@ fn main() -> eyre::Result<()> {
     // Create Flecs world
     let world = World::new();
 
+    // Persistence layer - must be initialized before importing modules that use .persist()
+    persist::init::<module_login_components::Uuid>(&world, "./world_data");
+
     // Import all modules statically
     // Order matters: components first, then systems that depend on them
     world.import::<module_network_components::NetworkComponentsModule>();

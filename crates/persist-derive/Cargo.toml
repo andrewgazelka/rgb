@@ -1,0 +1,21 @@
+[package]
+name = "persist-derive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { workspace = true, features = ["full"] }
+quote.workspace = true
+proc-macro2.workspace = true
+
+# Not used directly in proc-macro, but needed so the generated code can reference it
+[dev-dependencies]
+inventory.workspace = true
+
+[lints]
+workspace = true

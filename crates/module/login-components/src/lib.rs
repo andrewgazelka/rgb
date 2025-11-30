@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use flecs_ecs::prelude::*;
 use module_loader::register_module;
+use persist::PersistExt;
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // Player Components
@@ -14,26 +16,43 @@ use module_loader::register_module;
 
 /// Tag: Entity is a player
 #[derive(Component, Default)]
+#[flecs(meta)]
 pub struct Player;
 
 /// Player's username
 #[derive(Component, Debug, Clone)]
+#[flecs(meta)]
 pub struct Name {
     pub value: String,
 }
 
 /// Player's UUID
 #[derive(Component, Debug, Clone, Copy)]
+#[flecs(meta)]
 pub struct Uuid(pub u128);
+
+impl From<&Uuid> for u128 {
+    fn from(uuid: &Uuid) -> Self {
+        uuid.0
+    }
+}
+
+impl From<Uuid> for u128 {
+    fn from(uuid: Uuid) -> Self {
+        uuid.0
+    }
+}
 
 /// Entity ID assigned by server (for protocol)
 #[derive(Component, Debug, Clone, Copy)]
+#[flecs(meta)]
 pub struct EntityId {
     pub value: i32,
 }
 
 /// Player position in world
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -41,6 +60,13 @@ pub struct Position {
 }
 
 impl Position {
+    /// Default spawn position for new players
+    pub const SPAWN: Self = Self {
+        x: 0.0,
+        y: 100.0,
+        z: 0.0,
+    };
+
     #[must_use]
     pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
@@ -54,6 +80,7 @@ impl Position {
 
 /// Player rotation
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct Rotation {
     pub yaw: f32,
     pub pitch: f32,
@@ -68,6 +95,7 @@ impl Rotation {
 
 /// Player's current chunk position
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct ChunkPosition {
     pub x: i32,
     pub z: i32,
@@ -82,6 +110,7 @@ impl ChunkPosition {
 
 /// Player game mode
 #[derive(Component, Debug, Clone, Copy, Default)]
+#[flecs(meta)]
 pub struct GameMode {
     pub value: u8,
 }
@@ -95,10 +124,12 @@ impl GameMode {
 
 /// Tag: Player needs initial spawn chunks sent
 #[derive(Component, Default)]
+#[flecs(meta)]
 pub struct NeedsSpawnChunks;
 
 /// Tag: Player has completed login and is in Play state
 #[derive(Component, Default)]
+#[flecs(meta)]
 pub struct InPlayState;
 
 /// Singleton: Entity ID counter for protocol
@@ -123,6 +154,7 @@ impl EntityIdCounter {
 
 /// Login components module - registers player components
 #[derive(Component)]
+#[flecs(meta)]
 pub struct LoginComponentsModule;
 
 impl Module for LoginComponentsModule {
@@ -134,7 +166,7 @@ impl Module for LoginComponentsModule {
         world.component::<Name>();
         world.component::<Uuid>();
         world.component::<EntityId>();
-        world.component::<Position>();
+        world.component::<Position>().persist::<Uuid>();
         world.component::<Rotation>();
         world.component::<ChunkPosition>();
         world.component::<GameMode>();

@@ -17,6 +17,7 @@ use flecs_ecs::prelude::*;
 
 /// Skript module for Flecs.
 #[derive(Component)]
+#[flecs(meta)]
 pub struct Skript;
 
 impl Module for Skript {

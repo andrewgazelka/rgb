@@ -13,6 +13,7 @@ use module_time_components::{TimeComponentsModule, TpsTracker, WorldTime};
 
 /// Time systems module - handles world time ticking and TPS tracking
 #[derive(Component)]
+#[flecs(meta)]
 pub struct TimeSystemsModule;
 
 impl Module for TimeSystemsModule {

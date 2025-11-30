@@ -34,5 +34,8 @@ module-chunk = { path = "../module/chunk" }
 module-network-systems = { path = "../module/network-systems" }
 module-time = { path = "../module/time" }
 
+# Persistence
+persist.workspace = true
+
 [lints]
 workspace = true

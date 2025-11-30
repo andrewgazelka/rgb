@@ -16,6 +16,7 @@ use module_loader::register_module;
 
 /// Chunk coordinates
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[flecs(meta)]
 pub struct ChunkPos {
     pub x: i32,
     pub z: i32,
@@ -45,6 +46,7 @@ impl ChunkData {
 
 /// Tag: Chunk is fully loaded and ready
 #[derive(Component, Default)]
+#[flecs(meta)]
 pub struct ChunkLoaded;
 
 /// Singleton: Spatial index for chunk lookup
@@ -79,6 +81,7 @@ impl ChunkIndex {
 
 /// Chunk components module - registers chunk components
 #[derive(Component)]
+#[flecs(meta)]
 pub struct ChunkComponentsModule;
 
 impl Module for ChunkComponentsModule {
