@@ -1523,6 +1523,7 @@ dependencies = [
  "crossbeam-channel",
  "flecs_ecs",
  "module-loader",
+ "tracing",
 ]
 
 [[package]]

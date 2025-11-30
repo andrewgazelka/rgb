@@ -13,6 +13,7 @@ flecs_ecs.workspace = true
 module-loader = { path = "../../module-loader" }
 crossbeam-channel.workspace = true
 bytes.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

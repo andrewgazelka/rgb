@@ -161,3 +161,19 @@ unsafe_code = "warn"
 
 # Config
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
+# For hot-reload compatibility: dev and release must produce same struct layouts
+# Key settings that affect ABI: opt-level, lto, codegen-units, panic
+[profile.dev]
+opt-level = 1
+debug = true
+panic = "unwind"
+lto = false
+codegen-units = 256
+
+[profile.release]
+opt-level = 3
+debug = true
+panic = "unwind"
+lto = false
+codegen-units = 256
