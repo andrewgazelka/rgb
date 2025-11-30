@@ -9,7 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{info, warn};
 
-fn read_varint_sync(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<i32> {
+fn read_varint_sync(cursor: &mut Cursor<&[u8]>) -> eyre::Result<i32> {
     let mut result = 0i32;
     let mut shift = 0;
     loop {
@@ -20,13 +20,13 @@ fn read_varint_sync(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<i32> {
         }
         shift += 7;
         if shift >= 32 {
-            anyhow::bail!("VarInt too large");
+            eyre::bail!("VarInt too large");
         }
     }
     Ok(result)
 }
 
-async fn read_varint(stream: &mut (impl AsyncReadExt + Unpin)) -> anyhow::Result<i32> {
+async fn read_varint(stream: &mut (impl AsyncReadExt + Unpin)) -> eyre::Result<i32> {
     let mut result = 0i32;
     let mut shift = 0;
     loop {
@@ -39,7 +39,7 @@ async fn read_varint(stream: &mut (impl AsyncReadExt + Unpin)) -> anyhow::Result
         }
         shift += 7;
         if shift >= 32 {
-            anyhow::bail!("VarInt too large");
+            eyre::bail!("VarInt too large");
         }
     }
     Ok(result)
@@ -93,12 +93,12 @@ struct PacketRecording {
     packets: Vec<RecordedPacket>,
 }
 
-fn decode_string(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<String> {
+fn decode_string(cursor: &mut Cursor<&[u8]>) -> eyre::Result<String> {
     let len = read_varint_sync(cursor)? as usize;
     let pos = cursor.position() as usize;
     let data = cursor.get_ref();
     if pos + len > data.len() {
-        anyhow::bail!("String too long");
+        eyre::bail!("String too long");
     }
     let s = String::from_utf8_lossy(&data[pos..pos + len]).to_string();
     cursor.set_position((pos + len) as u64);
@@ -140,7 +140,7 @@ fn get_packet_name(state: State, direction: PacketDirection, packet_id: i32) -> 
     }
 }
 
-async fn read_packet(stream: &mut (impl AsyncReadExt + Unpin)) -> anyhow::Result<Vec<u8>> {
+async fn read_packet(stream: &mut (impl AsyncReadExt + Unpin)) -> eyre::Result<Vec<u8>> {
     let length = read_varint(stream).await?;
     let mut data = vec![0u8; length as usize];
     stream.read_exact(&mut data).await?;
@@ -154,7 +154,7 @@ async fn read_packet(stream: &mut (impl AsyncReadExt + Unpin)) -> anyhow::Result
 async fn forward_packet(
     stream: &mut (impl AsyncWriteExt + Unpin),
     packet: &[u8],
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     stream.write_all(packet).await?;
     stream.flush().await?;
     Ok(())
@@ -164,7 +164,7 @@ async fn proxy_connection(
     mut client: TcpStream,
     server_addr: &str,
     recording: Arc<Mutex<PacketRecording>>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let mut server = TcpStream::connect(server_addr).await?;
     info!("Connected to upstream server at {}", server_addr);
 
@@ -315,7 +315,7 @@ async fn proxy_connection(
     Ok(())
 }
 
-fn save_recording(recording: &PacketRecording, path: &str) -> anyhow::Result<()> {
+fn save_recording(recording: &PacketRecording, path: &str) -> eyre::Result<()> {
     let file = File::create(path)?;
     let writer = BufWriter::new(file);
     serde_json::to_writer_pretty(writer, recording)?;
@@ -324,7 +324,7 @@ fn save_recording(recording: &PacketRecording, path: &str) -> anyhow::Result<()>
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()

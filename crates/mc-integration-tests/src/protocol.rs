@@ -47,9 +47,9 @@ impl JsonRpcResponse {
     ///
     /// # Errors
     /// Returns an error if the response contains an error field
-    pub fn into_result(self) -> anyhow::Result<Value> {
+    pub fn into_result(self) -> eyre::Result<Value> {
         if let Some(error) = self.error {
-            anyhow::bail!("JSON-RPC error {}: {}", error.code, error.message);
+            eyre::bail!("JSON-RPC error {}: {}", error.code, error.message);
         }
         Ok(self.result.unwrap_or(Value::Null))
     }

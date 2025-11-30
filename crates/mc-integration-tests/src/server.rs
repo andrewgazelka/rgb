@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 
-use anyhow::Result;
+use eyre::Result;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tracing::{debug, info};
@@ -60,7 +60,7 @@ impl ServerProcess {
             loop {
                 let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
                 if remaining.is_zero() {
-                    anyhow::bail!("Server startup timeout");
+                    eyre::bail!("Server startup timeout");
                 }
 
                 match tokio::time::timeout(remaining, lines.next_line()).await {
@@ -120,19 +120,19 @@ impl ServerProcess {
                         }
                     }
                     Ok(Ok(None)) => {
-                        anyhow::bail!("Server process ended unexpectedly");
+                        eyre::bail!("Server process ended unexpectedly");
                     }
                     Ok(Err(e)) => {
-                        anyhow::bail!("Error reading server output: {e}");
+                        eyre::bail!("Error reading server output: {e}");
                     }
                     Err(_) => {
-                        anyhow::bail!("Server startup timeout");
+                        eyre::bail!("Server startup timeout");
                     }
                 }
             }
         }
 
-        let port = actual_port.ok_or_else(|| anyhow::anyhow!("Could not determine server port"))?;
+        let port = actual_port.ok_or_else(|| eyre::eyre!("Could not determine server port"))?;
 
         // Give server a moment to fully initialize
         tokio::time::sleep(Duration::from_millis(100)).await;

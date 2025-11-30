@@ -11,8 +11,8 @@ cargo-ignore-publish = true  # Enforce cargo_common_metadata even for publish = 
 
 disallowed-types = [
     # Error handling - prefer eyre types
-    # { path = "anyhow::Result", reason = "use eyre::Result instead", replacement = "eyre::Result" },
-    # { path = "anyhow::Error", reason = "use eyre::Report instead", replacement = "eyre::Report" },
+    # { path = "eyre::Result", reason = "use eyre::Result instead", replacement = "eyre::Result" },
+    # { path = "eyre::Error", reason = "use eyre::Report instead", replacement = "eyre::Report" },
     # { path = "std::time::Duration", reason = "Time is not a synchronization primitive" }, # This is allowed for now because it can be really annoying to have absolutely no synchronization primitive in the codebase
 
     # Synchronization primitives - FORBIDDEN: use message passing instead
@@ -25,9 +25,9 @@ disallowed-types = [
 ]
 
 disallowed-macros = [
-    # { path = "anyhow::anyhow", reason = "use eyre::eyre instead", replacement = "eyre::eyre" },
-    # { path = "anyhow::bail", reason = "use eyre::bail instead", replacement = "eyre::bail" },
-    # { path = "anyhow::ensure", reason = "use eyre::ensure instead", replacement = "eyre::ensure" },
+    # { path = "eyre::eyre", reason = "use eyre::eyre instead", replacement = "eyre::eyre" },
+    # { path = "eyre::bail", reason = "use eyre::bail instead", replacement = "eyre::bail" },
+    # { path = "eyre::ensure", reason = "use eyre::ensure instead", replacement = "eyre::ensure" },
 
     # Logging - prefer tracing crate
     # { path = "println", reason = "use tracing crate instead (tracing::info!, tracing::debug!, etc.)", replacement = "tracing::info!" },
@@ -69,8 +69,8 @@ disallowed-methods = [
     # { path = "std::option::Option::expect", reason = "handle None case explicitly" },
 
     # Context methods - prefer eyre
-    # { path = "anyhow::Context::context", reason = "use eyre::Context::wrap_err instead", replacement = "wrap_err" },
-    # { path = "anyhow::Context::with_context", reason = "use eyre::Context::wrap_err_with instead", replacement = "wrap_err_with" },
+    # { path = "eyre::Context::context", reason = "use eyre::Context::wrap_err instead", replacement = "wrap_err" },
+    # { path = "eyre::Context::with_context", reason = "use eyre::Context::wrap_err_with instead", replacement = "wrap_err_with" },
 
     # Panic-inducing functions
 { path = "std::panic::panic_any", reason = "use eyre::Result for error handling" },

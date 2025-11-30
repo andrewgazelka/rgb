@@ -1,5 +1,7 @@
 Things that have no self refernce should be free funciton not associated function like Self::get_cell
 
+I am PINNING THE RUST toolchain so i would imagine is not an issue no ABI issues
+
 NEVER use cdylib ; use rust dylib (assume compiler versions match)
 
 Prefer almost always using inline path like `core::mem::slice` instead of `use core::mem::slice` `slice::...`

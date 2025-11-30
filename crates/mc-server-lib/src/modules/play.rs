@@ -25,49 +25,49 @@ use crate::packets::{
 };
 
 fn send_play_login(buffer: &mut PacketBuffer, entity_id: i32) {
-    let result: anyhow::Result<Vec<u8>> = create_play_login(entity_id);
+    let result: eyre::Result<Vec<u8>> = create_play_login(entity_id);
     if let Ok(data) = result {
         buffer.push_outgoing(encode_packet(PlayLogin::ID, &data));
     }
 }
 
 fn send_player_position(buffer: &mut PacketBuffer, x: f64, y: f64, z: f64, teleport_id: i32) {
-    let result: anyhow::Result<Vec<u8>> = create_player_position(x, y, z, teleport_id);
+    let result: eyre::Result<Vec<u8>> = create_player_position(x, y, z, teleport_id);
     if let Ok(data) = result {
         buffer.push_outgoing(encode_packet(PlayerPosition::ID, &data));
     }
 }
 
 fn send_game_event_start_waiting(buffer: &mut PacketBuffer) {
-    let result: anyhow::Result<Vec<u8>> = create_game_event_start_waiting();
+    let result: eyre::Result<Vec<u8>> = create_game_event_start_waiting();
     if let Ok(data) = result {
         buffer.push_outgoing(encode_packet(GameEvent::ID, &data));
     }
 }
 
 fn send_set_center_chunk(buffer: &mut PacketBuffer, x: i32, z: i32) {
-    let result: anyhow::Result<Vec<u8>> = create_set_center_chunk(x, z);
+    let result: eyre::Result<Vec<u8>> = create_set_center_chunk(x, z);
     if let Ok(data) = result {
         buffer.push_outgoing(encode_packet(SetChunkCacheCenter::ID, &data));
     }
 }
 
 fn send_set_time(buffer: &mut PacketBuffer, world_age: i64, time_of_day: i64) {
-    let result: anyhow::Result<Vec<u8>> = create_set_time(world_age, time_of_day);
+    let result: eyre::Result<Vec<u8>> = create_set_time(world_age, time_of_day);
     if let Ok(data) = result {
         buffer.push_outgoing(encode_packet(SetTime::ID, &data));
     }
 }
 
 fn send_keepalive(buffer: &mut PacketBuffer) {
-    let result: anyhow::Result<Vec<u8>> = create_keepalive();
+    let result: eyre::Result<Vec<u8>> = create_keepalive();
     if let Ok(data) = result {
         buffer.push_outgoing(encode_packet(ClientboundKeepAlive::ID, &data));
     }
 }
 
 fn send_chunk_batch_finished(buffer: &mut PacketBuffer, count: i32) {
-    let result: anyhow::Result<Vec<u8>> = create_chunk_batch_finished(count);
+    let result: eyre::Result<Vec<u8>> = create_chunk_batch_finished(count);
     if let Ok(data) = result {
         buffer.push_outgoing(encode_packet(ChunkBatchFinished::ID, &data));
     }

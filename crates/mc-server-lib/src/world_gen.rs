@@ -365,7 +365,7 @@ pub const DAMAGE_TYPES: &[DamageType] = &[
 ];
 
 /// Create superflat chunk packet data (without packet ID)
-pub fn create_superflat_chunk(chunk_x: i32, chunk_z: i32) -> anyhow::Result<Bytes> {
+pub fn create_superflat_chunk(chunk_x: i32, chunk_z: i32) -> eyre::Result<Bytes> {
     let mut data = Vec::new();
 
     // Chunk X, Z (Int)
@@ -480,7 +480,7 @@ fn write_varint_vec(buf: &mut Vec<u8>, value: i32) {
 
 // Registry Data Generation
 
-pub fn create_dimension_type_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_dimension_type_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:dimension_type".to_string().encode(&mut data)?;
 
@@ -535,7 +535,7 @@ pub fn create_dimension_type_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_biome_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_biome_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:worldgen/biome".to_string().encode(&mut data)?;
 
@@ -561,7 +561,7 @@ pub fn create_biome_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_damage_type_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_damage_type_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:damage_type".to_string().encode(&mut data)?;
 
@@ -638,7 +638,7 @@ fn create_zombie_nautilus_variant_nbt() -> Vec<u8> {
     nbt_data.to_network_bytes()
 }
 
-pub fn create_cat_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_cat_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:cat_variant".to_string().encode(&mut data)?;
 
@@ -669,7 +669,7 @@ pub fn create_cat_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_chicken_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_chicken_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:chicken_variant".to_string().encode(&mut data)?;
 
@@ -688,7 +688,7 @@ pub fn create_chicken_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_cow_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_cow_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:cow_variant".to_string().encode(&mut data)?;
 
@@ -707,7 +707,7 @@ pub fn create_cow_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_frog_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_frog_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:frog_variant".to_string().encode(&mut data)?;
 
@@ -726,7 +726,7 @@ pub fn create_frog_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_pig_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_pig_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:pig_variant".to_string().encode(&mut data)?;
 
@@ -745,7 +745,7 @@ pub fn create_pig_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_wolf_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_wolf_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:wolf_variant".to_string().encode(&mut data)?;
 
@@ -763,7 +763,7 @@ pub fn create_wolf_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_wolf_sound_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_wolf_sound_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:wolf_sound_variant"
         .to_string()
@@ -781,7 +781,7 @@ pub fn create_wolf_sound_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_zombie_nautilus_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_zombie_nautilus_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:zombie_nautilus_variant"
         .to_string()
@@ -799,7 +799,7 @@ pub fn create_zombie_nautilus_variant_registry() -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub fn create_painting_variant_registry() -> anyhow::Result<Vec<u8>> {
+pub fn create_painting_variant_registry() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     "minecraft:painting_variant".to_string().encode(&mut data)?;
 

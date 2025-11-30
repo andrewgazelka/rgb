@@ -10,7 +10,7 @@ description = "Minecraft server ECS library using Flecs"
 flecs_ecs.workspace = true
 crossbeam-channel.workspace = true
 bytes.workspace = true
-anyhow.workspace = true
+eyre.workspace = true
 mc-protocol = { path = "../mc-protocol" }
 mc-data = { path = "../mc-data" }
 tracing = "0.1"

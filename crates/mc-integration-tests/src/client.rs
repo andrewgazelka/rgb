@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
 
-use anyhow::Result;
+use eyre::Result;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio::net::UnixStream;
@@ -104,7 +104,7 @@ impl FabricClient {
         let socket = loop {
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
-                anyhow::bail!("Timeout waiting for client socket");
+                eyre::bail!("Timeout waiting for client socket");
             }
 
             match UnixStream::connect(&config.socket_path).await {
@@ -167,7 +167,7 @@ impl FabricClient {
 
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
-                anyhow::bail!("Timeout waiting for response to {method}");
+                eyre::bail!("Timeout waiting for response to {method}");
             }
 
             match tokio::time::timeout(remaining, self.response_rx.recv()).await {
@@ -179,10 +179,10 @@ impl FabricClient {
                     warn!("Received response with unexpected ID: {:?}", response.id);
                 }
                 Ok(None) => {
-                    anyhow::bail!("Client connection closed");
+                    eyre::bail!("Client connection closed");
                 }
                 Err(_) => {
-                    anyhow::bail!("Timeout waiting for response to {method}");
+                    eyre::bail!("Timeout waiting for response to {method}");
                 }
             }
         }
@@ -257,7 +257,7 @@ impl FabricClient {
 
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
-                anyhow::bail!(
+                eyre::bail!(
                     "Timeout waiting for state '{}', current state: '{}'",
                     target_state,
                     state.state
@@ -287,7 +287,7 @@ impl FabricClient {
 
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
-                anyhow::bail!(
+                eyre::bail!(
                     "Timeout waiting for {} chunks, only have {}",
                     count,
                     chunks.len()
@@ -318,7 +318,7 @@ impl FabricClient {
         loop {
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
-                anyhow::bail!("Timeout waiting for event");
+                eyre::bail!("Timeout waiting for event");
             }
 
             match tokio::time::timeout(remaining, self.event_rx.recv()).await {
@@ -329,10 +329,10 @@ impl FabricClient {
                     self.collected_events.push(event);
                 }
                 Ok(None) => {
-                    anyhow::bail!("Client connection closed");
+                    eyre::bail!("Client connection closed");
                 }
                 Err(_) => {
-                    anyhow::bail!("Timeout waiting for event");
+                    eyre::bail!("Timeout waiting for event");
                 }
             }
         }

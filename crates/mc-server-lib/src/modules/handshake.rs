@@ -5,7 +5,7 @@ use crate::components::{Connection, ConnectionState, PacketBuffer, ProtocolState
 use crate::packets::{create_status_response, encode_packet, parse_handshake};
 
 fn send_status_response(buffer: &mut PacketBuffer) {
-    let result: anyhow::Result<Vec<u8>> = create_status_response();
+    let result: eyre::Result<Vec<u8>> = create_status_response();
     if let Ok(response_data) = result {
         let packet = encode_packet(0, &response_data);
         buffer.push_outgoing(packet);

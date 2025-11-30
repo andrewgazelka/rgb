@@ -22,7 +22,7 @@ use tracing::{debug, info};
 type ConnectionMap = Arc<RwLock<HashMap<u64, tokio::sync::mpsc::Sender<Bytes>>>>;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
@@ -152,7 +152,7 @@ async fn handle_connection(
     conn_id: u64,
     ingress_tx: crossbeam_channel::Sender<IncomingPacket>,
     mut egress_rx: tokio::sync::mpsc::Receiver<Bytes>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let (mut reader, mut writer) = stream.into_split();
 
     // Spawn writer task
@@ -206,7 +206,7 @@ async fn handle_connection(
     Ok(())
 }
 
-async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<i32> {
+async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> eyre::Result<i32> {
     let mut result = 0i32;
     let mut shift = 0;
     loop {
@@ -219,7 +219,7 @@ async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::R
         }
         shift += 7;
         if shift >= 32 {
-            anyhow::bail!("VarInt too large");
+            eyre::bail!("VarInt too large");
         }
     }
     Ok(result)

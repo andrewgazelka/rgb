@@ -53,7 +53,7 @@ pub fn offline_uuid(name: &str) -> u128 {
 }
 
 /// Parse a handshake packet, returns (protocol_version, next_state)
-pub fn parse_handshake(data: &[u8]) -> anyhow::Result<(i32, i32)> {
+pub fn parse_handshake(data: &[u8]) -> eyre::Result<(i32, i32)> {
     let mut cursor = Cursor::new(data);
     let protocol_version = mc_protocol::read_varint(&mut cursor)?;
     let _server_address = String::decode(&mut cursor)?;
@@ -63,7 +63,7 @@ pub fn parse_handshake(data: &[u8]) -> anyhow::Result<(i32, i32)> {
 }
 
 /// Parse a login start packet, returns (name, uuid)
-pub fn parse_login_start(data: &[u8]) -> anyhow::Result<(String, u128)> {
+pub fn parse_login_start(data: &[u8]) -> eyre::Result<(String, u128)> {
     let mut cursor = Cursor::new(data);
     let name = String::decode(&mut cursor)?;
     let uuid = mc_protocol::Uuid::decode(&mut cursor)?;
@@ -71,7 +71,7 @@ pub fn parse_login_start(data: &[u8]) -> anyhow::Result<(String, u128)> {
 }
 
 /// Create login success response data
-pub fn create_login_success(uuid: u128, name: &str) -> anyhow::Result<Vec<u8>> {
+pub fn create_login_success(uuid: u128, name: &str) -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     mc_protocol::Uuid(uuid).encode(&mut data)?;
     name.to_string().encode(&mut data)?;
@@ -80,7 +80,7 @@ pub fn create_login_success(uuid: u128, name: &str) -> anyhow::Result<Vec<u8>> {
 }
 
 /// Create status response JSON
-pub fn create_status_response() -> anyhow::Result<Vec<u8>> {
+pub fn create_status_response() -> eyre::Result<Vec<u8>> {
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -139,7 +139,7 @@ pub fn create_status_response() -> anyhow::Result<Vec<u8>> {
 }
 
 /// Create known packs packet data
-pub fn create_known_packs() -> anyhow::Result<Vec<u8>> {
+pub fn create_known_packs() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     write_varint(&mut data, 1)?; // 1 pack
     "minecraft".to_string().encode(&mut data)?; // namespace
@@ -149,7 +149,7 @@ pub fn create_known_packs() -> anyhow::Result<Vec<u8>> {
 }
 
 /// Create Play Login packet data
-pub fn create_play_login(entity_id: i32) -> anyhow::Result<Vec<u8>> {
+pub fn create_play_login(entity_id: i32) -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
 
     // === ClientboundLoginPacket fields ===
@@ -226,7 +226,7 @@ pub fn create_play_login(entity_id: i32) -> anyhow::Result<Vec<u8>> {
 }
 
 /// Create player position packet data
-pub fn create_player_position(x: f64, y: f64, z: f64, teleport_id: i32) -> anyhow::Result<Vec<u8>> {
+pub fn create_player_position(x: f64, y: f64, z: f64, teleport_id: i32) -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
 
     // Teleport ID (VarInt)
@@ -253,7 +253,7 @@ pub fn create_player_position(x: f64, y: f64, z: f64, teleport_id: i32) -> anyho
 }
 
 /// Create game event packet (start waiting for chunks)
-pub fn create_game_event_start_waiting() -> anyhow::Result<Vec<u8>> {
+pub fn create_game_event_start_waiting() -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     data.write_u8(13)?; // Event: Start waiting for level chunks
     data.write_f32::<BigEndian>(0.0)?;
@@ -261,7 +261,7 @@ pub fn create_game_event_start_waiting() -> anyhow::Result<Vec<u8>> {
 }
 
 /// Create set center chunk packet
-pub fn create_set_center_chunk(x: i32, z: i32) -> anyhow::Result<Vec<u8>> {
+pub fn create_set_center_chunk(x: i32, z: i32) -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     write_varint(&mut data, x)?;
     write_varint(&mut data, z)?;
@@ -269,7 +269,7 @@ pub fn create_set_center_chunk(x: i32, z: i32) -> anyhow::Result<Vec<u8>> {
 }
 
 /// Create set time packet
-pub fn create_set_time(world_age: i64, time_of_day: i64) -> anyhow::Result<Vec<u8>> {
+pub fn create_set_time(world_age: i64, time_of_day: i64) -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     data.write_i64::<BigEndian>(world_age)?;
     data.write_i64::<BigEndian>(time_of_day)?;
@@ -279,7 +279,7 @@ pub fn create_set_time(world_age: i64, time_of_day: i64) -> anyhow::Result<Vec<u
 
 /// Create keep-alive packet
 #[allow(clippy::missing_panics_doc)]
-pub fn create_keepalive() -> anyhow::Result<Vec<u8>> {
+pub fn create_keepalive() -> eyre::Result<Vec<u8>> {
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("time")
@@ -291,7 +291,7 @@ pub fn create_keepalive() -> anyhow::Result<Vec<u8>> {
 }
 
 /// Create chunk batch finished packet
-pub fn create_chunk_batch_finished(count: i32) -> anyhow::Result<Vec<u8>> {
+pub fn create_chunk_batch_finished(count: i32) -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
     write_varint(&mut data, count)?;
     Ok(data)
@@ -299,7 +299,7 @@ pub fn create_chunk_batch_finished(count: i32) -> anyhow::Result<Vec<u8>> {
 
 /// Create action bar text packet (position display above hotbar)
 /// The text component is encoded as NBT string
-pub fn create_action_bar_text(text: &str) -> anyhow::Result<Vec<u8>> {
+pub fn create_action_bar_text(text: &str) -> eyre::Result<Vec<u8>> {
     use mc_protocol::nbt;
     // Text component as NBT compound with "text" field
     let compound = nbt! {

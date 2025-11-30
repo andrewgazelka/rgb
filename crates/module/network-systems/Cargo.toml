@@ -1,5 +1,5 @@
 [package]
-name = "module-chunk"
+name = "module-network-systems"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,7 @@ crate-type = ["dylib"]
 [dependencies]
 flecs_ecs.workspace = true
 module-loader = { path = "../../module-loader" }
+module-network-components = { path = "../network-components" }
 
 [lints]
 workspace = true

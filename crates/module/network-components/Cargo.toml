@@ -1,5 +1,5 @@
 [package]
-name = "module-chunk"
+name = "module-network-components"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,8 @@ crate-type = ["dylib"]
 [dependencies]
 flecs_ecs.workspace = true
 module-loader = { path = "../../module-loader" }
+crossbeam-channel.workspace = true
+bytes.workspace = true
 
 [lints]
 workspace = true

@@ -17,7 +17,8 @@ mc-server-lib = { path = "../mc-server-lib" }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-anyhow = "1"
+eyre.workspace = true
+color-eyre.workspace = true
 bytes.workspace = true
 crossbeam-channel.workspace = true
 

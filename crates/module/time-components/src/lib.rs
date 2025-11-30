@@ -7,6 +7,7 @@
 //! NO SYSTEMS - just component definitions
 
 use flecs_ecs::prelude::*;
+use module_loader::register_plugin;
 
 // ============================================================================
 // Components
@@ -106,26 +107,9 @@ impl Module for TimeComponentsModule {
 // Plugin exports
 // ============================================================================
 
-pub const PLUGIN_VERSION: u32 = 1;
-
-#[unsafe(no_mangle)]
-pub fn plugin_load(world: &World) {
-    world.import::<TimeComponentsModule>();
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_unload(world: &World) {
-    if let Some(e) = world.try_lookup("::time::components") {
-        e.destruct();
-    }
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_name() -> &'static str {
-    "time-components"
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_version() -> u32 {
-    PLUGIN_VERSION
+register_plugin! {
+    name: "time-components",
+    version: 1,
+    module: TimeComponentsModule,
+    path: "::time::components",
 }

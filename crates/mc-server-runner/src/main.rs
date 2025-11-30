@@ -14,8 +14,8 @@
 use std::collections::HashMap;
 use std::io::{self, Cursor, Write};
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::sync::Arc;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -25,11 +25,11 @@ use crossterm::terminal::{self, ClearType};
 use crossterm::{cursor, execute};
 use flecs_ecs::prelude::*;
 use mc_protocol::read_varint;
-use mc_server_lib::{
+use module_loader::ModuleLoader;
+use module_network_components::{
     DisconnectEvent, DisconnectIngress, IncomingPacket, NetworkChannels, NetworkEgress,
-    NetworkIngress,
+    NetworkIngress, OutgoingPacket,
 };
-use plugin_loader::PluginLoader;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
@@ -47,13 +47,13 @@ enum Command {
     Unknown(String),
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("mc_server_runner=info".parse()?)
-                .add_directive("plugin_loader=info".parse()?)
+                .add_directive("module_loader=info".parse()?)
                 .add_directive("mc_server_lib=debug".parse()?),
         )
         .init();
@@ -98,7 +98,7 @@ fn main() -> anyhow::Result<()> {
     });
 
     // Create plugin loader
-    let mut loader = PluginLoader::new(&plugins_dir);
+    let mut loader = ModuleLoader::new(&plugins_dir);
 
     // Load all plugins from the directory
     if let Err(e) = loader.load_all(&world) {
@@ -111,9 +111,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     info!("Loaded plugins: {:?}", loader.loaded_plugins());
-
-    // Generate spawn chunks (after plugins loaded ChunkModule)
-    mc_server_lib::generate_spawn_chunks(&world, 8);
 
     // Configuration
     let rest_port: u16 = std::env::var("REST_PORT")
@@ -242,7 +239,7 @@ fn main() -> anyhow::Result<()> {
 async fn run_network(
     port: u16,
     ingress_tx: crossbeam_channel::Sender<IncomingPacket>,
-    egress_rx: crossbeam_channel::Receiver<mc_server_lib::OutgoingPacket>,
+    egress_rx: crossbeam_channel::Receiver<OutgoingPacket>,
     disconnect_tx: crossbeam_channel::Sender<DisconnectEvent>,
 ) {
     let connections: ConnectionMap = Arc::new(RwLock::new(HashMap::new()));
@@ -315,7 +312,7 @@ async fn handle_connection(
     conn_id: u64,
     ingress_tx: crossbeam_channel::Sender<IncomingPacket>,
     mut egress_rx: tokio::sync::mpsc::Receiver<Bytes>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let (mut reader, mut writer) = stream.into_split();
 
     let writer_handle = tokio::spawn(async move {
@@ -358,7 +355,7 @@ async fn handle_connection(
     Ok(())
 }
 
-async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::Result<i32> {
+async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> eyre::Result<i32> {
     let mut result = 0i32;
     let mut shift = 0;
     loop {
@@ -371,7 +368,7 @@ async fn read_varint_async<R: AsyncReadExt + Unpin>(reader: &mut R) -> anyhow::R
         }
         shift += 7;
         if shift >= 32 {
-            anyhow::bail!("VarInt too large");
+            eyre::bail!("VarInt too large");
         }
     }
     Ok(result)

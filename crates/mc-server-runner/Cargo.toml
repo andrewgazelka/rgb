@@ -12,13 +12,14 @@ path = "src/main.rs"
 
 [dependencies]
 flecs_ecs.workspace = true
-plugin-loader = { path = "../plugin-loader" }
-mc-server-lib = { path = "../mc-server-lib" }
+module-loader = { path = "../module-loader" }
+module-network-components = { path = "../module/network-components" }
 mc-protocol = { path = "../mc-protocol" }
 mc-data = { path = "../mc-data" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
-anyhow.workspace = true
+eyre.workspace = true
+color-eyre.workspace = true
 crossterm = "0.28"
 crossbeam-channel.workspace = true
 bytes.workspace = true

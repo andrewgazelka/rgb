@@ -31,7 +31,7 @@ pub use server::{ServerConfig, ServerProcess};
 
 use std::path::PathBuf;
 
-use anyhow::Result;
+use eyre::Result;
 use tracing::info;
 
 /// Configuration for an integration test

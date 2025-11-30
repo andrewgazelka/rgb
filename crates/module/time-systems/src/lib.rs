@@ -4,6 +4,7 @@
 //! Depends on `module-time-components` for component definitions.
 
 use flecs_ecs::prelude::*;
+use module_loader::register_plugin;
 use module_time_components::{TimeComponentsModule, TpsTracker, WorldTime};
 
 // ============================================================================
@@ -47,26 +48,9 @@ impl Module for TimeSystemsModule {
 // Plugin exports
 // ============================================================================
 
-pub const PLUGIN_VERSION: u32 = 1;
-
-#[unsafe(no_mangle)]
-pub fn plugin_load(world: &World) {
-    world.import::<TimeSystemsModule>();
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_unload(world: &World) {
-    if let Some(e) = world.try_lookup("::time::systems") {
-        e.destruct();
-    }
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_name() -> &'static str {
-    "time-systems"
-}
-
-#[unsafe(no_mangle)]
-pub fn plugin_version() -> u32 {
-    PLUGIN_VERSION
+register_plugin! {
+    name: "time-systems",
+    version: 1,
+    module: TimeSystemsModule,
+    path: "::time::systems",
 }

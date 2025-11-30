@@ -82,7 +82,7 @@ impl Client {
         });
     }
 
-    async fn read_varint(&mut self) -> anyhow::Result<i32> {
+    async fn read_varint(&mut self) -> eyre::Result<i32> {
         let mut result = 0i32;
         let mut shift = 0;
         loop {
@@ -95,13 +95,13 @@ impl Client {
             }
             shift += 7;
             if shift >= 32 {
-                anyhow::bail!("VarInt too large");
+                eyre::bail!("VarInt too large");
             }
         }
         Ok(result)
     }
 
-    async fn read_packet(&mut self) -> anyhow::Result<(i32, Vec<u8>)> {
+    async fn read_packet(&mut self) -> eyre::Result<(i32, Vec<u8>)> {
         let length = self.read_varint().await?;
         if length == 0 {
             return Ok((-1, vec![]));
@@ -145,7 +145,7 @@ impl Client {
         Ok((packet_id, remaining))
     }
 
-    async fn send_packet(&mut self, packet_id: i32, data: &[u8]) -> anyhow::Result<()> {
+    async fn send_packet(&mut self, packet_id: i32, data: &[u8]) -> eyre::Result<()> {
         // Record the packet
         self.record_packet(PacketDirection::Serverbound, packet_id, data);
 
@@ -204,7 +204,7 @@ impl Client {
         Ok(())
     }
 
-    async fn connect(&mut self, host: &str, port: u16) -> anyhow::Result<()> {
+    async fn connect(&mut self, host: &str, port: u16) -> eyre::Result<()> {
         // Send Handshake
         self.send_handshake(host, port).await?;
 
@@ -217,7 +217,7 @@ impl Client {
         Ok(())
     }
 
-    async fn send_handshake(&mut self, host: &str, port: u16) -> anyhow::Result<()> {
+    async fn send_handshake(&mut self, host: &str, port: u16) -> eyre::Result<()> {
         let mut data = Vec::new();
 
         // Protocol Version (VarInt)
@@ -238,7 +238,7 @@ impl Client {
         Ok(())
     }
 
-    async fn send_login_start(&mut self) -> anyhow::Result<()> {
+    async fn send_login_start(&mut self) -> eyre::Result<()> {
         let mut data = Vec::new();
 
         // Player Name (String)
@@ -255,7 +255,7 @@ impl Client {
         Ok(())
     }
 
-    async fn handle_login_phase(&mut self) -> anyhow::Result<()> {
+    async fn handle_login_phase(&mut self) -> eyre::Result<()> {
         loop {
             let (packet_id, data) = self.read_packet().await?;
             if packet_id == -1 {
@@ -293,7 +293,7 @@ impl Client {
         &mut self,
         packet_id: i32,
         cursor: &mut Cursor<&Vec<u8>>,
-    ) -> anyhow::Result<bool> {
+    ) -> eyre::Result<bool> {
         match packet_id {
             0 => {
                 // Disconnect
@@ -333,7 +333,7 @@ impl Client {
         &mut self,
         packet_id: i32,
         cursor: &mut Cursor<&Vec<u8>>,
-    ) -> anyhow::Result<bool> {
+    ) -> eyre::Result<bool> {
         match packet_id {
             0 => {
                 // Cookie Request
@@ -409,7 +409,7 @@ impl Client {
         &mut self,
         packet_id: i32,
         cursor: &mut Cursor<&Vec<u8>>,
-    ) -> anyhow::Result<bool> {
+    ) -> eyre::Result<bool> {
         match packet_id {
             0x26 => {
                 // Game Event - packet ID 38
@@ -459,7 +459,7 @@ impl Client {
         Ok(true)
     }
 
-    fn save_recording(&self, path: &PathBuf) -> anyhow::Result<()> {
+    fn save_recording(&self, path: &PathBuf) -> eyre::Result<()> {
         let file = File::create(path)?;
         let writer = BufWriter::new(file);
         serde_json::to_writer_pretty(writer, &self.recorded_packets)?;
@@ -490,7 +490,7 @@ fn offline_uuid(name: &str) -> u128 {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()

@@ -10,7 +10,7 @@ members = [
     "crates/mc-server",
     "crates/mc-server-lib",
     "crates/mc-server-runner",
-    "crates/plugin-loader",
+    "crates/module-loader",
     "crates/plugin-server",
     "crates/plugin-time",
     "crates/rgb-app",
@@ -18,6 +18,8 @@ members = [
     "crates/rgb-life",
     "crates/skript-lang",
     "crates/module/network",
+    "crates/module/network-components",
+    "crates/module/network-systems",
     "crates/module/time",
     "crates/module/time-components",
     "crates/module/time-systems",
@@ -26,6 +28,7 @@ members = [
     "crates/module/handshake",
     "crates/module/config",
     "crates/module/play",
+    "crates/module-skript",
 ]
 
 [workspace.package]
@@ -43,7 +46,8 @@ rayon = "1.10"
 flecs_ecs = { path = "../Flecs-Rust/flecs_ecs", features = ["flecs_app", "flecs_rest", "flecs_stats", "flecs_build_shared_c"] }
 crossbeam-channel = "0.5"
 bytes = "1"
-anyhow = "1"
+eyre = "0.6"
+color-eyre = "0.6"
 wgpu = "24"
 winit = "0.30"
 pollster = "0.4"
