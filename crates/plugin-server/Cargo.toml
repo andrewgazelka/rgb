@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Hot-reloadable Minecraft server plugin"
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 flecs_ecs.workspace = true

@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [lib]
-crate-type = ["dylib"]
+# rlib (default) - component definitions, statically linked
 
 [dependencies]
 flecs_ecs.workspace = true

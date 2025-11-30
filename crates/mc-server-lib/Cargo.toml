@@ -4,22 +4,14 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Minecraft server ECS library using Flecs"
+description = "Minecraft server ECS library - compatibility shim"
 
 [lib]
-crate-type = ["dylib"]
+# rlib (default) - statically linked
 
 [dependencies]
 flecs_ecs.workspace = true
-crossbeam-channel.workspace = true
-bytes.workspace = true
-eyre.workspace = true
-mc-protocol = { path = "../mc-protocol" }
-mc-data = { path = "../mc-data" }
-tracing = "0.1"
-byteorder = "1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+module-network-components = { path = "../module/network-components" }
 
 [lints]
 workspace = true

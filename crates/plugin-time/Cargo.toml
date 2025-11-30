@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Hot-reloadable time module plugin for Minecraft server"
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Links to shared flecs_ecs.dylib - same instance as host

@@ -8,7 +8,7 @@ use mc_data::play::clientbound::{
     LevelChunkWithLight, Login as PlayLogin, PlayerPosition, SetActionBarText, SetChunkCacheCenter,
     SetTime,
 };
-use mc_protocol::{nbt, write_varint, Decode, Encode, Packet};
+use mc_protocol::{Decode, Encode, Packet, nbt, write_varint};
 use module_chunk::{ChunkData, ChunkIndex, ChunkPos};
 use module_loader::register_module;
 use module_login::{EntityId, InPlayState, NeedsSpawnChunks, Position, Rotation};
@@ -182,6 +182,12 @@ pub struct PlayModule;
 impl Module for PlayModule {
     fn module(world: &World) {
         world.module::<PlayModule>("play");
+
+        // Import dependencies - Flecs ensures they're initialized first
+        world.import::<module_chunk::ChunkModule>();
+        world.import::<module_login::LoginModule>();
+        world.import::<module_time_components::TimeComponentsModule>();
+        world.import::<module_network_components::NetworkComponentsModule>();
 
         // Send spawn data to new players
         world

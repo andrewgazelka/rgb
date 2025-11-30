@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, WriteBytesExt};
-use mc_protocol::{nbt, write_varint, Encode};
+use mc_protocol::{Encode, nbt, write_varint};
 
 /// Damage type definition for registry
 pub struct DamageType {
@@ -362,7 +362,6 @@ pub const DAMAGE_TYPES: &[DamageType] = &[
         effects: "hurt",
     },
 ];
-
 
 // Registry Data Generation
 

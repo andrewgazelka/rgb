@@ -7,7 +7,7 @@ authors.workspace = true
 description = "Minecraft protocol encoding/decoding traits and utilities"
 
 [lib]
-crate-type = ["dylib"]
+# rlib (default) - statically linked into consumers, no diamond dependency issues
 
 [dependencies]
 thiserror = "2"

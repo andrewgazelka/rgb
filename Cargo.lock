@@ -1345,52 +1345,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "mc-server"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "color-eyre",
- "crossbeam-channel",
- "eyre",
- "mc-data",
- "mc-protocol",
- "mc-server-lib",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "mc-server-lib"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "bytes",
- "crossbeam-channel",
- "eyre",
- "flecs_ecs",
- "mc-data",
- "mc-protocol",
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
 name = "mc-server-runner"
 version = "0.1.0"
 dependencies = [
- "bytes",
- "color-eyre",
- "crossbeam-channel",
  "crossterm",
  "eyre",
  "flecs_ecs",
- "mc-data",
- "mc-protocol",
  "module-loader",
- "module-network-components",
- "tokio",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2092,24 +2053,6 @@ name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
-
-[[package]]
-name = "plugin-server"
-version = "0.1.0"
-dependencies = [
- "flecs_ecs",
- "mc-server-lib",
- "module-loader",
-]
-
-[[package]]
-name = "plugin-time"
-version = "0.1.0"
-dependencies = [
- "flecs_ecs",
- "mc-server-lib",
- "module-loader",
-]
 
 [[package]]
 name = "polling"

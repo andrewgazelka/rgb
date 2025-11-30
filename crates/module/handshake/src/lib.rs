@@ -11,7 +11,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use bytes::{BufMut, Bytes, BytesMut};
 use flecs_ecs::prelude::*;
 use mc_protocol::{Decode, Encode, write_varint};
-use module_loader::register_plugin;
+use module_loader::register_module;
 use module_network_components::{
     Connection, ConnectionState, NetworkComponentsModule, PacketBuffer, ProtocolState,
 };

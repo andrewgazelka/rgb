@@ -4,7 +4,7 @@
 //! Depends on `module-network-components` for component definitions.
 
 use flecs_ecs::prelude::*;
-use module_loader::register_plugin;
+use module_loader::register_module;
 use module_network_components::{
     Connection, ConnectionId, ConnectionIndex, DisconnectIngress, NetworkComponentsModule,
     NetworkEgress, NetworkIngress, OutgoingPacket, PacketBuffer, ProtocolState,

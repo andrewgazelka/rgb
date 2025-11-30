@@ -4,7 +4,7 @@
 //! Depends on `module-time-components` for component definitions.
 
 use flecs_ecs::prelude::*;
-use module_loader::register_plugin;
+use module_loader::register_module;
 use module_time_components::{TimeComponentsModule, TpsTracker, WorldTime};
 
 // ============================================================================

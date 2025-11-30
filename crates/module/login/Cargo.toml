@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 flecs_ecs.workspace = true

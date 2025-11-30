@@ -7,12 +7,12 @@ members = [
     "crates/mc-protocol-derive",
     "crates/mc-integration-tests",
     "crates/mc-proxy",
-    "crates/mc-server",
-    "crates/mc-server-lib",
+    # "crates/mc-server",      # Old server - use mc-server-runner instead
+    # "crates/mc-server-lib",  # Compatibility shim - mostly deprecated
     "crates/mc-server-runner",
     "crates/module-loader",
-    "crates/plugin-server",
-    "crates/plugin-time",
+    # "crates/plugin-server",  # Not needed - modules are loaded directly
+    # "crates/plugin-time",    # Not needed - modules are loaded directly
     "crates/rgb-app",
     "crates/rgb-core",
     "crates/rgb-life",

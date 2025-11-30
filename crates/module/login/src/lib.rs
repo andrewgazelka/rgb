@@ -4,9 +4,9 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use bytes::{BufMut, Bytes, BytesMut};
 use flecs_ecs::prelude::*;
-use mc_protocol::{write_varint, Decode, Encode};
-use module_network_components::{Connection, ConnectionState, PacketBuffer, ProtocolState};
+use mc_protocol::{Decode, Encode, write_varint};
 use module_loader::register_module;
+use module_network_components::{Connection, ConnectionState, PacketBuffer, ProtocolState};
 use tracing::{debug, info};
 
 // ============================================================================
@@ -208,6 +208,9 @@ impl Module for LoginModule {
     fn module(world: &World) {
         world.module::<LoginModule>("login");
 
+        // Import dependencies
+        world.import::<module_network_components::NetworkComponentsModule>();
+
         // Register player components
         world.component::<Player>();
         world.component::<Name>();
@@ -251,7 +254,9 @@ impl Module for LoginModule {
 
                                 let entity_id = entity_counter.next();
                                 e.add(Player);
-                                e.set(Name { value: name.clone() });
+                                e.set(Name {
+                                    value: name.clone(),
+                                });
                                 e.set(Uuid(player_uuid));
                                 e.set(EntityId { value: entity_id });
                                 e.set(Position::new(0.0, 4.0, 0.0));

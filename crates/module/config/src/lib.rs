@@ -4,9 +4,9 @@ mod registry;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use flecs_ecs::prelude::*;
-use mc_protocol::{write_varint, Decode};
-use module_login::NeedsSpawnChunks;
+use mc_protocol::{Decode, write_varint};
 use module_loader::register_module;
+use module_login::NeedsSpawnChunks;
 use module_network_components::{Connection, ConnectionState, PacketBuffer, ProtocolState};
 use registry::{
     create_biome_registry, create_cat_variant_registry, create_chicken_variant_registry,
@@ -39,6 +39,10 @@ pub struct ConfigurationModule;
 impl Module for ConfigurationModule {
     fn module(world: &World) {
         world.module::<ConfigurationModule>("configuration");
+
+        // Import dependencies
+        world.import::<module_network_components::NetworkComponentsModule>();
+        world.import::<module_login::LoginModule>();
 
         // Handle configuration packets
         world
