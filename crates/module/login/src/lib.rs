@@ -139,7 +139,7 @@ impl Module for LoginModule {
                                 });
                                 e.set(Uuid(player_uuid));
                                 e.set(EntityId { value: entity_id });
-                                e.set(Position::new(0.0, 4.0, 0.0));
+                                e.set(Position::new(0.0, 100.0, 0.0));
                                 e.set(Rotation::new(0.0, 0.0));
                                 e.set(ChunkPosition::new(0, 0));
                                 e.set(GameMode::CREATIVE);
