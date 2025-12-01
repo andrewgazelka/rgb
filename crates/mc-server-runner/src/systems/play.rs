@@ -6,8 +6,8 @@ use rgb_ecs::{Entity, World};
 use tracing::debug;
 
 use crate::components::{
-    ChunkData, ChunkIndex, ChunkPos, ConnectionIndex, ConnectionState, EntityId, InPlayState,
-    NeedsSpawnChunks, PacketBuffer, Position, ProtocolState, Rotation, WorldTime,
+    ChunkData, ChunkIndex, ChunkPos, ConnectionState, EntityId, InPlayState, NeedsSpawnChunks,
+    PacketBuffer, Position, ProtocolState, Rotation, WorldTime,
 };
 use crate::protocol::{
     send_action_bar, send_chunks_to_buffer, send_game_event_start_waiting, send_keepalive,
@@ -16,9 +16,6 @@ use crate::protocol::{
 
 /// System: Send spawn data to new players
 pub fn system_send_spawn_data(world: &mut World) {
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
     let Some(chunk_index) = world.get::<ChunkIndex>(Entity::WORLD) else {
         return;
     };
@@ -26,14 +23,13 @@ pub fn system_send_spawn_data(world: &mut World) {
         return;
     };
 
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
+    // Query entities that need spawn chunks
+    let need_spawn: Vec<_> = world
+        .query::<NeedsSpawnChunks>()
+        .map(|(entity, _)| entity)
+        .collect();
 
-    for entity in entities {
-        // Check if needs spawn chunks
-        if !world.has::<NeedsSpawnChunks>(entity) {
-            continue;
-        }
-
+    for entity in need_spawn {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };
@@ -68,23 +64,13 @@ pub fn system_send_spawn_data(world: &mut World) {
 
 /// System: Handle player movement packets
 pub fn system_handle_movement(world: &mut World) {
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
+    // Query all players in Play state who are InPlayState
+    let play_entities: Vec<_> = world
+        .query::<InPlayState>()
+        .map(|(entity, _)| entity)
+        .collect();
 
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
-
-    for entity in entities {
-        let Some(state) = world.get::<ProtocolState>(entity) else {
-            continue;
-        };
-        if state.0 != ConnectionState::Play {
-            continue;
-        }
-        if !world.has::<InPlayState>(entity) {
-            continue;
-        }
-
+    for entity in play_entities {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };
@@ -180,22 +166,19 @@ pub fn system_send_keepalive(world: &mut World) {
     let Some(world_time) = world.get::<WorldTime>(Entity::WORLD) else {
         return;
     };
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
 
     // Only send every 300 ticks (15 seconds at 20 TPS)
     if world_time.world_age % 300 != 0 {
         return;
     }
 
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
+    // Query all players in play state
+    let play_entities: Vec<_> = world
+        .query::<InPlayState>()
+        .map(|(entity, _)| entity)
+        .collect();
 
-    for entity in entities {
-        if !world.has::<InPlayState>(entity) {
-            continue;
-        }
-
+    for entity in play_entities {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };
@@ -213,22 +196,19 @@ pub fn system_send_position_action_bar(world: &mut World) {
     let Some(tps) = world.get::<crate::components::TpsTracker>(Entity::WORLD) else {
         return;
     };
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
 
     // Only send every 10 ticks (0.5 seconds at 20 TPS)
     if world_time.world_age % 10 != 0 {
         return;
     }
 
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
+    // Query all players in play state
+    let play_entities: Vec<_> = world
+        .query::<InPlayState>()
+        .map(|(entity, _)| entity)
+        .collect();
 
-    for entity in entities {
-        if !world.has::<InPlayState>(entity) {
-            continue;
-        }
-
+    for entity in play_entities {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };

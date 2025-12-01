@@ -1,5 +1,7 @@
 is there anything that is better that u can do? look at evenio and flecs architecture? if there is add and repeat
 
+remember... ALWAYS clean up; always improve. If something is not great or could be improved even if major architectural overhaul you are ok to do this
+
 
 # TODO
 
