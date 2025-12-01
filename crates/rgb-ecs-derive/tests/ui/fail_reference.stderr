@@ -1,0 +1,7 @@
+error: References are not allowed in components. Components use owned values.
+       Use the actual type, not a reference to it.
+       Or mark this component as #[component(opaque)] if it's a runtime-only handle.
+ --> tests/ui/fail_reference.rs:7:11
+  |
+7 |     data: &'a [u8],
+  |           ^

@@ -38,6 +38,7 @@ members = [
     # "crates/persist-derive",
     # New RGB ECS crates
     "crates/rgb-ecs",
+    "crates/rgb-ecs-derive",
     "crates/rgb-event",
     "crates/rgb-spatial",
     "crates/rgb-query",
@@ -61,6 +62,7 @@ crossbeam-channel = "0.5"
 
 # New RGB ECS workspace dependencies
 rgb-ecs = { path = "crates/rgb-ecs" }
+rgb-ecs-derive = { path = "crates/rgb-ecs-derive" }
 rgb-event = { path = "crates/rgb-event" }
 rgb-spatial = { path = "crates/rgb-spatial" }
 rgb-query = { path = "crates/rgb-query" }

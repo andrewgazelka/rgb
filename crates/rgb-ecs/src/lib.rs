@@ -20,10 +20,31 @@
 //! # Key Concepts
 //!
 //! - **Entity**: A unique identifier for a game object
-//! - **Component**: Data attached to entities (e.g., Position, Velocity)
+//! - **Component**: Simple, flat data attached to entities (e.g., Position, Velocity)
 //! - **Archetype**: A unique combination of component types
 //! - **Relation/Pair**: A relationship between entities `(Relation, Target)`
 //! - **Global**: Marker for global entities (read-only in parallel, writable in sequential)
+//!
+//! # Component Design
+//!
+//! Components must be simple, flat data types. Use `#[derive(Component)]`:
+//!
+//! ```ignore
+//! use rgb_ecs::Component;
+//!
+//! // GOOD: Simple flat data
+//! #[derive(Component, Clone)]
+//! struct Position { x: f64, y: f64, z: f64 }
+//!
+//! // BAD: Collections are forbidden - use relations instead!
+//! #[derive(Component, Clone)]
+//! struct Inventory { items: Vec<Item> }  // Compile error!
+//!
+//! // GOOD: The relational way
+//! #[derive(Component, Clone)]
+//! struct Item { id: u32, count: u8, slot: u8 }
+//! // Spawn items as: world.spawn((Item { ... }, Pair::<ChildOf>(player)))
+//! ```
 //!
 //! # Access Patterns
 //!
@@ -50,6 +71,7 @@
 mod archetype;
 mod component;
 mod entity;
+mod query;
 mod relation;
 mod storage;
 mod world;
@@ -57,6 +79,7 @@ mod world;
 pub use archetype::{Archetype, ArchetypeId};
 pub use component::{Component, ComponentId, ComponentInfo, ComponentRegistry};
 pub use entity::{Entity, EntityId, Generation};
+pub use query::{Query, QueryBuilder, QueryIter, QueryRow, QueryTerm, TermAccess};
 pub use relation::{ChildOf, ContainedIn, InstanceOf, OwnedBy, Pair, PairId, Requires};
 pub use storage::{Column, ComponentStorage};
 pub use world::{Global, Plugin, World};
@@ -64,7 +87,7 @@ pub use world::{Global, Plugin, World};
 /// Prelude for convenient imports
 pub mod prelude {
     pub use crate::{
-        ChildOf, Component, ContainedIn, Entity, Global, InstanceOf, OwnedBy, Pair, Plugin,
-        Requires, World,
+        ChildOf, Component, ContainedIn, Entity, Global, InstanceOf, OwnedBy, Pair, Plugin, Query,
+        QueryBuilder, QueryRow, Requires, World,
     };
 }

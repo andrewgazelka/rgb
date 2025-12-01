@@ -14,6 +14,7 @@ bitflags.workspace = true
 smallvec.workspace = true
 bumpalo.workspace = true
 tracing.workspace = true
+rgb-ecs-derive.workspace = true
 
 [dev-dependencies]
 tango-bench.workspace = true

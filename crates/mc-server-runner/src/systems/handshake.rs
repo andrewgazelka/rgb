@@ -12,7 +12,7 @@ use crate::protocol::{encode_packet, parse_handshake, send_status_response};
 pub fn system_handle_handshake(world: &mut World) {
     // Query all entities with ProtocolState - collect to avoid borrow issues
     let handshaking: Vec<_> = world
-        .query::<ProtocolState>()
+        .query_single::<ProtocolState>()
         .filter(|(_, state)| state.0 == ConnectionState::Handshaking)
         .map(|(entity, _)| entity)
         .collect();
@@ -59,7 +59,7 @@ pub fn system_handle_status(world: &mut World) {
 
     // Query all entities in Status state
     let status_entities: Vec<_> = world
-        .query::<ProtocolState>()
+        .query_single::<ProtocolState>()
         .filter(|(_, state)| state.0 == ConnectionState::Status)
         .map(|(entity, _)| entity)
         .collect();

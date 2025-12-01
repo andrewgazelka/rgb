@@ -26,7 +26,7 @@ pub fn system_send_spawn_data(world: &mut World) {
 
     // Query entities that need spawn chunks
     let need_spawn: Vec<_> = world
-        .query::<NeedsSpawnChunks>()
+        .query_single::<NeedsSpawnChunks>()
         .map(|(entity, _)| entity)
         .collect();
 
@@ -70,7 +70,7 @@ pub fn system_send_spawn_data(world: &mut World) {
 pub fn system_handle_movement(world: &mut World) {
     // Query all players in Play state who are InPlayState
     let play_entities: Vec<_> = world
-        .query::<InPlayState>()
+        .query_single::<InPlayState>()
         .map(|(entity, _)| entity)
         .collect();
 
@@ -178,7 +178,7 @@ pub fn system_send_keepalive(world: &mut World) {
 
     // Query all players in play state
     let play_entities: Vec<_> = world
-        .query::<InPlayState>()
+        .query_single::<InPlayState>()
         .map(|(entity, _)| entity)
         .collect();
 
@@ -208,7 +208,7 @@ pub fn system_send_position_action_bar(world: &mut World) {
 
     // Query all players in play state
     let play_entities: Vec<_> = world
-        .query::<InPlayState>()
+        .query_single::<InPlayState>()
         .map(|(entity, _)| entity)
         .collect();
 

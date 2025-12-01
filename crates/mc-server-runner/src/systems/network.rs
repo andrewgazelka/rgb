@@ -96,7 +96,7 @@ pub fn system_network_egress(world: &mut World) {
 
     // Query all connection entities
     let connections: Vec<_> = world
-        .query::<ConnectionId>()
+        .query_single::<ConnectionId>()
         .map(|(entity, conn_id)| (entity, conn_id.0))
         .collect();
 

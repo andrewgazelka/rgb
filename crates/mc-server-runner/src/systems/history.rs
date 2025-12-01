@@ -15,7 +15,7 @@
 use std::any::TypeId;
 use std::collections::BTreeMap;
 
-use rgb_ecs::{Entity, World};
+use rgb_ecs::{Component, Entity, World};
 
 /// A single entry in the component history
 #[derive(Debug, Clone)]
@@ -39,7 +39,8 @@ pub enum ChangeType {
 
 /// Component that tracks history for a specific component type using BTreeMap
 /// for efficient tick-based lookups and range queries.
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
+#[component(opaque)]
 pub struct ComponentHistory {
     /// Name of the component type being tracked
     pub component_name: String,
@@ -142,7 +143,8 @@ impl ComponentHistory {
 }
 
 /// Global history registry - tracks which entities/components have history enabled
-#[derive(Default, Clone)]
+#[derive(Component, Default, Clone)]
+#[component(opaque)]
 pub struct HistoryRegistry {
     /// Maps (entity_id, component_name) to history component entity
     pub tracked: std::collections::HashMap<(u32, String), Entity>,

@@ -1,8 +1,44 @@
 //! Component type registration and metadata.
 //!
-//! Components are data types that can be attached to entities.
-//! Each component type has a unique ID and associated metadata
-//! for runtime type operations.
+//! Components are simple, flat data types that can be attached to entities.
+//! Each component type has a unique ID and associated metadata for runtime
+//! type operations.
+//!
+//! # Design Philosophy
+//!
+//! RGB ECS enforces that components are **simple, flat data** without heap
+//! allocations or collections. This is because:
+//!
+//! 1. **Owned-value semantics**: Components are cloned on access, so collections
+//!    would be expensive to clone every time.
+//!
+//! 2. **Relational design**: Instead of storing `Vec<Item>` on an entity, spawn
+//!    each item as a separate entity with a relation to the parent.
+//!
+//! 3. **Persistence**: Simple structs can be easily serialized/persisted.
+//!
+//! # Using the Component Derive
+//!
+//! ```ignore
+//! use rgb_ecs::Component;
+//!
+//! // GOOD: Simple flat data
+//! #[derive(Component, Clone)]
+//! struct Position { x: f64, y: f64, z: f64 }
+//!
+//! // GOOD: Fixed-size data
+//! #[derive(Component, Clone)]
+//! struct ChunkPos { x: i32, z: i32 }
+//!
+//! // BAD: Will fail to compile with helpful error
+//! #[derive(Component, Clone)]
+//! struct Inventory { items: Vec<Item> }  // ERROR!
+//!
+//! // GOOD: The relational way
+//! #[derive(Component, Clone)]
+//! struct Item { id: u32, count: u8, slot: u8 }
+//! // Then: world.spawn((Item { ... }, Pair::<ChildOf>(player_entity)))
+//! ```
 
 use std::{
     alloc::Layout,
@@ -12,22 +48,29 @@ use std::{
     sync::atomic::{AtomicU32, Ordering},
 };
 
+// Re-export the derive macro
+pub use rgb_ecs_derive::Component;
+
 /// Marker trait for types that can be used as components.
+///
+/// Use `#[derive(Component)]` to implement this trait. The derive macro
+/// will check that your type only contains allowed field types.
+///
+/// # Manual Implementation
+///
+/// If you need to manually implement this trait (not recommended), ensure:
+/// - The type is `Send + Sync + 'static`
+/// - The type is cheap to clone
+/// - The type contains no heap allocations or collections
 ///
 /// # Safety
 ///
 /// Types implementing this trait must be safe to move in memory
 /// (no self-referential pointers).
-///
-/// # Example
-///
-/// ```ignore
-/// #[derive(Component)]
-/// struct Position { x: f32, y: f32, z: f32 }
-/// ```
 pub trait Component: Send + Sync + 'static {}
 
 // Blanket implementation for all suitable types
+// This allows the derive macro to work by just implementing the marker trait
 impl<T: Send + Sync + 'static> Component for T {}
 
 /// Unique identifier for a component type.
@@ -67,8 +110,6 @@ pub struct ComponentInfo {
     drop_fn: Option<unsafe fn(*mut u8)>,
     /// Rust TypeId for type checking.
     type_id: TypeId,
-    /// Whether this component is transient (not persisted).
-    transient: bool,
 }
 
 impl ComponentInfo {
@@ -85,24 +126,6 @@ impl ComponentInfo {
                 None
             },
             type_id: TypeId::of::<T>(),
-            transient: false,
-        }
-    }
-
-    /// Create component info for a transient (non-persisted) type.
-    #[must_use]
-    pub fn of_transient<T: Component>(id: ComponentId) -> Self {
-        Self {
-            id,
-            name: std::any::type_name::<T>(),
-            layout: Layout::new::<T>(),
-            drop_fn: if std::mem::needs_drop::<T>() {
-                Some(|ptr| unsafe { std::ptr::drop_in_place(ptr.cast::<T>()) })
-            } else {
-                None
-            },
-            type_id: TypeId::of::<T>(),
-            transient: true,
         }
     }
 
@@ -140,15 +163,6 @@ impl ComponentInfo {
     #[must_use]
     pub const fn needs_drop(&self) -> bool {
         self.drop_fn.is_some()
-    }
-
-    /// Check if the component is transient (should not be persisted).
-    ///
-    /// Transient components represent runtime state like network buffers,
-    /// caches, and handles that shouldn't be saved to storage.
-    #[must_use]
-    pub const fn is_transient(&self) -> bool {
-        self.transient
     }
 
     /// Drop a component at the given pointer.
@@ -207,21 +221,6 @@ impl ComponentRegistry {
     ///
     /// If the type is already registered, returns the existing ID.
     pub fn register<T: Component>(&mut self) -> ComponentId {
-        self.register_with_transient::<T>(false)
-    }
-
-    /// Register a transient component type (will not be persisted).
-    ///
-    /// Use this for network buffers, caches, runtime handles, and other
-    /// components that should not be saved to storage.
-    ///
-    /// If the type is already registered, returns the existing ID
-    /// (does not change the transient flag).
-    pub fn register_transient<T: Component>(&mut self) -> ComponentId {
-        self.register_with_transient::<T>(true)
-    }
-
-    fn register_with_transient<T: Component>(&mut self, transient: bool) -> ComponentId {
         let type_id = TypeId::of::<T>();
 
         if let Some(&id) = self.type_to_id.get(&type_id) {
@@ -229,11 +228,7 @@ impl ComponentRegistry {
         }
 
         let id = ComponentId(NEXT_COMPONENT_ID.fetch_add(1, Ordering::Relaxed));
-        let info = if transient {
-            ComponentInfo::of_transient::<T>(id)
-        } else {
-            ComponentInfo::of::<T>(id)
-        };
+        let info = ComponentInfo::of::<T>(id);
 
         self.type_to_id.insert(type_id, id);
 
@@ -245,20 +240,6 @@ impl ComponentRegistry {
         self.infos[idx] = info;
 
         id
-    }
-
-    /// Check if a component type is transient.
-    #[must_use]
-    pub fn is_transient<T: Component>(&self) -> bool {
-        self.get_id::<T>()
-            .and_then(|id| self.get_info(id))
-            .is_some_and(|info| info.is_transient())
-    }
-
-    /// Check if a component ID is transient.
-    #[must_use]
-    pub fn is_transient_by_id(&self, id: ComponentId) -> bool {
-        self.get_info(id).is_some_and(|info| info.is_transient())
     }
 
     /// Get the component ID for a type, if registered.
@@ -310,16 +291,21 @@ impl fmt::Debug for ComponentRegistry {
 mod tests {
     use super::*;
 
+    #[derive(Clone)]
     struct Position {
         x: f32,
         y: f32,
     }
 
+    #[derive(Clone)]
     struct Velocity {
         x: f32,
         y: f32,
     }
 
+    // Note: This uses String which would be forbidden by derive(Component)
+    // but we're testing the registry itself here, not the derive macro
+    #[derive(Clone)]
     struct Name(String);
 
     #[test]
@@ -366,26 +352,5 @@ mod tests {
 
         assert_eq!(id1, id2);
         assert_eq!(registry.len(), 1);
-    }
-
-    #[test]
-    fn test_transient_registration() {
-        let mut registry = ComponentRegistry::new();
-
-        // Normal component is not transient
-        let pos_id = registry.register::<Position>();
-        assert!(!registry.is_transient::<Position>());
-        assert!(!registry.is_transient_by_id(pos_id));
-
-        // Transient component is transient
-        let name_id = registry.register_transient::<Name>();
-        assert!(registry.is_transient::<Name>());
-        assert!(registry.is_transient_by_id(name_id));
-
-        // Check via ComponentInfo
-        let pos_info = registry.get_info(pos_id).unwrap();
-        let name_info = registry.get_info(name_id).unwrap();
-        assert!(!pos_info.is_transient());
-        assert!(name_info.is_transient());
     }
 }

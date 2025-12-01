@@ -82,13 +82,13 @@ const INTERACT_PACKET_ID: i32 = Interact::ID;
 pub fn system_handle_attacks(world: &mut World) {
     // Collect all play entities
     let play_entities: Vec<_> = world
-        .query::<InPlayState>()
+        .query_single::<InPlayState>()
         .map(|(entity, _)| entity)
         .collect();
 
     // Build entity ID to entity map for target lookup
     let entity_id_map: std::collections::HashMap<i32, Entity> = world
-        .query::<EntityId>()
+        .query_single::<EntityId>()
         .map(|(entity, eid)| (eid.value, entity))
         .collect();
 

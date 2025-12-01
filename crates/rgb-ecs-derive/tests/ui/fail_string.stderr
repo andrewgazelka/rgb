@@ -1,0 +1,11 @@
+error: Component field uses forbidden type `String`.
+
+       String is not allowed in components. Alternatives:
+       - Use fixed-size arrays: [u8; 32] or a wrapper struct
+       - Use interned/hashed strings: StringId(u64)
+       - For names: use world.set_name(entity, "name") and world.lookup("name")
+       - Or mark this component as #[component(opaque)] if it's a runtime-only handle
+ --> tests/ui/fail_string.rs:7:11
+  |
+7 |     name: String,
+  |           ^^^^^^

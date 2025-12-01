@@ -18,7 +18,7 @@ use crate::registry::{
 pub fn system_handle_configuration(world: &mut World) {
     // Query all entities in Configuration state
     let config_entities: Vec<_> = world
-        .query::<ProtocolState>()
+        .query_single::<ProtocolState>()
         .filter(|(_, state)| state.0 == ConnectionState::Configuration)
         .map(|(entity, _)| entity)
         .collect();

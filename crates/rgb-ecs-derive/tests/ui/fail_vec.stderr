@@ -1,0 +1,11 @@
+error: Component field uses forbidden type `Vec`.
+
+       Vec<T> is not allowed in components. Use relations instead:
+       - Spawn each item as a separate entity with a relation to this entity
+       - Example: world.spawn((ItemData { ... }, Pair::<ChildOf>(parent_entity)))
+       - Query with: query.with::<ItemData>().pair::<ChildOf>(parent_entity)
+       - Or mark this component as #[component(opaque)] if it's a runtime-only handle
+ --> tests/ui/fail_vec.rs:7:12
+  |
+7 |     items: Vec<u32>,
+  |            ^^^

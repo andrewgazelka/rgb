@@ -742,10 +742,12 @@ impl World {
 
     // ==================== Query ====================
 
-    /// Iterate over all entities that have a specific component.
+    /// Iterate over all entities that have a specific component (simple single-component query).
     ///
     /// Returns an iterator of `(Entity, T)` pairs.
-    pub fn query<T: 'static + Send + Sync + Clone>(
+    ///
+    /// For more complex queries with multiple components and filters, use `query_builder()`.
+    pub fn query_single<T: 'static + Send + Sync + Clone>(
         &self,
     ) -> impl Iterator<Item = (Entity, T)> + '_ {
         let comp_id = match self.components.get_id::<T>() {
@@ -869,26 +871,38 @@ impl World {
         self.components.register::<T>()
     }
 
-    /// Register a transient component type (will not be persisted).
+    /// Create a query builder for iterating over entities.
     ///
-    /// Use this for network buffers, caches, runtime handles, and other
-    /// components that should not be saved to storage.
+    /// Uses a runtime builder pattern - no complex type generics!
     ///
     /// # Example
     ///
     /// ```ignore
-    /// // At startup, register transient components
-    /// world.register_transient::<PacketBuffer>();
-    /// world.register_transient::<NetworkIngress>();
+    /// let query = world.query()
+    ///     .with::<Position>()
+    ///     .with::<Velocity>()
+    ///     .build();
+    ///
+    /// for row in query.iter(&world) {
+    ///     let entity = row.entity();
+    ///     let pos: Position = row.get();
+    ///     let vel: Velocity = row.get();
+    ///
+    ///     // Modify and update back (owned values)
+    ///     let new_pos = Position { x: pos.x + vel.x, y: pos.y + vel.y };
+    ///     world.update(entity, new_pos);
+    /// }
     /// ```
-    pub fn register_transient<T: 'static + Send + Sync>(&mut self) -> ComponentId {
-        self.components.register_transient::<T>()
-    }
-
-    /// Check if a component type is transient (will not be persisted).
+    ///
+    /// # Combinators
+    ///
+    /// - `.with::<T>()` - Entity must have T (fetches data)
+    /// - `.optional::<T>()` - Fetch T if present
+    /// - `.filter::<T>()` - Entity must have T, but don't fetch
+    /// - `.without::<T>()` - Entity must NOT have T
     #[must_use]
-    pub fn is_transient<T: 'static + Send + Sync>(&self) -> bool {
-        self.components.is_transient::<T>()
+    pub fn query(&self) -> crate::query::QueryBuilder<'_> {
+        crate::query::QueryBuilder::new(self)
     }
 }
 
@@ -1312,69 +1326,6 @@ mod tests {
         let found2 = world.lookup(b"player:uuid:12345").unwrap();
         assert_eq!(found, found2);
         assert_eq!(world.get::<Position>(found2).unwrap().x, 200.0);
-    }
-
-    // ==================== Transient Component Tests ====================
-
-    #[test]
-    fn test_transient_component_registration() {
-        let mut world = World::new();
-
-        // Register normal and transient components
-        world.register::<Position>();
-        world.register_transient::<Velocity>();
-
-        // Check transient status
-        assert!(!world.is_transient::<Position>());
-        assert!(world.is_transient::<Velocity>());
-
-        // Unregistered types are not transient
-        assert!(!world.is_transient::<Health>());
-    }
-
-    #[test]
-    fn test_transient_components_work_normally() {
-        let mut world = World::new();
-
-        // Register as transient
-        world.register_transient::<Velocity>();
-
-        // Still works as a normal component
-        let entity = world.spawn(Velocity { x: 1.0, y: 2.0 });
-        let vel = world.get::<Velocity>(entity).unwrap();
-        assert_eq!(vel.x, 1.0);
-        assert_eq!(vel.y, 2.0);
-
-        // Can update
-        world.update(entity, Velocity { x: 3.0, y: 4.0 });
-        let vel = world.get::<Velocity>(entity).unwrap();
-        assert_eq!(vel.x, 3.0);
-
-        // Can remove
-        let removed = world.remove::<Velocity>(entity);
-        assert!(removed.is_some());
-        assert!(!world.has::<Velocity>(entity));
-    }
-
-    #[test]
-    fn test_mixed_transient_and_persistent_components() {
-        let mut world = World::new();
-
-        // Position is persistent, Velocity is transient
-        world.register::<Position>();
-        world.register_transient::<Velocity>();
-
-        let entity = world.spawn_empty();
-        world.insert(entity, Position { x: 1.0, y: 2.0 });
-        world.insert(entity, Velocity { x: 3.0, y: 4.0 });
-
-        // Both work
-        assert!(world.has::<Position>(entity));
-        assert!(world.has::<Velocity>(entity));
-
-        // But only Position should be persisted (checked via is_transient)
-        assert!(!world.is_transient::<Position>());
-        assert!(world.is_transient::<Velocity>());
     }
 
     // ==================== Stress Tests ====================

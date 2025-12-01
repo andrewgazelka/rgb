@@ -17,7 +17,7 @@ pub fn system_handle_login(world: &mut World) {
 
     // Query all entities in Login state
     let login_entities: Vec<_> = world
-        .query::<ProtocolState>()
+        .query_single::<ProtocolState>()
         .filter(|(_, state)| state.0 == ConnectionState::Login)
         .map(|(entity, _)| entity)
         .collect();

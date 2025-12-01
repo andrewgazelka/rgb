@@ -1,0 +1,10 @@
+error: Component field uses forbidden type `Mutex`.
+
+       Mutex<T> is not allowed in components. ECS handles synchronization.
+       - Components are accessed via the World, which provides proper synchronization
+       - For shared mutable state, use the WORLD entity or relations
+       - Or mark this component as #[component(opaque)] if it's a runtime-only handle
+ --> tests/ui/fail_mutex.rs:8:14
+  |
+8 |     counter: Mutex<u32>,
+  |              ^^^^^

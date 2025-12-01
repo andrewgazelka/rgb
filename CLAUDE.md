@@ -147,3 +147,133 @@ pub extern "C" fn module_name() -> *const std::ffi::c_char {
 ./scripts/link-modules.sh debug  # Symlink debug builds to modules/
 ./scripts/link-modules.sh release  # Symlink release builds
 ```
+
+## ECS Design Principles
+
+### NO LOCKS - CRITICAL RULE
+
+**NEVER use `Mutex`, `RwLock`, or any synchronization primitives in this codebase.**
+
+The ECS handles all synchronization. If you think you need a lock, **STOP and ask the user first** - there's always a better ECS pattern:
+- Need shared mutable state? → Use a Resource
+- Need per-entity mutable data? → Use components with owned-value access
+- Need cross-system communication? → Use events or relations
+
+If Claude thinks a lock is needed, it MUST alert the user and stop before proceeding.
+
+### Owned Values, Not References
+
+RGB uses **owned values** for component access (SpacetimeDB-style), not references:
+
+```rust
+// Get returns owned value (cloned from storage)
+let pos = world.get::<Position>(entity)?;
+
+// Modify and write back
+let new_pos = Position { x: pos.x + 1.0, ..pos };
+world.update(entity, new_pos);
+```
+
+**Why**: Enables hot-reloadable modules, avoids lifetime complexity, works across FFI boundaries.
+
+### Component Types: POD vs Opaque
+
+Components must use `#[derive(Component)]`. There are two kinds:
+
+#### POD Components (Default)
+Simple, flat data. No heap allocations, no collections. Validated at compile time.
+
+```rust
+#[derive(Component, Clone)]
+struct Position { x: f64, y: f64, z: f64 }
+
+#[derive(Component, Clone)]
+struct Health { current: u32, max: u32 }
+```
+
+**Forbidden types** (compile error with helpful message):
+- `Vec`, `VecDeque`, `HashMap`, `HashSet` → Use relations instead
+- `String` → Use `[u8; N]` or `world.set_name()`
+- `Box`, `Rc`, `Arc` → Use entity references
+- `Sender`, `Receiver` → Use resources or events
+
+**Allowed types** (O(1) clone, safe for components):
+- `bytes::Bytes` - Arc-based, cheap clone
+
+#### Opaque Components
+Runtime handles that can't be POD. Use sparingly.
+
+```rust
+#[derive(Component, Clone)]
+#[component(opaque)]
+struct NetworkIngress {
+    rx: Receiver<Packet>,
+}
+```
+
+**When to use opaque:**
+- Global singletons (network channels, file handles)
+- External system handles
+- Caches that reference external state
+
+**Prefer relations over opaque** for per-entity data.
+
+### Relations Over Collections
+
+Instead of storing collections in components, use entity relations:
+
+```rust
+// BAD: Collection in component (expensive clone, can't query)
+#[derive(Component)]
+struct Inventory { items: Vec<Item> }  // Compile error!
+
+// GOOD: Each item is an entity with a relation
+#[derive(Component, Clone)]
+struct Item { id: u32, count: u8, slot: u8 }
+
+// Spawn items with relation to player
+world.spawn((Item { id: 1, count: 64, slot: 0 }, Pair::<ChildOf>(player)));
+world.spawn((Item { id: 2, count: 32, slot: 1 }, Pair::<ChildOf>(player)));
+
+// Query all items for a player
+let query = world.query()
+    .with::<Item>()
+    .pair::<ChildOf>(player)
+    .build();
+```
+
+**Benefits:**
+- No cloning collections on every access
+- Items are queryable and indexable
+- Natural ordering with `order_by`
+- Parallel-safe (different parents = different archetypes)
+
+### Runtime Query Builder (Flecs-Rust Style)
+
+Queries should use a **runtime builder pattern**, NOT heavy type-level generics:
+
+```rust
+// GOOD: Runtime builder (FFI-friendly, simple, flexible)
+let query = world.query()
+    .with::<Position>()
+    .with::<Velocity>()
+    .optional::<Health>()
+    .without::<Dead>()
+    .build();
+
+for result in query.iter(&world) {
+    let entity = result.entity();
+    let pos: Position = result.get::<Position>();
+    let vel: Velocity = result.get::<Velocity>();
+    let health: Option<Health> = result.get_optional::<Health>();
+}
+
+// BAD: Heavy type-level generics (hard to FFI, complex error messages)
+let query = world.query::<(Fetch<Position>, Fetch<Velocity>, Option<Fetch<Health>>, Without<Dead>)>();
+```
+
+**Why**:
+1. **FFI-friendly** - Can expose to Lua, WASM, other languages
+2. **Simpler errors** - No 500-line generic error messages
+3. **Dynamic composition** - Build queries from runtime data
+4. **Matches Flecs** - Consistent with Flecs-Rust patterns we're familiar with

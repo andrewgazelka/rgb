@@ -1,0 +1,10 @@
+error: Component field uses forbidden type `Arc`.
+
+       Arc<T> is not allowed in components. Reference counting breaks owned-value semantics.
+       - Use entity references (Entity) instead of Arc
+       - Store shared data on a separate entity and reference it via relation
+       - Or mark this component as #[component(opaque)] if it's a runtime-only handle
+ --> tests/ui/fail_arc.rs:8:11
+  |
+8 |     data: Arc<[u8]>,
+  |           ^^^

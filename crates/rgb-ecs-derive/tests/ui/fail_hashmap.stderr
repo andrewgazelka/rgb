@@ -1,0 +1,11 @@
+error: Component field uses forbidden type `HashMap`.
+
+       HashMap<K, V> is not allowed in components. Use relations instead:
+       - The key becomes part of a pair relation
+       - Example: world.spawn((Value { ... }, Pair::<KeyedBy>(key_entity)))
+       - Or use named entities: world.lookup(key_bytes)
+       - Or mark this component as #[component(opaque)] if it's a runtime-only handle
+ --> tests/ui/fail_hashmap.rs:8:17
+  |
+8 |     attributes: HashMap<u32, f32>,
+  |                 ^^^^^^^

@@ -1,0 +1,10 @@
+error: Component field uses forbidden type `Box`.
+
+       Box<T> is not allowed in components. Use flat data or relations instead.
+       - If T is large, consider if it should be multiple smaller components
+       - If T is a trait object, use entity relations with marker components
+       - Or mark this component as #[component(opaque)] if it's a runtime-only handle
+ --> tests/ui/fail_box.rs:7:11
+  |
+7 |     data: Box<[u8; 1024]>,
+  |           ^^^

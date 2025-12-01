@@ -485,7 +485,7 @@ fn execute_command(
             } else if let Ok(eid) = args[0].parse::<i32>() {
                 // Find entity by EntityId
                 world
-                    .query::<EntityId>()
+                    .query_single::<EntityId>()
                     .find(|(_, id)| id.value == eid)
                     .map(|(e, _)| e)
                     .ok_or_else(|| format!("Entity with ID {} not found", eid))?
@@ -537,7 +537,7 @@ fn execute_command(
                 executor
             } else if let Ok(eid) = args[0].parse::<i32>() {
                 world
-                    .query::<EntityId>()
+                    .query_single::<EntityId>()
                     .find(|(_, id)| id.value == eid)
                     .map(|(e, _)| e)
                     .ok_or_else(|| format!("Entity with ID {} not found", eid))?
@@ -621,7 +621,7 @@ fn parse_track_command(
         executor
     } else if let Ok(eid) = args[0].parse::<i32>() {
         world
-            .query::<EntityId>()
+            .query_single::<EntityId>()
             .find(|(_, id)| id.value == eid)
             .map(|(e, _)| e)
             .ok_or_else(|| format!("Entity with ID {} not found", eid))?
@@ -682,7 +682,7 @@ pub fn execute_deferred_command(world: &mut World, cmd: DeferredCommand) {
 /// System: Handle incoming chat commands
 pub fn system_handle_commands(world: &mut World) {
     let play_entities: Vec<_> = world
-        .query::<InPlayState>()
+        .query_single::<InPlayState>()
         .map(|(entity, _)| entity)
         .collect();
 

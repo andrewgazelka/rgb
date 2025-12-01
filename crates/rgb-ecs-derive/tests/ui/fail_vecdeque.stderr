@@ -1,0 +1,11 @@
+error: Component field uses forbidden type `VecDeque`.
+
+       VecDeque<T> is not allowed in components. Use relations instead:
+       - Each queue item becomes an entity with a relation
+       - Add a sequence/priority field for ordering
+       - Example: world.spawn((Packet { seq: 1, data }, Pair::<PendingFor>(connection)))
+       - Or mark this component as #[component(opaque)] if it's a runtime-only handle
+ --> tests/ui/fail_vecdeque.rs:8:15
+  |
+8 |     incoming: VecDeque<u8>,
+  |               ^^^^^^^^

@@ -50,15 +50,10 @@ fn main() -> eyre::Result<()> {
     // Add event system plugin
     world.add_plugin(EventPlugin);
 
-    // Register transient components (not persisted to storage)
-    // These are runtime-only: network buffers, channels, caches
-    world.register_transient::<PacketBuffer>();
-    world.register_transient::<PendingPackets>();
-    world.register_transient::<NetworkIngress>();
-    world.register_transient::<NetworkEgress>();
-    world.register_transient::<DisconnectIngress>();
-    world.register_transient::<Connection>();
-    world.register_transient::<ProtocolState>();
+    // TODO: Refactor these components to use relations instead of VecDeque/channels
+    // For now, they work as regular components but should be migrated to:
+    // - PacketBuffer: Each packet as entity with (PacketData, Pair::<PendingFor>(connection))
+    // - Network channels: Use event system or external channel management
 
     // Initialize global state on Entity::WORLD (auto-registers component types)
     world.insert(Entity::WORLD, ServerConfig::default());
