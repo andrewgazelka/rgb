@@ -5,11 +5,11 @@ remember... ALWAYS clean up; always improve. If something is not great or could 
 
 # TODO
 
-- we should have the notion of Modules in our ECS similar to bevy/flecs btw so we can have many separte cates that we all include; do we have this... can we?
+- ~~we should have the notion of Modules in our ECS similar to bevy/flecs btw so we can have many separte cates that we all include; do we have this... can we?~~ **DONE** - Added `Plugin` trait
 - add AttackModule
 - add CommandMoudle (that allows improting clap as a command in Minecraft make sure Minecraft will send proper command tree based on this / etc)
 - add command that allows for reading the state of a given entity and prints (minecraft command) like all the components
-- add command that allows for reading the HISTORY state of a given (entity, componentId) similar to flecs query 
+- add command that allows for reading the HISTORY state of a given (entity, componentId) similar to flecs query
 - add in-depth miri tests
 - add in-depth integration tests
 - compare how we are doing regions,grouping with how flecs does group-by and how others might and determine the most efficient way to do the RGB stuff given that players / etc might move between regions often
@@ -17,5 +17,10 @@ remember... ALWAYS clean up; always improve. If something is not great or could 
 
 # Things added
 
-
-- {add here}
+- **Query API** (`world.query::<T>()`) - Iterate entities with specific components using archetype-based iteration
+- **Plugin trait** (`rgb_ecs::Plugin`) - Modular ECS setup like Bevy/Flecs (`world.add_plugin(MyPlugin)`)
+- **EventPlugin** (`rgb_event::EventPlugin`) - Event system as a proper plugin
+- **Refactored mc-server-runner** - Now uses queries instead of manual ConnectionIndex iteration:
+  - All systems now use `world.query::<ComponentType>()` instead of iterating `conn_index.map.values()`
+  - Cleaner, more idiomatic ECS patterns
+  - Better separation of concerns
