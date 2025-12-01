@@ -4,38 +4,34 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Generic Flecs module runner with hot-reload support"
+description = "RGB ECS-based Minecraft server runner"
 
 [[bin]]
 name = "mc-server-runner"
 path = "src/main.rs"
 
 [dependencies]
-flecs_ecs.workspace = true
+rgb-ecs.workspace = true
+rgb-spatial.workspace = true
+rgb-query.workspace = true
+rgb-storage.workspace = true
+rgb-tick.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 eyre.workspace = true
 crossterm = "0.28"
+bytes.workspace = true
+byteorder.workspace = true
+crossbeam-channel.workspace = true
+parking_lot.workspace = true
+hashbrown.workspace = true
+tokio = { version = "1", features = ["full"] }
+serde.workspace = true
+serde_json.workspace = true
 
-# Component crates
-module-network-components = { path = "../module/network-components" }
-module-time-components = { path = "../module/time-components" }
-module-login-components = { path = "../module/login-components" }
-module-chunk-components = { path = "../module/chunk-components" }
-
-# System modules - statically linked
-module-listener = { path = "../module/listener" }
-module-handshake = { path = "../module/handshake" }
-module-login = { path = "../module/login" }
-module-config = { path = "../module/config" }
-module-play = { path = "../module/play" }
-module-chunk = { path = "../module/chunk" }
-# module-network = { path = "../module/network" }  # Replaced by module-network-systems
-module-network-systems = { path = "../module/network-systems" }
-module-time = { path = "../module/time" }
-
-# Persistence
-persist.workspace = true
+# Minecraft protocol
+mc-protocol = { path = "../mc-protocol" }
+mc-data = { path = "../mc-data" }
 
 [lints]
 workspace = true

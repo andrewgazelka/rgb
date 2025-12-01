@@ -1,0 +1,31 @@
+[package]
+name = "rgb-ecs"
+description = "Archetype-based Entity Component System for ProjectRGB"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+parking_lot.workspace = true
+hashbrown.workspace = true
+rustc-hash.workspace = true
+bitflags.workspace = true
+smallvec.workspace = true
+bumpalo.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tango-bench.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "ecs_tango"
+harness = false
+
+[[bench]]
+name = "ecs_criterion"
+harness = false
+
+[lints]
+workspace = true

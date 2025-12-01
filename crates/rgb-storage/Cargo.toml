@@ -1,0 +1,25 @@
+[package]
+name = "rgb-storage"
+description = "Versioned storage with time-travel for RGB database"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rgb-ecs.workspace = true
+thiserror.workspace = true
+parking_lot.workspace = true
+tracing.workspace = true
+thread_local.workspace = true
+
+# Versioned append-only B+tree storage (local fork)
+nebari = { path = "/Users/andrewgazelka/Projects/nebari/nebari" }
+
+# Zero-copy serialization for Pod types
+bytemuck = { version = "1.21", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

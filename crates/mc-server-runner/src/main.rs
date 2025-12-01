@@ -1,21 +1,30 @@
-//! Minecraft server runner with Flecs ECS
+//! Minecraft server using RGB ECS
 //!
-//! Commands:
-//! - `q` or `quit` - Quit the server
-//! - `help` - Show help
+//! This server uses the custom RGB ECS instead of Flecs.
+//! All game state is stored on Entity::WORLD or individual entities.
 
-use std::io::{self, Write};
+mod components;
+mod network;
+mod protocol;
+mod registry;
+mod systems;
+mod world_gen;
+
+use std::io::{self, Write as _};
 use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use crossterm::terminal::{self, ClearType};
 use crossterm::{cursor, execute};
-use flecs_ecs::prelude::*;
+use rgb_ecs::prelude::*;
 use tracing::info;
 
-/// Commands that can be sent from the input thread
+use crate::components::*;
+use crate::network::NetworkChannels;
+
+/// Commands from input thread
 enum Command {
     Quit,
     Help,
@@ -27,67 +36,54 @@ fn main() -> eyre::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("mc_server_runner=info".parse()?)
-                .add_directive("module_listener=info".parse()?)
-                .add_directive("module_handshake=info".parse()?)
-                .add_directive("module_login=info".parse()?)
-                .add_directive("module_config=info".parse()?)
-                .add_directive("module_play=info".parse()?)
-                .add_directive("module_chunk=info".parse()?),
+                .add_directive("mc_server_runner=info".parse()?),
         )
         .init();
 
-    info!("Starting Minecraft server");
+    info!("Starting Minecraft server with RGB ECS");
 
-    // Create Flecs world
-    let world = World::new();
+    // Create ECS world
+    let mut world = World::new();
 
-    // Persistence layer - must be initialized before importing modules that use .persist()
-    persist::init::<module_login_components::Uuid>(&world, "./world_data");
+    // Initialize global state on Entity::WORLD (auto-registers component types)
+    world.insert(Entity::WORLD, WorldTime::default());
+    world.insert(Entity::WORLD, TpsTracker::default());
+    world.insert(Entity::WORLD, EntityIdCounter::default());
+    world.insert(Entity::WORLD, ConnectionIndex::default());
+    world.insert(Entity::WORLD, ChunkIndex::default());
 
-    // Import all modules statically
-    // Order matters: components first, then systems that depend on them
-    world.import::<module_network_components::NetworkComponentsModule>();
-    world.import::<module_time_components::TimeComponentsModule>();
-    world.import::<module_login_components::LoginComponentsModule>();
-    world.import::<module_chunk_components::ChunkComponentsModule>();
-
-    // Network layer
-    world.import::<module_listener::ListenerModule>();
-    world.import::<module_network_systems::NetworkSystemsModule>();
-
-    // Protocol handling
-    world.import::<module_handshake::HandshakeModule>();
-    world.import::<module_login::LoginModule>();
-    world.import::<module_config::ConfigurationModule>();
-    world.import::<module_play::PlayModule>();
-    world.import::<module_chunk::ChunkModule>();
-    world.import::<module_time::TimeModule>();
-
-    // Generate spawn chunks
-    module_chunk::generate_spawn_chunks(&world, 8);
-
-    info!("Loaded all modules");
-
-    // Configuration
-    let rest_port: u16 = std::env::var("REST_PORT")
-        .ok()
-        .and_then(|p| p.parse().ok())
-        .unwrap_or(27750);
-
-    let target_fps: f32 = std::env::var("TARGET_FPS")
-        .ok()
-        .and_then(|p| p.parse().ok())
-        .unwrap_or(20.0);
-
-    info!(
-        "Flecs Explorer available at https://www.flecs.dev/explorer (connect to localhost:{})",
-        rest_port
+    // Create network channels and start network thread
+    let channels = NetworkChannels::new();
+    world.insert(
+        Entity::WORLD,
+        NetworkIngress {
+            rx: channels.ingress_rx.clone(),
+        },
+    );
+    world.insert(
+        Entity::WORLD,
+        NetworkEgress {
+            tx: channels.egress_tx.clone(),
+        },
+    );
+    world.insert(
+        Entity::WORLD,
+        DisconnectIngress {
+            rx: channels.disconnect_rx.clone(),
+        },
     );
 
-    // Enable REST API for Flecs Explorer
-    world.set(flecs::rest::Rest::default());
-    world.import::<flecs_ecs::addons::stats::Stats>();
+    // Start network thread
+    network::start_network_thread(
+        channels.ingress_tx,
+        channels.egress_rx,
+        channels.disconnect_tx,
+    );
+
+    // Generate spawn chunks
+    world_gen::generate_spawn_chunks(&mut world, 8);
+
+    info!("Server initialized");
 
     // Set up command input channel
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>();
@@ -99,17 +95,20 @@ fn main() -> eyre::Result<()> {
 
     // Enable raw mode for keyboard input
     terminal::enable_raw_mode().ok();
-
-    // Print help
     print_prompt();
 
-    // Run game loop
+    // Run game loop at 20 TPS
+    let target_fps: f32 = std::env::var("TARGET_FPS")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(20.0);
     let target_delta = Duration::from_secs_f32(1.0 / target_fps);
     let mut tick: u64 = 0;
     let mut running = true;
+    let mut last_tick = Instant::now();
 
     while running {
-        let start = std::time::Instant::now();
+        let start = Instant::now();
 
         // Check for commands
         while let Ok(cmd) = cmd_rx.try_recv() {
@@ -133,19 +132,23 @@ fn main() -> eyre::Result<()> {
             print_prompt();
         }
 
-        // Progress the world
-        world.progress();
+        // Calculate delta time
+        let delta_time = last_tick.elapsed().as_secs_f32();
+        last_tick = Instant::now();
+
+        // Run all systems
+        systems::tick(&mut world, delta_time);
         tick += 1;
 
         // Update title with tick count
-        if tick.is_multiple_of(20) {
+        if tick % 20 == 0 {
             update_title(tick);
         }
 
         // Sleep to maintain target FPS
         let elapsed = start.elapsed();
         if elapsed < target_delta {
-            std::thread::sleep(target_delta - elapsed);
+            thread::sleep(target_delta - elapsed);
         }
     }
 

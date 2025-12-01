@@ -11,30 +11,37 @@ members = [
     # "crates/mc-server",      # Old server - use mc-server-runner instead
     # "crates/mc-server-lib",  # Compatibility shim - mostly deprecated
     "crates/mc-server-runner",
-    "crates/module-loader",
+    # "crates/module-loader",  # Old flecs module system - deprecated
     # "crates/plugin-server",  # Not needed - modules are loaded directly
     # "crates/plugin-time",    # Not needed - modules are loaded directly
-    "crates/rgb-app",
-    "crates/rgb-core",
-    "crates/rgb-life",
+    # "crates/rgb-app",        # Uses flecs - TODO: port to new ECS
+    # "crates/rgb-core",       # Uses flecs - TODO: port to new ECS
+    # "crates/rgb-life",       # Uses flecs - TODO: port to new ECS
     "crates/skript-lang",
-    "crates/module/network",
-    "crates/module/network-components",
-    "crates/module/network-systems",
-    "crates/module/time",
-    "crates/module/time-components",
-    "crates/module/time-systems",
-    "crates/module/chunk",
-    "crates/module/chunk-components",
-    "crates/module/listener",
-    "crates/module/login",
-    "crates/module/login-components",
-    "crates/module/handshake",
-    "crates/module/config",
-    "crates/module/play",
-    "crates/module-skript",
-    "crates/persist",
-    "crates/persist-derive",
+    # Old flecs-based modules - deprecated
+    # "crates/module/network",
+    # "crates/module/network-components",
+    # "crates/module/network-systems",
+    # "crates/module/time",
+    # "crates/module/time-components",
+    # "crates/module/time-systems",
+    # "crates/module/chunk",
+    # "crates/module/chunk-components",
+    # "crates/module/listener",
+    # "crates/module/login",
+    # "crates/module/login-components",
+    # "crates/module/handshake",
+    # "crates/module/config",
+    # "crates/module/play",
+    # "crates/module-skript",
+    # "crates/persist",        # Uses flecs observers - deprecated
+    # "crates/persist-derive",
+    # New RGB ECS crates
+    "crates/rgb-ecs",
+    "crates/rgb-spatial",
+    "crates/rgb-query",
+    "crates/rgb-storage",
+    "crates/rgb-tick",
 ]
 
 [workspace.package]
@@ -48,9 +55,29 @@ name = "mc-server"
 
 [workspace.dependencies]
 rayon = "1.10"
-# Use local Flecs-Rust with shared library support for hot-reloadable plugins
-flecs_ecs = { path = "../Flecs-Rust/flecs_ecs", features = ["flecs_app", "flecs_rest", "flecs_stats", "flecs_build_shared_c"] }
 crossbeam-channel = "0.5"
+
+# New RGB ECS workspace dependencies
+rgb-ecs = { path = "crates/rgb-ecs" }
+rgb-spatial = { path = "crates/rgb-spatial" }
+rgb-query = { path = "crates/rgb-query" }
+rgb-storage = { path = "crates/rgb-storage" }
+rgb-tick = { path = "crates/rgb-tick" }
+
+# Dependencies for new ECS crates
+parking_lot = "0.12"
+thread_local = "1.1"
+crossbeam = "0.8"
+hashbrown = "0.15"
+rustc-hash = "2"
+bitflags = "2"
+smallvec = "1.13"
+bumpalo = "3"
+nebari = { path = "../nebari/nebari" }
+bytemuck = { version = "1.21", features = ["derive"] }
+tempfile = "3"
+tango-bench = "0.6"
+criterion = "0.5"
 bytes = "1"
 byteorder = "1"
 eyre = "0.6"
@@ -58,7 +85,6 @@ color-eyre = "0.6"
 wgpu = "24"
 winit = "0.30"
 pollster = "0.4"
-bytemuck = { version = "1", features = ["derive"] }
 log = "0.4"
 env_logger = "0.11"
 serde = { version = "1", features = ["derive"] }

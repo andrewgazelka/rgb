@@ -1,0 +1,14 @@
+[package]
+name = "rgb-query"
+description = "Flecs-style query system for RGB ECS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rgb-ecs.workspace = true
+hashbrown.workspace = true
+smallvec.workspace = true
+
+[lints]
+workspace = true

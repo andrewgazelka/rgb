@@ -1,0 +1,18 @@
+[package]
+name = "rgb-tick"
+description = "Tick-based execution scheduler with RGB parallelism"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rgb-ecs.workspace = true
+rgb-spatial.workspace = true
+rgb-query.workspace = true
+rayon.workspace = true
+crossbeam.workspace = true
+parking_lot.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
