@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/mc-bot",
     "crates/mc-client",
     "crates/mc-data",
     "crates/mc-protocol",
