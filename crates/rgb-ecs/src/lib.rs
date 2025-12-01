@@ -1,3 +1,18 @@
+// Allow unsafe code in ECS - necessary for low-level component storage
+#![allow(unsafe_code)]
+// Allow missing docs for now
+#![allow(missing_docs)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::missing_fields_in_debug)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::ptr_as_ptr)]
+#![allow(clippy::ref_as_ptr)]
+#![allow(clippy::cast_ptr_alignment)]
+#![allow(clippy::float_cmp)]
+
 //! RGB ECS - Archetype-based Entity Component System
 //!
 //! Designed for tick-based parallel execution with RGB spatial partitioning.

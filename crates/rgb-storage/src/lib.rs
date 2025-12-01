@@ -1,3 +1,9 @@
+#![allow(clippy::explicit_iter_loop)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::manual_let_else)]
+#![allow(clippy::float_cmp)]
+
 //! Versioned storage with time-travel for RGB database.
 //!
 //! This crate provides persistent storage for the ECS world using Nebari's

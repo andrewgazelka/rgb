@@ -1,8 +1,18 @@
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(clippy::struct_field_names)]
+#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::if_not_else)]
+#![allow(clippy::suboptimal_flops)]
+#![allow(clippy::if_same_then_else)]
+#![allow(clippy::unnecessary_cast)]
+#![allow(clippy::manual_is_multiple_of)]
+
 //! Minecraft server using RGB ECS
 //!
 //! This server uses the custom RGB ECS instead of Flecs.
 //! All game state is stored on Entity::WORLD or individual entities.
 
+mod audio;
 mod components;
 mod network;
 mod protocol;

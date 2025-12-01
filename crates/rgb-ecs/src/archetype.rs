@@ -10,7 +10,7 @@ use hashbrown::HashSet;
 use smallvec::SmallVec;
 
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentRegistry},
+    component::{ComponentId, ComponentRegistry},
     entity::Entity,
     storage::Column,
 };
@@ -160,6 +160,17 @@ impl Archetype {
     #[must_use]
     pub fn column_by_index(&self, index: usize) -> Option<&Column> {
         self.columns.get(index)
+    }
+
+    /// Get a raw pointer to component data at a specific row.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the column index and row are valid.
+    #[must_use]
+    pub fn column_ptr(&self, col_idx: usize, row: usize) -> *const u8 {
+        // SAFETY: Caller ensures col_idx and row are valid
+        unsafe { self.columns[col_idx].get_unchecked_raw(row) }
     }
 
     /// Get a mutable column by index.

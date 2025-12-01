@@ -80,26 +80,31 @@ fn component_access_benchmarks(c: &mut Criterion) {
             });
         });
 
-        group.bench_with_input(BenchmarkId::new("get_mut", count), &count, |b, &count| {
-            let mut world = World::new();
-            let entities: Vec<Entity> = (0..count)
-                .map(|i| {
-                    world.spawn(Position {
-                        x: i as f32,
-                        y: 0.0,
-                        z: 0.0,
+        group.bench_with_input(
+            BenchmarkId::new("get_update", count),
+            &count,
+            |b, &count| {
+                let mut world = World::new();
+                let entities: Vec<Entity> = (0..count)
+                    .map(|i| {
+                        world.spawn(Position {
+                            x: i as f32,
+                            y: 0.0,
+                            z: 0.0,
+                        })
                     })
-                })
-                .collect();
+                    .collect();
 
-            b.iter(|| {
-                for &entity in &entities {
-                    if let Some(pos) = world.get_mut::<Position>(entity) {
-                        pos.x += 1.0;
+                b.iter(|| {
+                    for &entity in &entities {
+                        if let Some(mut pos) = world.get::<Position>(entity) {
+                            pos.x += 1.0;
+                            world.update(entity, pos);
+                        }
                     }
-                }
-            });
-        });
+                });
+            },
+        );
     }
 
     group.finish();

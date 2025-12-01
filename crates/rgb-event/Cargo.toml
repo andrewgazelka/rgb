@@ -1,0 +1,19 @@
+[package]
+name = "rgb-event"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Event-driven architecture with RGB spatial parallelism"
+
+[dependencies]
+rgb-ecs.workspace = true
+rgb-spatial.workspace = true
+hashbrown.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[lints]
+workspace = true

@@ -90,7 +90,7 @@ impl Neighborhood {
     /// Check if a chunk is in this neighborhood.
     #[must_use]
     pub fn contains(&self, chunk: ChunkId) -> bool {
-        self.chunks.iter().any(|c| *c == Some(chunk))
+        self.chunks.contains(&Some(chunk))
     }
 
     /// Iterate over all valid chunk IDs in the neighborhood.
@@ -275,7 +275,7 @@ mod tests {
         let mut world = World::new();
         let center = ChunkId::from_coords(1, 1, 3);
         let hood = Neighborhood::new(center, 3, 3);
-        let mut scope = Scope::new(&mut world, hood);
+        let scope = Scope::new(&mut world, hood);
 
         // Spawn through world (not scope for now)
         // TODO: Test scoped operations

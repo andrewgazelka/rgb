@@ -110,13 +110,13 @@ fn component_benchmarks() -> impl IntoBenchmarks {
                 })
                 .collect();
 
-            b.iter(|| {
+            b.iter(move || {
                 for &entity in &entities {
                     black_box(world.get::<Position>(entity));
                 }
             })
         }),
-        benchmark_fn("get_mut_component/1000", |b| {
+        benchmark_fn("get_update_component/1000", |b| {
             let mut world = World::new();
             let entities: Vec<Entity> = (0..1000)
                 .map(|i| {
@@ -128,10 +128,11 @@ fn component_benchmarks() -> impl IntoBenchmarks {
                 })
                 .collect();
 
-            b.iter(|| {
+            b.iter(move || {
                 for &entity in &entities {
-                    if let Some(pos) = world.get_mut::<Position>(entity) {
+                    if let Some(mut pos) = world.get::<Position>(entity) {
                         pos.x += 1.0;
+                        world.update(entity, pos);
                     }
                 }
             })

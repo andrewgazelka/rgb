@@ -7,6 +7,8 @@
 //! Global state is stored on `Entity::WORLD` (id=0) which is automatically
 //! created and marked with the `Global` component.
 
+use std::any::TypeId;
+
 use crate::{
     archetype::{ArchetypeId, ArchetypeStorage},
     component::{ComponentId, ComponentRegistry},
@@ -341,6 +343,28 @@ impl World {
 
         // SAFETY: We verified the entity is alive and in this archetype
         unsafe { archetype.get_component(comp_id, meta.location.row) }
+    }
+
+    /// Get a raw pointer to a component by TypeId.
+    ///
+    /// This is used by the event system to pass event data to observers.
+    /// The caller must ensure the pointer is used correctly.
+    ///
+    /// # Safety
+    ///
+    /// The returned pointer is only valid while the entity exists and
+    /// the component is not removed. The caller must cast to the correct type.
+    #[must_use]
+    pub fn get_raw_ptr(&self, entity: Entity, type_id: TypeId) -> Option<*const u8> {
+        let comp_id = self.components.get_id_by_type_id(type_id)?;
+        let meta = self.entity_meta.get(entity.id() as usize)?.as_ref()?;
+        let archetype = self.archetypes.get(meta.location.archetype_id)?;
+
+        // Check if archetype has this component
+        let col_idx = archetype.column_index(comp_id)?;
+
+        // Get raw pointer to the component data
+        Some(archetype.column_ptr(col_idx, meta.location.row))
     }
 
     /// Update an entity's component with a new value.

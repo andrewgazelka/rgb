@@ -38,6 +38,7 @@ members = [
     # "crates/persist-derive",
     # New RGB ECS crates
     "crates/rgb-ecs",
+    "crates/rgb-event",
     "crates/rgb-spatial",
     "crates/rgb-query",
     "crates/rgb-storage",
@@ -59,6 +60,7 @@ crossbeam-channel = "0.5"
 
 # New RGB ECS workspace dependencies
 rgb-ecs = { path = "crates/rgb-ecs" }
+rgb-event = { path = "crates/rgb-event" }
 rgb-spatial = { path = "crates/rgb-spatial" }
 rgb-query = { path = "crates/rgb-query" }
 rgb-storage = { path = "crates/rgb-storage" }
@@ -99,6 +101,7 @@ notify = "7"
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rodio = { version = "0.20", default-features = false, features = ["symphonia-wav"] }
 heed = "0.20"
 bincode = "1"
 inventory = "0.3"

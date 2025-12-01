@@ -205,6 +205,12 @@ impl ComponentRegistry {
         self.type_to_id.get(&TypeId::of::<T>()).copied()
     }
 
+    /// Get the component ID for a TypeId, if registered.
+    #[must_use]
+    pub fn get_id_by_type_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.type_to_id.get(&type_id).copied()
+    }
+
     /// Get component info by ID.
     #[must_use]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {

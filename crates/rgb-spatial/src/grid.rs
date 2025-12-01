@@ -121,7 +121,7 @@ mod tests {
                 let nx = cell.x + dx;
                 let ny = cell.y + dy;
 
-                if nx >= 0 && nx < 10 && ny >= 0 && ny < 10 {
+                if (0..10).contains(&nx) && (0..10).contains(&ny) {
                     let neighbor_id = CellId((ny as u32) * 10 + (nx as u32));
                     let neighbor = grid.get(neighbor_id).unwrap();
 
