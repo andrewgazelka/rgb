@@ -59,11 +59,12 @@ pub use component::{Component, ComponentId, ComponentInfo, ComponentRegistry};
 pub use entity::{Entity, EntityId, Generation};
 pub use relation::{ChildOf, ContainedIn, InstanceOf, OwnedBy, Pair, PairId, Requires};
 pub use storage::{Column, ComponentStorage};
-pub use world::{Global, World};
+pub use world::{Global, Plugin, World};
 
 /// Prelude for convenient imports
 pub mod prelude {
     pub use crate::{
-        ChildOf, Component, ContainedIn, Entity, Global, InstanceOf, OwnedBy, Pair, Requires, World,
+        ChildOf, Component, ContainedIn, Entity, Global, InstanceOf, OwnedBy, Pair, Plugin,
+        Requires, World,
     };
 }

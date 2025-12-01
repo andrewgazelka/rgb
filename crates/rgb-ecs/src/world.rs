@@ -609,6 +609,133 @@ impl World {
     pub fn archetypes_mut(&mut self) -> &mut ArchetypeStorage {
         &mut self.archetypes
     }
+
+    // ==================== Query ====================
+
+    /// Iterate over all entities that have a specific component.
+    ///
+    /// Returns an iterator of `(Entity, T)` pairs.
+    pub fn query<T: 'static + Send + Sync + Clone>(&self) -> impl Iterator<Item = (Entity, T)> + '_ {
+        let comp_id = match self.components.get_id::<T>() {
+            Some(id) => id,
+            None => return QueryIter::empty(),
+        };
+
+        let mut required = hashbrown::HashSet::new();
+        required.insert(comp_id);
+
+        QueryIter::new(self, required)
+    }
+
+    /// Iterate over all entities (no component filter).
+    pub fn entities_iter(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.archetypes
+            .iter()
+            .flat_map(|arch| arch.entities().iter().copied())
+    }
+}
+
+/// Iterator for query results.
+pub struct QueryIter<'w, T> {
+    world: Option<&'w World>,
+    archetype_iter: Box<dyn Iterator<Item = &'w crate::archetype::Archetype> + 'w>,
+    current_entities: std::slice::Iter<'w, Entity>,
+    _marker: std::marker::PhantomData<T>,
+}
+
+impl<'w, T: 'static + Send + Sync + Clone> QueryIter<'w, T> {
+    fn new(world: &'w World, required: hashbrown::HashSet<ComponentId>) -> Self {
+        let archetype_iter = Box::new(
+            world
+                .archetypes
+                .iter()
+                .filter(move |arch| required.iter().all(|id| arch.contains(*id))),
+        );
+        Self {
+            world: Some(world),
+            archetype_iter,
+            current_entities: [].iter(),
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    fn empty() -> Self {
+        Self {
+            world: None,
+            archetype_iter: Box::new(std::iter::empty()),
+            current_entities: [].iter(),
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'w, T: 'static + Send + Sync + Clone> Iterator for QueryIter<'w, T> {
+    type Item = (Entity, T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let world = self.world?;
+
+        loop {
+            // Try to get next entity from current archetype
+            if let Some(&entity) = self.current_entities.next() {
+                if let Some(value) = world.get::<T>(entity) {
+                    return Some((entity, value));
+                }
+                continue;
+            }
+
+            // Move to next archetype
+            let arch = self.archetype_iter.next()?;
+            self.current_entities = arch.entities().iter();
+        }
+    }
+}
+
+/// A plugin that can be added to a World to register components, systems, and initial state.
+///
+/// This is the primary way to modularize ECS code across crates.
+///
+/// # Example
+///
+/// ```ignore
+/// struct PhysicsPlugin;
+///
+/// impl Plugin for PhysicsPlugin {
+///     fn build(&self, world: &mut World) {
+///         // Register components
+///         world.register::<Velocity>();
+///         world.register::<Acceleration>();
+///
+///         // Initialize global state
+///         world.insert(Entity::WORLD, PhysicsConfig::default());
+///     }
+/// }
+///
+/// // Usage
+/// let mut world = World::new();
+/// world.add_plugin(PhysicsPlugin);
+/// ```
+pub trait Plugin {
+    /// Build/configure the world with this plugin's components and state.
+    fn build(&self, world: &mut World);
+}
+
+impl World {
+    /// Add a plugin to this world.
+    ///
+    /// Plugins are a way to modularize ECS setup code.
+    pub fn add_plugin<P: Plugin>(&mut self, plugin: P) -> &mut Self {
+        plugin.build(self);
+        self
+    }
+
+    /// Register a component type without creating any entities.
+    ///
+    /// This is useful for plugins that want to ensure component types
+    /// are registered before any systems run.
+    pub fn register<T: 'static + Send + Sync>(&mut self) -> ComponentId {
+        self.components.register::<T>()
+    }
 }
 
 impl std::fmt::Debug for World {

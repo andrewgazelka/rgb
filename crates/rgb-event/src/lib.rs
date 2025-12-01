@@ -47,13 +47,41 @@ mod observer;
 mod queue;
 mod world_ext;
 
+use rgb_ecs::{Plugin, World};
+
 pub use color::cell_color;
 pub use event::Event;
 pub use observer::{Observer, ObserverId};
 pub use queue::EventQueue;
-pub use world_ext::{EventWorldExt, Target};
+pub use world_ext::{EventSystem, EventWorldExt, Position, Target};
+
+/// Plugin to add the event system to a World.
+///
+/// # Example
+///
+/// ```ignore
+/// use rgb_ecs::World;
+/// use rgb_event::EventPlugin;
+///
+/// let mut world = World::new();
+/// world.add_plugin(EventPlugin);
+///
+/// // Now you can use events
+/// world.send(Entity::WORLD, MyEvent { value: 42 });
+/// world.flush_events();
+/// ```
+pub struct EventPlugin;
+
+impl Plugin for EventPlugin {
+    fn build(&self, world: &mut World) {
+        world_ext::EventWorldExt::init_events(world);
+    }
+}
 
 /// Prelude for convenient imports
 pub mod prelude {
-    pub use crate::{Event, EventQueue, EventWorldExt, Observer, ObserverId, Target, cell_color};
+    pub use crate::{
+        Event, EventPlugin, EventQueue, EventWorldExt, Observer, ObserverId, Position, Target,
+        cell_color,
+    };
 }

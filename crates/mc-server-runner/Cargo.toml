@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 rgb-ecs.workspace = true
+rgb-event.workspace = true
 rgb-spatial.workspace = true
 rgb-query.workspace = true
 rgb-storage.workspace = true

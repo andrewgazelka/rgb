@@ -1,28 +1,23 @@
 //! Handshake and status systems
 
-use rgb_ecs::{Entity, World};
+use rgb_ecs::World;
 use tracing::{debug, info};
 
-use crate::components::{ConnectionIndex, ConnectionState, PacketBuffer, ProtocolState};
+use crate::components::{ConnectionState, PacketBuffer, ProtocolState};
 use crate::protocol::{encode_packet, parse_handshake, send_status_response};
 
 /// System: Handle handshake packets
+///
+/// Uses ECS query to find all entities with ProtocolState component.
 pub fn system_handle_handshake(world: &mut World) {
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
+    // Query all entities with ProtocolState - collect to avoid borrow issues
+    let handshaking: Vec<_> = world
+        .query::<ProtocolState>()
+        .filter(|(_, state)| state.0 == ConnectionState::Handshaking)
+        .map(|(entity, _)| entity)
+        .collect();
 
-    // Collect entities to process
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
-
-    for entity in entities {
-        let Some(state) = world.get::<ProtocolState>(entity) else {
-            continue;
-        };
-        if state.0 != ConnectionState::Handshaking {
-            continue;
-        }
-
+    for entity in handshaking {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };
@@ -58,20 +53,14 @@ pub fn system_handle_handshake(world: &mut World) {
 
 /// System: Handle status request packets
 pub fn system_handle_status(world: &mut World) {
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
+    // Query all entities in Status state
+    let status_entities: Vec<_> = world
+        .query::<ProtocolState>()
+        .filter(|(_, state)| state.0 == ConnectionState::Status)
+        .map(|(entity, _)| entity)
+        .collect();
 
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
-
-    for entity in entities {
-        let Some(state) = world.get::<ProtocolState>(entity) else {
-            continue;
-        };
-        if state.0 != ConnectionState::Status {
-            continue;
-        }
-
+    for entity in status_entities {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };

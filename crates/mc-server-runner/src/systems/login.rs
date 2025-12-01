@@ -4,30 +4,25 @@ use rgb_ecs::{Entity, World};
 use tracing::{debug, info};
 
 use crate::components::{
-    ChunkPosition, ConnectionIndex, ConnectionState, EntityId, EntityIdCounter, GameMode, Name,
-    PacketBuffer, Player, Position, ProtocolState, Rotation, Uuid,
+    ChunkPosition, ConnectionState, EntityId, EntityIdCounter, GameMode, Name, PacketBuffer,
+    Player, Position, ProtocolState, Rotation, Uuid,
 };
 use crate::protocol::{offline_uuid, parse_login_start, send_known_packs, send_login_success};
 
 /// System: Handle login packets
 pub fn system_handle_login(world: &mut World) {
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
     let Some(entity_counter) = world.get::<EntityIdCounter>(Entity::WORLD) else {
         return;
     };
 
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
+    // Query all entities in Login state
+    let login_entities: Vec<_> = world
+        .query::<ProtocolState>()
+        .filter(|(_, state)| state.0 == ConnectionState::Login)
+        .map(|(entity, _)| entity)
+        .collect();
 
-    for entity in entities {
-        let Some(state) = world.get::<ProtocolState>(entity) else {
-            continue;
-        };
-        if state.0 != ConnectionState::Login {
-            continue;
-        }
-
+    for entity in login_entities {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };

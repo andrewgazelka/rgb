@@ -1,12 +1,10 @@
 //! Configuration phase system
 
 use mc_protocol::Decode;
-use rgb_ecs::{Entity, World};
+use rgb_ecs::World;
 use tracing::debug;
 
-use crate::components::{
-    ConnectionIndex, ConnectionState, NeedsSpawnChunks, PacketBuffer, ProtocolState,
-};
+use crate::components::{ConnectionState, NeedsSpawnChunks, PacketBuffer, ProtocolState};
 use crate::protocol::encode_packet;
 use crate::registry::{
     create_biome_registry, create_cat_variant_registry, create_chicken_variant_registry,
@@ -18,20 +16,14 @@ use crate::registry::{
 
 /// System: Handle configuration packets
 pub fn system_handle_configuration(world: &mut World) {
-    let Some(conn_index) = world.get::<ConnectionIndex>(Entity::WORLD) else {
-        return;
-    };
+    // Query all entities in Configuration state
+    let config_entities: Vec<_> = world
+        .query::<ProtocolState>()
+        .filter(|(_, state)| state.0 == ConnectionState::Configuration)
+        .map(|(entity, _)| entity)
+        .collect();
 
-    let entities: Vec<_> = conn_index.map.values().copied().collect();
-
-    for entity in entities {
-        let Some(state) = world.get::<ProtocolState>(entity) else {
-            continue;
-        };
-        if state.0 != ConnectionState::Configuration {
-            continue;
-        }
-
+    for entity in config_entities {
         let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
             continue;
         };

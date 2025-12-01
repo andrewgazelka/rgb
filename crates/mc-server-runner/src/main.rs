@@ -31,6 +31,8 @@ use crossterm::{cursor, execute};
 use rgb_ecs::prelude::*;
 use tracing::info;
 
+use rgb_event::EventPlugin;
+
 use crate::components::*;
 use crate::network::NetworkChannels;
 
@@ -52,8 +54,11 @@ fn main() -> eyre::Result<()> {
 
     info!("Starting Minecraft server with RGB ECS");
 
-    // Create ECS world
+    // Create ECS world with plugins
     let mut world = World::new();
+
+    // Add event system plugin
+    world.add_plugin(EventPlugin);
 
     // Initialize global state on Entity::WORLD (auto-registers component types)
     world.insert(Entity::WORLD, WorldTime::default());
