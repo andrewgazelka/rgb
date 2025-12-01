@@ -67,6 +67,8 @@ pub struct ComponentInfo {
     drop_fn: Option<unsafe fn(*mut u8)>,
     /// Rust TypeId for type checking.
     type_id: TypeId,
+    /// Whether this component is transient (not persisted).
+    transient: bool,
 }
 
 impl ComponentInfo {
@@ -83,6 +85,24 @@ impl ComponentInfo {
                 None
             },
             type_id: TypeId::of::<T>(),
+            transient: false,
+        }
+    }
+
+    /// Create component info for a transient (non-persisted) type.
+    #[must_use]
+    pub fn of_transient<T: Component>(id: ComponentId) -> Self {
+        Self {
+            id,
+            name: std::any::type_name::<T>(),
+            layout: Layout::new::<T>(),
+            drop_fn: if std::mem::needs_drop::<T>() {
+                Some(|ptr| unsafe { std::ptr::drop_in_place(ptr.cast::<T>()) })
+            } else {
+                None
+            },
+            type_id: TypeId::of::<T>(),
+            transient: true,
         }
     }
 
@@ -120,6 +140,15 @@ impl ComponentInfo {
     #[must_use]
     pub const fn needs_drop(&self) -> bool {
         self.drop_fn.is_some()
+    }
+
+    /// Check if the component is transient (should not be persisted).
+    ///
+    /// Transient components represent runtime state like network buffers,
+    /// caches, and handles that shouldn't be saved to storage.
+    #[must_use]
+    pub const fn is_transient(&self) -> bool {
+        self.transient
     }
 
     /// Drop a component at the given pointer.
@@ -178,6 +207,21 @@ impl ComponentRegistry {
     ///
     /// If the type is already registered, returns the existing ID.
     pub fn register<T: Component>(&mut self) -> ComponentId {
+        self.register_with_transient::<T>(false)
+    }
+
+    /// Register a transient component type (will not be persisted).
+    ///
+    /// Use this for network buffers, caches, runtime handles, and other
+    /// components that should not be saved to storage.
+    ///
+    /// If the type is already registered, returns the existing ID
+    /// (does not change the transient flag).
+    pub fn register_transient<T: Component>(&mut self) -> ComponentId {
+        self.register_with_transient::<T>(true)
+    }
+
+    fn register_with_transient<T: Component>(&mut self, transient: bool) -> ComponentId {
         let type_id = TypeId::of::<T>();
 
         if let Some(&id) = self.type_to_id.get(&type_id) {
@@ -185,7 +229,11 @@ impl ComponentRegistry {
         }
 
         let id = ComponentId(NEXT_COMPONENT_ID.fetch_add(1, Ordering::Relaxed));
-        let info = ComponentInfo::of::<T>(id);
+        let info = if transient {
+            ComponentInfo::of_transient::<T>(id)
+        } else {
+            ComponentInfo::of::<T>(id)
+        };
 
         self.type_to_id.insert(type_id, id);
 
@@ -197,6 +245,20 @@ impl ComponentRegistry {
         self.infos[idx] = info;
 
         id
+    }
+
+    /// Check if a component type is transient.
+    #[must_use]
+    pub fn is_transient<T: Component>(&self) -> bool {
+        self.get_id::<T>()
+            .and_then(|id| self.get_info(id))
+            .is_some_and(|info| info.is_transient())
+    }
+
+    /// Check if a component ID is transient.
+    #[must_use]
+    pub fn is_transient_by_id(&self, id: ComponentId) -> bool {
+        self.get_info(id).is_some_and(|info| info.is_transient())
     }
 
     /// Get the component ID for a type, if registered.
@@ -304,5 +366,26 @@ mod tests {
 
         assert_eq!(id1, id2);
         assert_eq!(registry.len(), 1);
+    }
+
+    #[test]
+    fn test_transient_registration() {
+        let mut registry = ComponentRegistry::new();
+
+        // Normal component is not transient
+        let pos_id = registry.register::<Position>();
+        assert!(!registry.is_transient::<Position>());
+        assert!(!registry.is_transient_by_id(pos_id));
+
+        // Transient component is transient
+        let name_id = registry.register_transient::<Name>();
+        assert!(registry.is_transient::<Name>());
+        assert!(registry.is_transient_by_id(name_id));
+
+        // Check via ComponentInfo
+        let pos_info = registry.get_info(pos_id).unwrap();
+        let name_info = registry.get_info(name_id).unwrap();
+        assert!(!pos_info.is_transient());
+        assert!(name_info.is_transient());
     }
 }

@@ -49,6 +49,12 @@ pub struct World {
     components: ComponentRegistry,
     /// Archetype storage.
     archetypes: ArchetypeStorage,
+    /// Named entity index: name bytes -> Entity
+    /// This enables O(log n) lookups by name without external HashMaps.
+    /// Names are arbitrary bytes (e.g., b"chunk" ++ x.to_le_bytes() ++ z.to_le_bytes()).
+    name_index: std::collections::BTreeMap<Vec<u8>, Entity>,
+    /// Reverse index: Entity -> name bytes (for cleanup on despawn)
+    entity_names: Vec<Option<Vec<u8>>>,
 }
 
 impl Default for World {
@@ -66,6 +72,8 @@ impl World {
             entity_meta: Vec::new(),
             components: ComponentRegistry::new(),
             archetypes: ArchetypeStorage::new(),
+            name_index: std::collections::BTreeMap::new(),
+            entity_names: Vec::new(),
         };
 
         // Reserve Entity::WORLD (id=0) and mark it as global
@@ -84,6 +92,8 @@ impl World {
             entity_meta: Vec::with_capacity(entity_capacity),
             components: ComponentRegistry::new(),
             archetypes: ArchetypeStorage::new(),
+            name_index: std::collections::BTreeMap::new(),
+            entity_names: Vec::with_capacity(entity_capacity),
         };
 
         // Reserve Entity::WORLD (id=0) and mark it as global
@@ -114,6 +124,11 @@ impl World {
             self.entity_meta.resize(id + 1, None);
         }
 
+        // Ensure entity_names vec is large enough
+        if id >= self.entity_names.len() {
+            self.entity_names.resize(id + 1, None);
+        }
+
         // Place in empty archetype
         let archetype = self.archetypes.get_mut(ArchetypeId::EMPTY).unwrap();
         let row = archetype.allocate(entity);
@@ -128,6 +143,108 @@ impl World {
         entity
     }
 
+    // ==================== Named Entity Operations ====================
+
+    /// Get or create an entity by name.
+    ///
+    /// Names are arbitrary byte sequences, enabling efficient key encoding:
+    /// - Chunks: `b"chunk" ++ x.to_le_bytes() ++ z.to_le_bytes()`
+    /// - Players by UUID: `b"player" ++ uuid.to_le_bytes()`
+    /// - Connections: `b"conn" ++ connection_id.to_le_bytes()`
+    ///
+    /// Returns the existing entity if one exists with this name, otherwise
+    /// creates a new empty entity and associates it with the name.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Create a chunk key helper
+    /// fn chunk_key(x: i32, z: i32) -> [u8; 13] {
+    ///     let mut key = [0u8; 13];
+    ///     key[0..5].copy_from_slice(b"chunk");
+    ///     key[5..9].copy_from_slice(&x.to_le_bytes());
+    ///     key[9..13].copy_from_slice(&z.to_le_bytes());
+    ///     key
+    /// }
+    ///
+    /// let chunk = world.entity_named(&chunk_key(10, 20));
+    /// world.insert(chunk, ChunkData::new());
+    /// ```
+    pub fn entity_named(&mut self, name: &[u8]) -> Entity {
+        // Check if entity already exists with this name
+        if let Some(&entity) = self.name_index.get(name) {
+            if self.is_alive(entity) {
+                return entity;
+            }
+            // Entity was despawned but name still in index - clean up and create new
+            self.name_index.remove(name);
+        }
+
+        // Create new entity and associate with name
+        let entity = self.spawn_empty();
+        let id = entity.id() as usize;
+
+        self.name_index.insert(name.to_vec(), entity);
+        self.entity_names[id] = Some(name.to_vec());
+
+        entity
+    }
+
+    /// Lookup an entity by name without creating it.
+    ///
+    /// Returns `None` if no entity exists with this name.
+    #[must_use]
+    pub fn lookup(&self, name: &[u8]) -> Option<Entity> {
+        let &entity = self.name_index.get(name)?;
+        if self.is_alive(entity) {
+            Some(entity)
+        } else {
+            None
+        }
+    }
+
+    /// Get the name of an entity, if it has one.
+    #[must_use]
+    pub fn entity_name(&self, entity: Entity) -> Option<&[u8]> {
+        let id = entity.id() as usize;
+        self.entity_names.get(id)?.as_deref()
+    }
+
+    /// Set or update the name of an entity.
+    ///
+    /// If the entity already has a name, it is replaced.
+    /// If another entity has this name, returns `false` and does nothing.
+    pub fn set_entity_name(&mut self, entity: Entity, name: &[u8]) -> bool {
+        if !self.is_alive(entity) {
+            return false;
+        }
+
+        // Check if name is already taken by another entity
+        if let Some(&existing) = self.name_index.get(name) {
+            if existing != entity && self.is_alive(existing) {
+                return false; // Name already taken
+            }
+        }
+
+        let id = entity.id() as usize;
+
+        // Remove old name if exists
+        if let Some(old_name) = self.entity_names.get(id).and_then(|n| n.as_ref()) {
+            self.name_index.remove(old_name);
+        }
+
+        // Ensure entity_names vec is large enough
+        if id >= self.entity_names.len() {
+            self.entity_names.resize(id + 1, None);
+        }
+
+        // Set new name
+        self.name_index.insert(name.to_vec(), entity);
+        self.entity_names[id] = Some(name.to_vec());
+
+        true
+    }
+
     /// Spawn an entity with a single component.
     pub fn spawn<T: 'static + Send + Sync>(&mut self, component: T) -> Entity {
         let entity = self.entities.allocate();
@@ -136,6 +253,11 @@ impl World {
         // Ensure meta vec is large enough
         if id >= self.entity_meta.len() {
             self.entity_meta.resize(id + 1, None);
+        }
+
+        // Ensure entity_names vec is large enough
+        if id >= self.entity_names.len() {
+            self.entity_names.resize(id + 1, None);
         }
 
         // Get or create archetype for this component
@@ -196,6 +318,14 @@ impl World {
             if let Some(Some(swapped_meta)) = self.entity_meta.get_mut(swapped_id) {
                 swapped_meta.location.row = meta.location.row;
             }
+        }
+
+        // Clean up name index
+        if let Some(Some(name)) = self.entity_names.get(id) {
+            self.name_index.remove(name);
+        }
+        if id < self.entity_names.len() {
+            self.entity_names[id] = None;
         }
 
         // Clear our metadata
@@ -738,6 +868,28 @@ impl World {
     pub fn register<T: 'static + Send + Sync>(&mut self) -> ComponentId {
         self.components.register::<T>()
     }
+
+    /// Register a transient component type (will not be persisted).
+    ///
+    /// Use this for network buffers, caches, runtime handles, and other
+    /// components that should not be saved to storage.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // At startup, register transient components
+    /// world.register_transient::<PacketBuffer>();
+    /// world.register_transient::<NetworkIngress>();
+    /// ```
+    pub fn register_transient<T: 'static + Send + Sync>(&mut self) -> ComponentId {
+        self.components.register_transient::<T>()
+    }
+
+    /// Check if a component type is transient (will not be persisted).
+    #[must_use]
+    pub fn is_transient<T: 'static + Send + Sync>(&self) -> bool {
+        self.components.is_transient::<T>()
+    }
 }
 
 impl std::fmt::Debug for World {
@@ -978,5 +1130,326 @@ mod tests {
         let removed = world.remove_pair::<ContainedIn>(sword);
         assert_eq!(removed, Some(inventory));
         assert!(!world.has_relation::<ContainedIn>(sword));
+    }
+
+    #[test]
+    fn test_named_entity_basic() {
+        let mut world = World::new();
+
+        // Create named entity
+        let e1 = world.entity_named(b"test_entity");
+        assert!(world.is_alive(e1));
+
+        // Getting same name returns same entity
+        let e2 = world.entity_named(b"test_entity");
+        assert_eq!(e1, e2);
+
+        // Lookup works
+        assert_eq!(world.lookup(b"test_entity"), Some(e1));
+        assert_eq!(world.lookup(b"nonexistent"), None);
+
+        // Can get entity name
+        assert_eq!(world.entity_name(e1), Some(b"test_entity".as_slice()));
+    }
+
+    fn chunk_key(x: i32, z: i32) -> [u8; 13] {
+        let mut key = [0u8; 13];
+        key[0..5].copy_from_slice(b"chunk");
+        key[5..9].copy_from_slice(&x.to_le_bytes());
+        key[9..13].copy_from_slice(&z.to_le_bytes());
+        key
+    }
+
+    #[test]
+    fn test_named_entity_chunk_key() {
+        let mut world = World::new();
+
+        // Create chunks
+        let chunk1 = world.entity_named(&chunk_key(10, 20));
+        let chunk2 = world.entity_named(&chunk_key(-5, 100));
+
+        world.insert(chunk1, Position { x: 10.0, y: 0.0 });
+        world.insert(chunk2, Position { x: -5.0, y: 0.0 });
+
+        // Lookup by coordinates
+        let found1 = world.lookup(&chunk_key(10, 20)).unwrap();
+        let found2 = world.lookup(&chunk_key(-5, 100)).unwrap();
+
+        assert_eq!(found1, chunk1);
+        assert_eq!(found2, chunk2);
+        assert_eq!(world.get::<Position>(found1).unwrap().x, 10.0);
+        assert_eq!(world.get::<Position>(found2).unwrap().x, -5.0);
+
+        // Non-existent chunk
+        assert!(world.lookup(&chunk_key(999, 999)).is_none());
+    }
+
+    #[test]
+    fn test_named_entity_despawn_cleanup() {
+        let mut world = World::new();
+
+        let entity = world.entity_named(b"temporary");
+        assert!(world.lookup(b"temporary").is_some());
+
+        // Despawn should clean up name index
+        world.despawn(entity);
+        assert!(world.lookup(b"temporary").is_none());
+
+        // Can create new entity with same name
+        let new_entity = world.entity_named(b"temporary");
+        assert!(world.is_alive(new_entity));
+        assert_ne!(entity, new_entity); // Different entity (or at least different generation)
+    }
+
+    #[test]
+    fn test_set_entity_name() {
+        let mut world = World::new();
+
+        let entity = world.spawn_empty();
+        assert!(world.entity_name(entity).is_none());
+
+        // Set name
+        assert!(world.set_entity_name(entity, b"my_entity"));
+        assert_eq!(world.entity_name(entity), Some(b"my_entity".as_slice()));
+        assert_eq!(world.lookup(b"my_entity"), Some(entity));
+
+        // Rename
+        assert!(world.set_entity_name(entity, b"renamed"));
+        assert_eq!(world.entity_name(entity), Some(b"renamed".as_slice()));
+        assert!(world.lookup(b"my_entity").is_none());
+        assert_eq!(world.lookup(b"renamed"), Some(entity));
+    }
+
+    #[test]
+    fn test_named_entity_uniqueness() {
+        let mut world = World::new();
+
+        let e1 = world.entity_named(b"unique");
+        let e2 = world.spawn_empty();
+
+        // Can't give e2 the same name
+        assert!(!world.set_entity_name(e2, b"unique"));
+        assert!(world.entity_name(e2).is_none());
+
+        // e1 still has the name
+        assert_eq!(world.lookup(b"unique"), Some(e1));
+    }
+
+    // ==================== Connection Key Tests ====================
+
+    fn conn_key(id: u64) -> [u8; 12] {
+        let mut key = [0u8; 12];
+        key[0..4].copy_from_slice(b"conn");
+        key[4..12].copy_from_slice(&id.to_le_bytes());
+        key
+    }
+
+    #[test]
+    fn test_named_entity_connection_keys() {
+        let mut world = World::new();
+
+        // Simulate connection entities
+        let conn1 = world.entity_named(&conn_key(12345));
+        let conn2 = world.entity_named(&conn_key(67890));
+        let conn3 = world.entity_named(&conn_key(u64::MAX));
+
+        // All different entities
+        assert_ne!(conn1, conn2);
+        assert_ne!(conn2, conn3);
+
+        // Lookup works for all
+        assert_eq!(world.lookup(&conn_key(12345)), Some(conn1));
+        assert_eq!(world.lookup(&conn_key(67890)), Some(conn2));
+        assert_eq!(world.lookup(&conn_key(u64::MAX)), Some(conn3));
+
+        // Disconnect (despawn) cleans up
+        world.despawn(conn2);
+        assert!(world.lookup(&conn_key(67890)).is_none());
+        assert!(world.lookup(&conn_key(12345)).is_some()); // Others unaffected
+    }
+
+    #[test]
+    fn test_named_entity_binary_keys() {
+        let mut world = World::new();
+
+        // Test with various binary patterns including null bytes
+        let key1 = [0u8, 1, 2, 3, 0, 0, 255, 128];
+        let key2 = [0u8, 0, 0, 0, 0, 0, 0, 0]; // All zeros
+        let key3 = [255u8; 8]; // All 0xFF
+
+        let e1 = world.entity_named(&key1);
+        let e2 = world.entity_named(&key2);
+        let e3 = world.entity_named(&key3);
+
+        assert_ne!(e1, e2);
+        assert_ne!(e2, e3);
+
+        assert_eq!(world.lookup(&key1), Some(e1));
+        assert_eq!(world.lookup(&key2), Some(e2));
+        assert_eq!(world.lookup(&key3), Some(e3));
+    }
+
+    #[test]
+    fn test_named_entity_with_components() {
+        let mut world = World::new();
+
+        // Create named entity and add components
+        let player = world.entity_named(b"player:uuid:12345");
+        world.insert(player, Position { x: 100.0, y: 64.0 });
+        world.insert(player, Health(100));
+
+        // Lookup and verify components
+        let found = world.lookup(b"player:uuid:12345").unwrap();
+        assert_eq!(world.get::<Position>(found).unwrap().x, 100.0);
+        assert_eq!(world.get::<Health>(found).unwrap().0, 100);
+
+        // Update via lookup
+        let mut pos = world.get::<Position>(found).unwrap();
+        pos.x = 200.0;
+        world.update(found, pos);
+
+        // Re-lookup and verify update
+        let found2 = world.lookup(b"player:uuid:12345").unwrap();
+        assert_eq!(found, found2);
+        assert_eq!(world.get::<Position>(found2).unwrap().x, 200.0);
+    }
+
+    // ==================== Transient Component Tests ====================
+
+    #[test]
+    fn test_transient_component_registration() {
+        let mut world = World::new();
+
+        // Register normal and transient components
+        world.register::<Position>();
+        world.register_transient::<Velocity>();
+
+        // Check transient status
+        assert!(!world.is_transient::<Position>());
+        assert!(world.is_transient::<Velocity>());
+
+        // Unregistered types are not transient
+        assert!(!world.is_transient::<Health>());
+    }
+
+    #[test]
+    fn test_transient_components_work_normally() {
+        let mut world = World::new();
+
+        // Register as transient
+        world.register_transient::<Velocity>();
+
+        // Still works as a normal component
+        let entity = world.spawn(Velocity { x: 1.0, y: 2.0 });
+        let vel = world.get::<Velocity>(entity).unwrap();
+        assert_eq!(vel.x, 1.0);
+        assert_eq!(vel.y, 2.0);
+
+        // Can update
+        world.update(entity, Velocity { x: 3.0, y: 4.0 });
+        let vel = world.get::<Velocity>(entity).unwrap();
+        assert_eq!(vel.x, 3.0);
+
+        // Can remove
+        let removed = world.remove::<Velocity>(entity);
+        assert!(removed.is_some());
+        assert!(!world.has::<Velocity>(entity));
+    }
+
+    #[test]
+    fn test_mixed_transient_and_persistent_components() {
+        let mut world = World::new();
+
+        // Position is persistent, Velocity is transient
+        world.register::<Position>();
+        world.register_transient::<Velocity>();
+
+        let entity = world.spawn_empty();
+        world.insert(entity, Position { x: 1.0, y: 2.0 });
+        world.insert(entity, Velocity { x: 3.0, y: 4.0 });
+
+        // Both work
+        assert!(world.has::<Position>(entity));
+        assert!(world.has::<Velocity>(entity));
+
+        // But only Position should be persisted (checked via is_transient)
+        assert!(!world.is_transient::<Position>());
+        assert!(world.is_transient::<Velocity>());
+    }
+
+    // ==================== Stress Tests ====================
+
+    #[test]
+    fn test_many_named_entities() {
+        let mut world = World::new();
+
+        // Create 1000 named entities
+        for i in 0..1000u32 {
+            let key = format!("entity_{}", i);
+            let entity = world.entity_named(key.as_bytes());
+            world.insert(
+                entity,
+                Position {
+                    x: i as f32,
+                    y: 0.0,
+                },
+            );
+        }
+
+        // Verify all can be looked up
+        for i in 0..1000u32 {
+            let key = format!("entity_{}", i);
+            let entity = world.lookup(key.as_bytes()).unwrap();
+            assert_eq!(world.get::<Position>(entity).unwrap().x, i as f32);
+        }
+
+        // Despawn half
+        for i in (0..1000u32).step_by(2) {
+            let key = format!("entity_{}", i);
+            let entity = world.lookup(key.as_bytes()).unwrap();
+            world.despawn(entity);
+        }
+
+        // Verify correct entities remain
+        for i in 0..1000u32 {
+            let key = format!("entity_{}", i);
+            if i % 2 == 0 {
+                assert!(world.lookup(key.as_bytes()).is_none());
+            } else {
+                assert!(world.lookup(key.as_bytes()).is_some());
+            }
+        }
+    }
+
+    #[test]
+    fn test_chunk_grid_simulation() {
+        let mut world = World::new();
+
+        // Simulate a 32x32 chunk grid
+        for x in -16..16 {
+            for z in -16..16 {
+                let chunk = world.entity_named(&chunk_key(x, z));
+                world.insert(
+                    chunk,
+                    Position {
+                        x: x as f32 * 16.0,
+                        y: z as f32 * 16.0,
+                    },
+                );
+            }
+        }
+
+        // Total: 32 * 32 = 1024 chunks + Entity::WORLD = 1025
+        assert_eq!(world.entity_count(), 1025);
+
+        // Random access pattern (simulating player movement)
+        let test_coords = [(0, 0), (-16, -16), (15, 15), (-1, 5), (8, -8)];
+
+        for (x, z) in test_coords {
+            let chunk = world.lookup(&chunk_key(x, z)).unwrap();
+            let pos = world.get::<Position>(chunk).unwrap();
+            assert_eq!(pos.x, x as f32 * 16.0);
+            assert_eq!(pos.y, z as f32 * 16.0);
+        }
     }
 }

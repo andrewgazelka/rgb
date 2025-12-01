@@ -50,12 +50,22 @@ fn main() -> eyre::Result<()> {
     // Add event system plugin
     world.add_plugin(EventPlugin);
 
+    // Register transient components (not persisted to storage)
+    // These are runtime-only: network buffers, channels, caches
+    world.register_transient::<PacketBuffer>();
+    world.register_transient::<PendingPackets>();
+    world.register_transient::<NetworkIngress>();
+    world.register_transient::<NetworkEgress>();
+    world.register_transient::<DisconnectIngress>();
+    world.register_transient::<Connection>();
+    world.register_transient::<ProtocolState>();
+
     // Initialize global state on Entity::WORLD (auto-registers component types)
+    world.insert(Entity::WORLD, ServerConfig::default());
     world.insert(Entity::WORLD, WorldTime::default());
     world.insert(Entity::WORLD, TpsTracker::default());
     world.insert(Entity::WORLD, EntityIdCounter::default());
-    world.insert(Entity::WORLD, ConnectionIndex::default());
-    world.insert(Entity::WORLD, ChunkIndex::default());
+    world.insert(Entity::WORLD, PendingPackets::default());
 
     // Create network channels and start network thread
     let channels = NetworkChannels::new();

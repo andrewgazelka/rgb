@@ -17,6 +17,7 @@ rgb-spatial.workspace = true
 rgb-query.workspace = true
 rgb-storage.workspace = true
 rgb-tick.workspace = true
+query-dsl.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 eyre.workspace = true

@@ -43,6 +43,7 @@ members = [
     "crates/rgb-query",
     "crates/rgb-storage",
     "crates/rgb-tick",
+    "crates/query-dsl",
 ]
 
 [workspace.package]
@@ -65,6 +66,7 @@ rgb-spatial = { path = "crates/rgb-spatial" }
 rgb-query = { path = "crates/rgb-query" }
 rgb-storage = { path = "crates/rgb-storage" }
 rgb-tick = { path = "crates/rgb-tick" }
+query-dsl = { path = "crates/query-dsl" }
 
 # Dependencies for new ECS crates
 parking_lot = "0.12"

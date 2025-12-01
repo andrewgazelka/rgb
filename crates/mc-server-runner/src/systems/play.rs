@@ -6,17 +6,18 @@ use rgb_ecs::{Entity, World};
 use tracing::debug;
 
 use crate::components::{
-    ChunkData, ChunkIndex, ChunkPos, EntityId, InPlayState, NeedsSpawnChunks, PacketBuffer,
-    Position, Rotation, WorldTime,
+    ChunkData, ChunkPos, EntityId, InPlayState, NeedsSpawnChunks, PacketBuffer, Position, Rotation,
+    ServerConfig, WorldTime,
 };
 use crate::protocol::{
     send_action_bar, send_chunks_to_buffer, send_game_event_start_waiting, send_keepalive,
     send_play_login, send_player_position, send_set_center_chunk, send_set_time,
 };
+use crate::systems::send_commands_to_player;
 
 /// System: Send spawn data to new players
 pub fn system_send_spawn_data(world: &mut World) {
-    let Some(chunk_index) = world.get::<ChunkIndex>(Entity::WORLD) else {
+    let Some(config) = world.get::<ServerConfig>(Entity::WORLD) else {
         return;
     };
     let Some(world_time) = world.get::<WorldTime>(Entity::WORLD) else {
@@ -40,18 +41,21 @@ pub fn system_send_spawn_data(world: &mut World) {
             continue;
         };
 
-        send_play_login(&mut buffer, entity_id.value);
+        send_play_login(&mut buffer, entity_id.value, config.max_players);
         send_game_event_start_waiting(&mut buffer);
 
         let (cx, cz) = pos.chunk_pos();
         send_set_center_chunk(&mut buffer, cx, cz);
 
-        let chunks = collect_chunks_for_player(&chunk_index, 8, world);
+        let chunks = collect_chunks_for_player(8, world);
         send_chunks_to_buffer(&mut buffer, &chunks);
 
         send_set_time(&mut buffer, world_time.world_age, world_time.time_of_day);
         send_player_position(&mut buffer, pos.x, pos.y, pos.z, 1);
         send_keepalive(&mut buffer);
+
+        // Send command tree for tab completion
+        send_commands_to_player(&mut buffer);
 
         // Remove NeedsSpawnChunks and add InPlayState
         world.remove::<NeedsSpawnChunks>(entity);
@@ -225,17 +229,14 @@ pub fn system_send_position_action_bar(world: &mut World) {
     }
 }
 
-fn collect_chunks_for_player(
-    chunk_index: &ChunkIndex,
-    view_distance: i32,
-    world: &World,
-) -> Vec<Bytes> {
+fn collect_chunks_for_player(view_distance: i32, world: &World) -> Vec<Bytes> {
     let mut chunks = Vec::new();
 
     for cx in -view_distance..=view_distance {
         for cz in -view_distance..=view_distance {
             let pos = ChunkPos::new(cx, cz);
-            if let Some(chunk_entity) = chunk_index.get(&pos) {
+            // Use named entity lookup instead of ChunkIndex HashMap
+            if let Some(chunk_entity) = world.lookup(&pos.to_key()) {
                 if let Some(chunk_data) = world.get::<ChunkData>(chunk_entity) {
                     chunks.push(Bytes::clone(&chunk_data.encoded));
                 }

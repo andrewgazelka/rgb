@@ -1,5 +1,7 @@
 Things that have no self refernce should be free funciton not associated function like Self::get_cell
 
+All projects are in /Users/andrewgazelka/Projects/{name}; look there for projects ; i.e., /Users/andrewgazelka/Projects/flecs
+
 I am PINNING THE RUST toolchain so i would imagine is not an issue no ABI issues
 
 NEVER use cdylib ; use rust dylib (assume compiler versions match)

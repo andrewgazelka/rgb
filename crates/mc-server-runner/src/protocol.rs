@@ -42,7 +42,7 @@ pub fn parse_handshake(data: &[u8]) -> eyre::Result<(i32, i32)> {
 }
 
 /// Create status response JSON
-pub fn create_status_response() -> eyre::Result<Vec<u8>> {
+pub fn create_status_response(max_players: i32, motd: &str) -> eyre::Result<Vec<u8>> {
     #[derive(Serialize)]
     struct ServerStatus {
         version: Version,
@@ -82,12 +82,12 @@ pub fn create_status_response() -> eyre::Result<Vec<u8>> {
             protocol: mc_data::PROTOCOL_VERSION,
         },
         players: Players {
-            max: 100,
+            max: max_players,
             online: 0,
             sample: vec![],
         },
         description: Description {
-            text: "A Rust Minecraft Server (RGB ECS)".to_string(),
+            text: motd.to_string(),
         },
         enforces_secure_chat: false,
     };
@@ -147,14 +147,14 @@ pub fn create_known_packs() -> eyre::Result<Vec<u8>> {
 // Play packets
 // ============================================================================
 
-pub fn create_play_login(entity_id: i32) -> eyre::Result<Vec<u8>> {
+pub fn create_play_login(entity_id: i32, max_players: i32) -> eyre::Result<Vec<u8>> {
     let mut data = Vec::new();
 
     data.write_i32::<BigEndian>(entity_id)?;
     false.encode(&mut data)?; // is_hardcore
     write_varint(&mut data, 1)?; // 1 dimension
     "minecraft:overworld".to_string().encode(&mut data)?;
-    write_varint(&mut data, 100)?; // max_players
+    write_varint(&mut data, max_players)?; // max_players
     write_varint(&mut data, 8)?; // view_distance
     write_varint(&mut data, 8)?; // simulation_distance
     false.encode(&mut data)?; // reduced_debug_info
@@ -263,8 +263,8 @@ pub mod packet_ids {
 // Buffer helpers
 // ============================================================================
 
-pub fn send_status_response(buffer: &mut PacketBuffer) {
-    if let Ok(response_data) = create_status_response() {
+pub fn send_status_response(buffer: &mut PacketBuffer, max_players: i32, motd: &str) {
+    if let Ok(response_data) = create_status_response(max_players, motd) {
         let packet = encode_packet(0, &response_data);
         buffer.push_outgoing(packet);
     }
@@ -284,8 +284,8 @@ pub fn send_known_packs(buffer: &mut PacketBuffer) {
     }
 }
 
-pub fn send_play_login(buffer: &mut PacketBuffer, entity_id: i32) {
-    if let Ok(data) = create_play_login(entity_id) {
+pub fn send_play_login(buffer: &mut PacketBuffer, entity_id: i32, max_players: i32) {
+    if let Ok(data) = create_play_login(entity_id, max_players) {
         buffer.push_outgoing(encode_packet(packet_ids::PLAY_LOGIN, &data));
     }
 }

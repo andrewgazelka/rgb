@@ -1199,6 +1199,7 @@ dependencies = [
  "mc-data",
  "mc-protocol",
  "parking_lot",
+ "query-dsl",
  "rgb-ecs",
  "rgb-event",
  "rgb-query",
@@ -1614,6 +1615,10 @@ dependencies = [
  "ar_archive_writer",
  "cc",
 ]
+
+[[package]]
+name = "query-dsl"
+version = "0.1.0"
 
 [[package]]
 name = "quote"

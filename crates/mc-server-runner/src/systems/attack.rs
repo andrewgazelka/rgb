@@ -2,8 +2,8 @@
 //!
 //! Handles player attacks on entities via the Interact packet (action type = ATTACK).
 
-use bytes::Bytes;
-use mc_protocol::Decode;
+use mc_data::play::serverbound::Interact;
+use mc_protocol::{Decode, Packet};
 use rgb_ecs::{Entity, World};
 use tracing::{debug, info};
 
@@ -72,7 +72,7 @@ fn parse_interact_packet(data: &[u8]) -> Option<InteractPacket> {
 }
 
 /// Serverbound Interact packet ID in Play state
-const INTERACT_PACKET_ID: i32 = 0x19;
+const INTERACT_PACKET_ID: i32 = Interact::ID;
 
 /// System: Handle player attack interactions
 ///
@@ -106,9 +106,8 @@ pub fn system_handle_attacks(world: &mut World) {
                 if let Some(interact) = parse_interact_packet(&data) {
                     if interact.action == InteractionType::Attack {
                         attacks_to_process.push(interact);
-                    }
-                    // Non-attack interactions go back for other systems
-                    if interact.action != InteractionType::Attack {
+                    } else {
+                        // Non-attack interactions go back for other systems
                         remaining.push((packet_id, data));
                     }
                 }
@@ -127,7 +126,7 @@ pub fn system_handle_attacks(world: &mut World) {
         for attack in attacks_to_process {
             let attacker_name = world
                 .get::<Name>(attacker)
-                .map(|n| n.value.clone())
+                .map(|n| n.value)
                 .unwrap_or_else(|| "Unknown".to_string());
             let attacker_pos = world.get::<Position>(attacker);
 
@@ -135,7 +134,7 @@ pub fn system_handle_attacks(world: &mut World) {
             if let Some(&target) = entity_id_map.get(&attack.target_entity_id) {
                 let target_name = world
                     .get::<Name>(target)
-                    .map(|n| n.value.clone())
+                    .map(|n| n.value)
                     .unwrap_or_else(|| format!("Entity#{}", attack.target_entity_id));
 
                 info!(

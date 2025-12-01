@@ -1,12 +1,11 @@
 //! All ECS components for the Minecraft server
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use bytes::Bytes;
 use crossbeam_channel::{Receiver, Sender};
-use rgb_ecs::Entity;
 
 // ============================================================================
 // Network Components
@@ -59,6 +58,19 @@ pub struct Connection;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ConnectionId(pub u64);
 
+impl ConnectionId {
+    /// Generate the byte key for named entity lookup.
+    ///
+    /// Format: `b"conn" ++ id.to_le_bytes()` (12 bytes)
+    #[must_use]
+    pub fn to_key(self) -> [u8; 12] {
+        let mut key = [0u8; 12];
+        key[0..4].copy_from_slice(b"conn");
+        key[4..12].copy_from_slice(&self.0.to_le_bytes());
+        key
+    }
+}
+
 /// Current protocol state of the connection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 #[repr(u8)]
@@ -104,12 +116,13 @@ impl PacketBuffer {
     }
 }
 
-/// Global: Maps connection IDs to their ECS entities
+/// Global: Temporary buffer for packets arriving before connection entity is ready.
+///
+/// Note: Connection ID -> Entity mapping is done via named entities (world.lookup).
 #[derive(Default, Clone)]
-pub struct ConnectionIndex {
-    pub map: HashMap<u64, Entity>,
+pub struct PendingPackets {
     /// Packets for newly created connections (deferred until next tick)
-    pub pending_packets: Vec<(u64, i32, Bytes)>,
+    pub packets: Vec<(u64, i32, Bytes)>,
 }
 
 // ============================================================================
@@ -244,6 +257,18 @@ impl ChunkPos {
     pub const fn new(x: i32, z: i32) -> Self {
         Self { x, z }
     }
+
+    /// Generate the byte key for named entity lookup.
+    ///
+    /// Format: `b"chunk" ++ x.to_le_bytes() ++ z.to_le_bytes()` (13 bytes)
+    #[must_use]
+    pub fn to_key(self) -> [u8; 13] {
+        let mut key = [0u8; 13];
+        key[0..5].copy_from_slice(b"chunk");
+        key[5..9].copy_from_slice(&self.x.to_le_bytes());
+        key[9..13].copy_from_slice(&self.z.to_le_bytes());
+        key
+    }
 }
 
 /// Pre-encoded chunk data for network transmission
@@ -265,29 +290,25 @@ impl ChunkData {
 #[derive(Default, Clone, Copy)]
 pub struct ChunkLoaded;
 
-/// Global: Spatial index for chunk lookup
-#[derive(Default, Clone)]
-pub struct ChunkIndex {
-    pub map: HashMap<ChunkPos, Entity>,
+// ============================================================================
+// Server Config (Global)
+// ============================================================================
+
+/// Global: Server configuration
+#[derive(Debug, Clone)]
+pub struct ServerConfig {
+    /// Maximum number of players allowed
+    pub max_players: i32,
+    /// Server description shown in server list
+    pub motd: String,
 }
 
-impl ChunkIndex {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn insert(&mut self, pos: ChunkPos, entity: Entity) {
-        self.map.insert(pos, entity);
-    }
-
-    pub fn remove(&mut self, pos: &ChunkPos) -> Option<Entity> {
-        self.map.remove(pos)
-    }
-
-    #[must_use]
-    pub fn get(&self, pos: &ChunkPos) -> Option<Entity> {
-        self.map.get(pos).copied()
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            max_players: 20_000,
+            motd: "A Rust Minecraft Server (RGB ECS)".to_string(),
+        }
     }
 }
 

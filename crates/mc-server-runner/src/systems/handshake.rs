@@ -1,9 +1,9 @@
 //! Handshake and status systems
 
-use rgb_ecs::World;
+use rgb_ecs::{Entity, World};
 use tracing::{debug, info};
 
-use crate::components::{ConnectionState, PacketBuffer, ProtocolState};
+use crate::components::{ConnectionState, PacketBuffer, ProtocolState, ServerConfig};
 use crate::protocol::{encode_packet, parse_handshake, send_status_response};
 
 /// System: Handle handshake packets
@@ -53,6 +53,10 @@ pub fn system_handle_handshake(world: &mut World) {
 
 /// System: Handle status request packets
 pub fn system_handle_status(world: &mut World) {
+    let Some(config) = world.get::<ServerConfig>(Entity::WORLD) else {
+        return;
+    };
+
     // Query all entities in Status state
     let status_entities: Vec<_> = world
         .query::<ProtocolState>()
@@ -70,7 +74,7 @@ pub fn system_handle_status(world: &mut World) {
                 0 => {
                     // Status Request
                     info!("Status request");
-                    send_status_response(&mut buffer);
+                    send_status_response(&mut buffer, config.max_players, &config.motd);
                 }
                 1 => {
                     // Ping - echo back the same data

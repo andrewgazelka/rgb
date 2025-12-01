@@ -3,10 +3,10 @@
 use byteorder::{BigEndian, WriteBytesExt};
 use bytes::Bytes;
 use mc_protocol::write_varint;
-use rgb_ecs::{Entity, World};
+use rgb_ecs::World;
 use tracing::info;
 
-use crate::components::{ChunkData, ChunkIndex, ChunkLoaded, ChunkPos};
+use crate::components::{ChunkData, ChunkLoaded, ChunkPos};
 
 // ============================================================================
 // Noise Implementation (Simplex-like)
@@ -372,24 +372,19 @@ fn write_varint_vec(buf: &mut Vec<u8>, value: i32) {
 
 /// Generate spawn chunks around origin
 pub fn generate_spawn_chunks(world: &mut World, view_distance: i32) {
-    let mut chunk_index = world.get::<ChunkIndex>(Entity::WORLD).unwrap_or_default();
-
     for cx in -view_distance..=view_distance {
         for cz in -view_distance..=view_distance {
             let pos = ChunkPos::new(cx, cz);
 
             if let Ok(data) = create_dune_chunk(cx, cz) {
-                let entity = world.spawn_empty();
+                // Use named entity for chunk lookup by position
+                let entity = world.entity_named(&pos.to_key());
                 world.insert(entity, pos);
                 world.insert(entity, ChunkData::new(data));
                 world.insert(entity, ChunkLoaded);
-
-                chunk_index.insert(pos, entity);
             }
         }
     }
-
-    world.update(Entity::WORLD, chunk_index);
 
     info!(
         "Generated {} spawn chunks",

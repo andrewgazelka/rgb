@@ -66,6 +66,10 @@ fn run_phase(world: &mut World, color: Color, delta_time: f32) {
             play::system_handle_movement(world);
             play::system_send_keepalive(world);
             play::system_send_position_action_bar(world);
+
+            // Combat and command systems
+            attack::system_handle_attacks(world);
+            command::system_handle_commands(world);
         }
         Color::Blue => {
             // Time systems phase
