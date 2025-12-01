@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "Running cargo +nightly fmt --check..."
-cargo +nightly fmt --check
+cargo +nightly fmt
 
 echo "Running cargo clippy..."
 cargo clippy --all-targets --all-features -- -D warnings

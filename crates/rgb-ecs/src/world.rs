@@ -615,7 +615,9 @@ impl World {
     /// Iterate over all entities that have a specific component.
     ///
     /// Returns an iterator of `(Entity, T)` pairs.
-    pub fn query<T: 'static + Send + Sync + Clone>(&self) -> impl Iterator<Item = (Entity, T)> + '_ {
+    pub fn query<T: 'static + Send + Sync + Clone>(
+        &self,
+    ) -> impl Iterator<Item = (Entity, T)> + '_ {
         let comp_id = match self.components.get_id::<T>() {
             Some(id) => id,
             None => return QueryIter::empty(),

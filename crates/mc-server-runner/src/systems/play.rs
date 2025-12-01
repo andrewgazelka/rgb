@@ -6,8 +6,8 @@ use rgb_ecs::{Entity, World};
 use tracing::debug;
 
 use crate::components::{
-    ChunkData, ChunkIndex, ChunkPos, ConnectionState, EntityId, InPlayState, NeedsSpawnChunks,
-    PacketBuffer, Position, ProtocolState, Rotation, WorldTime,
+    ChunkData, ChunkIndex, ChunkPos, EntityId, InPlayState, NeedsSpawnChunks, PacketBuffer,
+    Position, Rotation, WorldTime,
 };
 use crate::protocol::{
     send_action_bar, send_chunks_to_buffer, send_game_event_start_waiting, send_keepalive,
