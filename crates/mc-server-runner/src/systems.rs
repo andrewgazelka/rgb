@@ -3,12 +3,17 @@
 //! Uses RGB phase execution model where each color phase executes
 //! independently. Audio markers help profile lag per phase.
 
+mod attack;
+mod command;
 mod config;
 mod handshake;
+pub mod history;
 mod login;
 mod network;
 mod play;
 mod time;
+
+pub use command::send_commands_to_player;
 
 use std::time::Instant;
 
