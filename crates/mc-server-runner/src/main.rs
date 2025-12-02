@@ -16,6 +16,7 @@ mod components;
 #[cfg(feature = "dashboard")]
 mod dashboard;
 mod network;
+mod persistence;
 mod protocol;
 mod registry;
 mod systems;
@@ -46,8 +47,26 @@ fn main() -> eyre::Result<()> {
     // Create ECS world
     let world = World::new();
 
-    // Initialize history tracking (must be before systems so hooks are set up)
-    let history = systems::history::init_history_tracking(&world);
+    // Enable Flecs REST API for explorer (https://www.flecs.dev/explorer)
+    let rest_port: u16 = std::env::var("FLECS_REST_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(27750);
+
+    // Import stats module for performance monitoring in explorer
+    world.import::<flecs_ecs::addons::stats::Stats>();
+
+    world.set(flecs::rest::Rest {
+        port: rest_port,
+        ..Default::default()
+    });
+    info!(
+        "Flecs REST API enabled on port {} - connect via https://www.flecs.dev/explorer",
+        rest_port
+    );
+
+    // Initialize component serialization (must be before systems)
+    systems::history::init_serialization(&world);
 
     // Initialize all systems
     systems::init_systems(&world);
@@ -55,11 +74,35 @@ fn main() -> eyre::Result<()> {
     // Create network channels and start network thread
     let channels = NetworkChannels::new();
 
+    // Create persistence database
+    let persistence_db = {
+        let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "data".to_string());
+        let db_path = std::path::Path::new(&data_dir).join("history.nebari");
+        match persistence::PersistenceDb::open(&db_path) {
+            Ok(db) => {
+                info!("Persistence database opened at {:?}", db_path);
+                Some(db)
+            }
+            Err(e) => {
+                tracing::warn!("Failed to open persistence database: {e}");
+                None
+            }
+        }
+    };
+
+    // Create persistence channels and register observer
+    let persistence_channels = persistence::PersistenceChannels::new();
+    persistence::register_persistence_observer(&world, persistence_channels.tx.clone());
+
     // Create dashboard channels and start dashboard server
     #[cfg(feature = "dashboard")]
     let dashboard_channels = {
         let channels = dashboard::DashboardChannels::new();
-        let state = dashboard::DashboardState::new(&channels);
+        let state = if let Some(db) = persistence_db.clone() {
+            dashboard::DashboardState::with_persistence(&channels, db)
+        } else {
+            dashboard::DashboardState::new(&channels)
+        };
         let port = std::env::var("DASHBOARD_PORT")
             .ok()
             .and_then(|p| p.parse().ok())
@@ -132,12 +175,14 @@ fn main() -> eyre::Result<()> {
         // Run all systems via Flecs pipeline
         world.progress();
 
+        // Process persistence requests
+        if let Some(db) = &persistence_db {
+            persistence::process_persistence_requests(db, &persistence_channels.rx);
+        }
+
         // Process dashboard requests
         #[cfg(feature = "dashboard")]
-        systems::dashboard::system_process_dashboard(&world, &dashboard_channels, &history);
-
-        // Advance history tick
-        history.advance_tick();
+        systems::dashboard::system_process_dashboard(&world, &dashboard_channels);
 
         // Sleep to maintain target FPS
         let elapsed = start.elapsed();

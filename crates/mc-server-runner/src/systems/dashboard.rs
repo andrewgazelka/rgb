@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use flecs_ecs::prelude::*;
-use flecs_history::HistoryTracker;
 
 use crate::components::{
     ChunkPos, Connection, ConnectionId, EntityId, GameMode, Player, Position, ProtocolState,
@@ -15,8 +14,7 @@ use crate::components::{
 };
 use crate::dashboard::{
     ChunkInfo, ComponentValue, DashboardChannels, DashboardRequest, EntityDetails, EntitySummary,
-    HistoryEntryInfo, HistoryResponse, ListEntitiesResponse, PlayerInfo, PositionInfo,
-    QueryResponse, QueryResultRow, WorldInfo,
+    ListEntitiesResponse, PlayerInfo, PositionInfo, QueryResponse, QueryResultRow, WorldInfo,
 };
 
 /// Get entity name, returning None if empty.
@@ -199,11 +197,7 @@ fn chunk_color(x: i32, z: i32) -> &'static str {
 }
 
 /// Process all pending dashboard requests.
-pub fn system_process_dashboard(
-    world: &World,
-    channels: &DashboardChannels,
-    history: &HistoryTracker,
-) {
+pub fn system_process_dashboard(world: &World, channels: &DashboardChannels) {
     // Process all pending requests (non-blocking)
     while let Ok(request) = channels.request_rx.try_recv() {
         match request {
@@ -329,47 +323,6 @@ pub fn system_process_dashboard(
                 });
 
                 let _ = response.send(chunks);
-            }
-
-            DashboardRequest::GetEntityHistory {
-                id,
-                limit,
-                response,
-            } => {
-                let entity = Entity::new(id);
-                let entries = history.get_entity_history(world, entity);
-                let total = entries.len();
-
-                // Convert to the expected format
-                let history_entries: Vec<HistoryEntryInfo> = entries
-                    .into_iter()
-                    .take(limit)
-                    .enumerate()
-                    .map(|(idx, e)| {
-                        // Try to deserialize the data if possible
-                        let new_value = if e.data.is_empty() {
-                            None
-                        } else {
-                            // For now, just show data size since we don't have the deserialize info
-                            Some(serde_json::json!({"_raw_size": e.data.len()}))
-                        };
-
-                        HistoryEntryInfo {
-                            id: idx as u64,
-                            timestamp: e.tick * 50, // Approximate: 50ms per tick
-                            entity: id,
-                            component: format!("component_{}", e.component_id),
-                            old_value: None,
-                            new_value,
-                            source: "system".to_string(),
-                        }
-                    })
-                    .collect();
-
-                let _ = response.send(HistoryResponse {
-                    entries: history_entries,
-                    total,
-                });
             }
 
             DashboardRequest::Query { spec, response } => {

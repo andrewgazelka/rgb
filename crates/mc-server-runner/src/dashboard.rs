@@ -16,6 +16,8 @@ use crossbeam_channel::{Receiver, Sender, bounded};
 use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
 
+use crate::persistence::{ChangeSource, PersistenceDb};
+
 // ============================================================================
 // Request/Response Types for Channel Communication
 // ============================================================================
@@ -39,11 +41,6 @@ pub enum DashboardRequest {
     },
     ListChunks {
         response: Sender<Vec<ChunkInfo>>,
-    },
-    GetEntityHistory {
-        id: u64,
-        limit: usize,
-        response: Sender<HistoryResponse>,
     },
     Query {
         spec: QuerySpec,
@@ -146,23 +143,6 @@ pub struct PositionInfo {
     pub z: f64,
 }
 
-#[derive(Serialize, Clone)]
-pub struct HistoryEntryInfo {
-    pub id: u64,
-    pub timestamp: u64,
-    pub entity: u64,
-    pub component: String,
-    pub old_value: Option<serde_json::Value>,
-    pub new_value: Option<serde_json::Value>,
-    pub source: String,
-}
-
-#[derive(Serialize, Clone)]
-pub struct HistoryResponse {
-    pub entries: Vec<HistoryEntryInfo>,
-    pub total: usize,
-}
-
 // ============================================================================
 // Dashboard Channels
 // ============================================================================
@@ -201,6 +181,8 @@ impl Default for DashboardChannels {
 pub struct DashboardState {
     /// Channel to send requests to the game loop.
     request_tx: Sender<DashboardRequest>,
+    /// Persistence database for history.
+    persistence_db: Option<PersistenceDb>,
 }
 
 impl DashboardState {
@@ -208,6 +190,15 @@ impl DashboardState {
     pub fn new(channels: &DashboardChannels) -> Self {
         Self {
             request_tx: channels.request_tx.clone(),
+            persistence_db: None,
+        }
+    }
+
+    /// Create dashboard state with persistence database.
+    pub fn with_persistence(channels: &DashboardChannels, db: PersistenceDb) -> Self {
+        Self {
+            request_tx: channels.request_tx.clone(),
+            persistence_db: Some(db),
         }
     }
 }
@@ -235,8 +226,13 @@ pub fn create_router(state: DashboardState) -> Router {
         .route("/api/chunks", get(list_chunks))
         // Query
         .route("/api/query", post(query_entities))
-        // History
+        // History endpoints
+        .route("/api/history", get(get_global_history))
         .route("/api/history/entity/{id}", get(get_entity_history))
+        .route(
+            "/api/history/entity/{entity_id}/component/{component}",
+            get(get_component_history),
+        )
         .with_state(state)
         .layer(cors)
 }
@@ -387,41 +383,6 @@ async fn list_chunks(State(state): State<DashboardState>) -> impl IntoResponse {
     }
 }
 
-#[derive(Deserialize)]
-struct HistoryParams {
-    limit: Option<usize>,
-}
-
-async fn get_entity_history(
-    State(state): State<DashboardState>,
-    Path(id): Path<u64>,
-    axum::extract::Query(params): axum::extract::Query<HistoryParams>,
-) -> impl IntoResponse {
-    let (tx, rx) = bounded(1);
-    let request = DashboardRequest::GetEntityHistory {
-        id,
-        limit: params.limit.unwrap_or(50),
-        response: tx,
-    };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "Game loop not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(history) => Json(history).into_response(),
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
 async fn query_entities(
     State(state): State<DashboardState>,
     Json(spec): Json<QuerySpec>,
@@ -442,6 +403,179 @@ async fn query_entities(
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
             Json(serde_json::json!({"error": "Request timeout"})),
+        )
+            .into_response(),
+    }
+}
+
+// ============================================================================
+// History Response Types
+// ============================================================================
+
+/// History entry for API response.
+#[derive(Serialize, Clone)]
+pub struct HistoryEntryResponse {
+    pub id: u64,
+    pub timestamp: u64,
+    pub entity: u64,
+    pub component: String,
+    pub old_value: Option<serde_json::Value>,
+    pub new_value: serde_json::Value,
+    pub source: ChangeSource,
+}
+
+/// History response.
+#[derive(Serialize)]
+pub struct HistoryResponse {
+    pub entries: Vec<HistoryEntryResponse>,
+    pub total: usize,
+}
+
+// ============================================================================
+// History Handlers
+// ============================================================================
+
+#[derive(Deserialize)]
+struct HistoryParams {
+    limit: Option<usize>,
+}
+
+async fn get_global_history(
+    State(state): State<DashboardState>,
+    axum::extract::Query(params): axum::extract::Query<HistoryParams>,
+) -> impl IntoResponse {
+    let Some(db) = &state.persistence_db else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "Persistence not enabled"})),
+        )
+            .into_response();
+    };
+
+    let limit = params.limit.unwrap_or(50);
+    match db.get_global_history(limit) {
+        Ok(entries) => {
+            let response = HistoryResponse {
+                total: entries.len(),
+                entries: entries
+                    .into_iter()
+                    .map(|e| HistoryEntryResponse {
+                        id: e.id,
+                        timestamp: e.timestamp,
+                        entity: e.entity_id,
+                        component: e.component,
+                        old_value: e.old_value,
+                        new_value: e.new_value,
+                        source: e.source,
+                    })
+                    .collect(),
+            };
+            Json(response).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Failed to get history: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+async fn get_entity_history(
+    State(state): State<DashboardState>,
+    Path(id): Path<u64>,
+    axum::extract::Query(params): axum::extract::Query<HistoryParams>,
+) -> impl IntoResponse {
+    let Some(db) = &state.persistence_db else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "Persistence not enabled"})),
+        )
+            .into_response();
+    };
+
+    // The ID is the Flecs entity ID. We need to look up the UUID.
+    // For now, we'll use the entity ID as a workaround since we store both.
+    // In a real implementation, we'd query the game loop for the UUID.
+
+    // HACK: Use the entity_id to find entries (not ideal, but works for now)
+    let limit = params.limit.unwrap_or(50);
+    match db.get_global_history(limit * 10) {
+        Ok(entries) => {
+            let filtered: Vec<_> = entries
+                .into_iter()
+                .filter(|e| e.entity_id == id)
+                .take(limit)
+                .map(|e| HistoryEntryResponse {
+                    id: e.id,
+                    timestamp: e.timestamp,
+                    entity: e.entity_id,
+                    component: e.component,
+                    old_value: e.old_value,
+                    new_value: e.new_value,
+                    source: e.source,
+                })
+                .collect();
+
+            let response = HistoryResponse {
+                total: filtered.len(),
+                entries: filtered,
+            };
+            Json(response).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Failed to get history: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ComponentHistoryPath {
+    entity_id: u64,
+    component: String,
+}
+
+async fn get_component_history(
+    State(state): State<DashboardState>,
+    Path(path): Path<ComponentHistoryPath>,
+    axum::extract::Query(params): axum::extract::Query<HistoryParams>,
+) -> impl IntoResponse {
+    let Some(db) = &state.persistence_db else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "Persistence not enabled"})),
+        )
+            .into_response();
+    };
+
+    let limit = params.limit.unwrap_or(50);
+    match db.get_global_history(limit * 10) {
+        Ok(entries) => {
+            let filtered: Vec<_> = entries
+                .into_iter()
+                .filter(|e| e.entity_id == path.entity_id && e.component == path.component)
+                .take(limit)
+                .map(|e| HistoryEntryResponse {
+                    id: e.id,
+                    timestamp: e.timestamp,
+                    entity: e.entity_id,
+                    component: e.component,
+                    old_value: e.old_value,
+                    new_value: e.new_value,
+                    source: e.source,
+                })
+                .collect();
+
+            let response = HistoryResponse {
+                total: filtered.len(),
+                entries: filtered,
+            };
+            Json(response).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Failed to get history: {e}")})),
         )
             .into_response(),
     }

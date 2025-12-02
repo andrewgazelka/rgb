@@ -1,6 +1,6 @@
-//! Component history tracking system using flecs-history
+//! Component serialization setup
 //!
-//! This module sets up automatic history tracking for serializable components.
+//! This module registers components as serializable for persistence.
 
 use flecs_ecs::prelude::*;
 use flecs_history::prelude::*;
@@ -10,11 +10,10 @@ use crate::components::{
     Rotation, ServerConfig, TpsTracker, Uuid, WorldTime,
 };
 
-/// Initialize history tracking for all serializable components.
+/// Initialize serialization for all persistable components.
 ///
 /// This should be called after the world is created and before any entities are spawned.
-/// Returns the HistoryTracker which should be stored and used for tick advancement.
-pub fn init_history_tracking(world: &World) -> HistoryTracker {
+pub fn init_serialization(world: &World) {
     // Register components as serializable
     world.component::<Position>().serializable::<Position>();
     world.component::<Rotation>().serializable::<Rotation>();
@@ -37,18 +36,4 @@ pub fn init_history_tracking(world: &World) -> HistoryTracker {
     world
         .component::<ServerConfig>()
         .serializable::<ServerConfig>();
-
-    // Create history tracker
-    let history = HistoryTracker::new(world);
-
-    // Enable tracking for important components
-    // These will record changes automatically via OnSet hooks
-    history.track_component::<Position>(world);
-    history.track_component::<Rotation>(world);
-    history.track_component::<Name>(world);
-    history.track_component::<Uuid>(world);
-    history.track_component::<EntityId>(world);
-    history.track_component::<GameMode>(world);
-
-    history
 }

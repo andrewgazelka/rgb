@@ -1300,6 +1300,7 @@ name = "mc-server-runner"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "bincode",
  "byteorder",
  "bytes",
  "crossbeam-channel",
@@ -1310,6 +1311,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "mc-data",
  "mc-protocol",
+ "nebari",
  "serde",
  "serde_json",
  "tokio",

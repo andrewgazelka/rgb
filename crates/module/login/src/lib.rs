@@ -129,8 +129,8 @@ impl Module for LoginModule {
                                 let player_uuid = offline_uuid(&name);
                                 info!("Login from: {} (uuid: {:032x})", &name, player_uuid);
 
-                                let player_path = format!("players::{}", name);
-                                e.set_name(&player_path);
+                                let player_name = format!("player::{}", name);
+                                e.set_name(&player_name);
 
                                 let entity_id = entity_counter.next();
                                 e.add(Player);

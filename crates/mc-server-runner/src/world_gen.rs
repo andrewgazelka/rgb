@@ -378,7 +378,7 @@ pub fn generate_spawn_chunks(world: &World, view_distance: i32) {
 
             if let Ok(data) = create_dune_chunk(cx, cz) {
                 // Use readable string name for dashboard visibility
-                let name = format!("chunk:{}:{}", cx, cz);
+                let name = format!("chunk::{}::{}", cx, cz);
                 world
                     .entity_named(&name)
                     .set(pos)

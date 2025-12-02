@@ -19,9 +19,7 @@ members = [
     # "crates/rgb-life",       # Uses flecs - TODO: port to new ECS
     "crates/skript-lang",
     # Old flecs-based modules - deprecated
-    # "crates/module/network",
     # "crates/module/network-components",
-    # "crates/module/network-systems",
     # "crates/module/time",
     # "crates/module/time-components",
     # "crates/module/time-systems",

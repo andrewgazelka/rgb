@@ -157,7 +157,7 @@ fn collect_chunks_for_player(view_distance: i32, world: &WorldRef<'_>) -> Vec<By
     for cx in -view_distance..=view_distance {
         for cz in -view_distance..=view_distance {
             let pos = ChunkPos::new(cx, cz);
-            let name = format!("chunk:{}:{}", pos.x, pos.z);
+            let name = format!("chunk::{}::{}", pos.x, pos.z);
             if let Some(chunk_entity) = world.try_lookup_recursive(&name) {
                 chunk_entity.try_get::<&ChunkData>(|chunk_data| {
                     chunks.push(Bytes::clone(&chunk_data.encoded));

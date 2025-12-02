@@ -60,7 +60,6 @@ export const keybinds: Keybind[] = [
   // Navigation
   { key: 'g d', description: 'Go to Dashboard', action: () => goto('/'), category: 'navigation' },
   { key: 'g w', description: 'Go to World', action: () => goto('/world'), category: 'navigation' },
-  { key: 'g m', description: 'Go to Map', action: () => goto('/map'), category: 'navigation' },
 
   // View
   { key: '?', description: 'Toggle help', action: toggleHelp, category: 'view' },
@@ -126,6 +125,11 @@ export function handleKeydown(event: KeyboardEvent): boolean {
     target.tagName === 'SELECT' ||
     target.isContentEditable
   ) {
+    return false;
+  }
+
+  // Don't intercept browser shortcuts (Cmd/Ctrl + key)
+  if (event.metaKey || event.ctrlKey) {
     return false;
   }
 

@@ -121,15 +121,17 @@
 
     // Entities
     const markerRadius = Math.max(4, Math.min(10, scale * 1.5));
+    const showLabels = scale >= 1; // Show labels when zoomed in enough
 
     for (const marker of entities) {
       const screen = worldToScreen(marker.x, marker.z);
-      if (screen.x < -markerRadius || screen.x > width + markerRadius ||
+      if (screen.x < -markerRadius - 100 || screen.x > width + markerRadius ||
           screen.y < -markerRadius || screen.y > height + markerRadius) continue;
 
       const isHovered = hoveredEntity?.entity === marker.entity;
       const isSelected = selectedEntity?.entity === marker.entity;
 
+      // Draw marker dot
       ctx.beginPath();
       ctx.arc(screen.x, screen.y, markerRadius + (isHovered ? 2 : 0), 0, Math.PI * 2);
       ctx.fillStyle = '#ef4444';
@@ -140,21 +142,38 @@
         ctx.lineWidth = 2;
         ctx.stroke();
       }
+
+      // Draw entity name label next to dot
+      if (showLabels && marker.name) {
+        const label = marker.name;
+        ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, screen.x + markerRadius + 4, screen.y + 4);
+      }
     }
 
-    // Tooltip
+    // Tooltip on hover (shows more detail)
     if (hoveredEntity) {
       const screen = worldToScreen(hoveredEntity.x, hoveredEntity.z);
       const label = hoveredEntity.name ?? `#${hoveredEntity.entity}`;
+      const coords = `(${hoveredEntity.x.toFixed(1)}, ${hoveredEntity.y.toFixed(1)}, ${hoveredEntity.z.toFixed(1)})`;
       ctx.font = '12px -apple-system, sans-serif';
-      const textWidth = ctx.measureText(label).width;
+      const labelWidth = ctx.measureText(label).width;
+      ctx.font = '10px -apple-system, sans-serif';
+      const coordsWidth = ctx.measureText(coords).width;
+      const textWidth = Math.max(labelWidth, coordsWidth);
 
-      ctx.fillStyle = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
-      ctx.fillRect(screen.x - textWidth / 2 - 8, screen.y - markerRadius - 30, textWidth + 16, 24);
+      ctx.fillStyle = isDark ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)';
+      ctx.fillRect(screen.x - textWidth / 2 - 10, screen.y - markerRadius - 44, textWidth + 20, 38);
 
       ctx.fillStyle = isDark ? '#fff' : '#111';
+      ctx.font = '12px -apple-system, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(label, screen.x, screen.y - markerRadius - 14);
+      ctx.fillText(label, screen.x, screen.y - markerRadius - 28);
+      ctx.font = '10px -apple-system, sans-serif';
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)';
+      ctx.fillText(coords, screen.x, screen.y - markerRadius - 14);
       ctx.textAlign = 'left';
     }
   }

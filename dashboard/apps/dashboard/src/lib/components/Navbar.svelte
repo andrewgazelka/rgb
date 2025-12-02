@@ -4,7 +4,6 @@
   const navItems = [
     { href: '/', label: 'Dashboard', key: 'g d' },
     { href: '/world', label: 'World', key: 'g w' },
-    { href: '/map', label: 'Map', key: 'g m' },
   ];
 
   function isActive(href: string, pathname: string): boolean {

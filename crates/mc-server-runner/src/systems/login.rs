@@ -31,8 +31,10 @@ pub fn handle_login(
 
                     let new_entity_id = entity_counter.next();
 
-                    // Add player components
+                    // Set entity name and add player components
+                    let player_name = format!("player::{}", name);
                     entity
+                        .set_name(&player_name)
                         .add(Player)
                         .set(Name {
                             value: name.clone(),

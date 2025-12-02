@@ -1,11 +1,10 @@
-//! # flecs-history
+//! # flecs-serialize
 //!
-//! Serialization and history tracking for Flecs ECS components.
+//! Serialization support for Flecs ECS components.
 //!
 //! This crate provides:
 //! - `SerializeInfo`: A component attached to component entities that provides serialization functions
 //! - `SerializableExt`: An extension trait for ergonomic registration of serializable components
-//! - History tracking: Automatic recording of component changes for entities
 //!
 //! # Design
 //!
@@ -13,12 +12,8 @@
 //! themselves. We use this to store serialization function pointers on components that
 //! should be serializable.
 //!
-//! History tracking works by:
-//! 1. Setting up hooks for `OnSet` events on tracked components
-//! 2. When a component changes, serializing the value and storing it as a history entry
-//! 3. History entries are stored as entities with pair relations:
-//!    - `(HistoryOf, component_entity)` - which component type
-//!    - `(HistoryFor, source_entity)` - which entity the value came from
+//! For persistence, use nebari or another database with keys like:
+//! `{entity_uuid}:{component_name}` → `{serialized_bytes}`
 //!
 //! # Example
 //!
@@ -34,21 +29,10 @@
 //! // Register Position as serializable (attaches SerializeInfo to Position's component entity)
 //! world.component::<Position>().serializable::<Position>();
 //!
-//! // Set up history tracking
-//! let history = HistoryTracker::new(&world);
-//!
-//! // Enable tracking for Position (sets up OnSet hook)
-//! history.track_component::<Position>(&world);
-//!
-//! // Now any changes to Position will be recorded
-//! let entity = world.entity().set(Position { x: 0.0, y: 0.0 });
-//! entity.set(Position { x: 1.0, y: 1.0 });
-//! entity.set(Position { x: 2.0, y: 2.0 });
-//!
-//! // Query history
-//! for entry in history.get_component_history::<Position>(&world, entity) {
-//!     println!("tick {}: {:?}", entry.tick, entry.deserialize::<Position>());
-//! }
+//! // Now you can serialize any Position value
+//! let pos = Position { x: 1.0, y: 2.0 };
+//! let bytes = serialize_component(&world, &pos).unwrap();
+//! let json = serialize_component_json(&world, &pos).unwrap();
 //! ```
 
 #![allow(unsafe_code)]
@@ -57,7 +41,6 @@
 
 use core::ffi::c_void;
 use std::any::TypeId;
-use std::sync::{Arc, Mutex};
 
 use flecs_ecs::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -162,303 +145,6 @@ impl<'a, C: ComponentId> SerializableExt<'a> for flecs_ecs::core::Component<'a, 
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// History Entry - stores a single historical value
-// ════════════════════════════════════════════════════════════════════════════
-
-/// A single history entry storing a serialized component value at a point in time.
-#[derive(Component, Clone)]
-pub struct HistoryEntry {
-    /// The tick/frame when this value was recorded.
-    pub tick: u64,
-
-    /// The serialized component data.
-    pub data: Vec<u8>,
-
-    /// The component entity ID (which component type this is).
-    pub component_id: u64,
-}
-
-impl HistoryEntry {
-    /// Deserialize this entry back to the component type.
-    pub fn deserialize<T>(&self) -> Result<T, SerializeError>
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        Ok(bincode::deserialize(&self.data)?)
-    }
-
-    /// Convert this entry to a JSON value.
-    /// Note: This only works if the data was serialized with bincode from a JSON-serializable type.
-    pub fn to_json_raw(&self) -> serde_json::Value {
-        serde_json::from_slice(&self.data).unwrap_or(serde_json::Value::Null)
-    }
-}
-
-/// Relation tag: history entry is for this component type.
-/// Used as: entity.add((HistoryOf, component_entity))
-#[derive(Component)]
-pub struct HistoryOf;
-
-/// Relation tag: history entry belongs to this entity.
-/// Used as: entity.add((HistoryFor, source_entity))
-#[derive(Component)]
-pub struct HistoryFor;
-
-// ════════════════════════════════════════════════════════════════════════════
-// History Tracker - manages history recording
-// ════════════════════════════════════════════════════════════════════════════
-
-/// Shared state for history tracking across observers.
-#[derive(Clone)]
-struct HistoryState {
-    /// Current tick counter.
-    tick: Arc<Mutex<u64>>,
-
-    /// Maximum number of entries per (entity, component) pair.
-    #[allow(dead_code)]
-    max_entries: usize,
-}
-
-impl Default for HistoryState {
-    fn default() -> Self {
-        Self {
-            tick: Arc::new(Mutex::new(0)),
-            max_entries: 1000,
-        }
-    }
-}
-
-/// History tracker that records component changes.
-///
-/// Create one of these and call `track_component::<T>()` for each component
-/// type you want to track. The tracker will automatically record changes
-/// to any component that has `SerializeInfo` attached.
-pub struct HistoryTracker {
-    state: HistoryState,
-}
-
-impl HistoryTracker {
-    /// Create a new history tracker with default settings.
-    pub fn new(world: &World) -> Self {
-        Self::with_max_entries(world, 1000)
-    }
-
-    /// Create a new history tracker with a custom max entries limit.
-    pub fn with_max_entries(world: &World, max_entries: usize) -> Self {
-        let state = HistoryState {
-            max_entries,
-            ..Default::default()
-        };
-
-        // Register our components
-        world.component::<SerializeInfo>();
-        world.component::<HistoryEntry>();
-        world.component::<HistoryOf>();
-        world.component::<HistoryFor>();
-
-        Self { state }
-    }
-
-    /// Enable history tracking for a specific component type.
-    ///
-    /// This sets up an `on_set` hook for the component. The component must
-    /// already be registered with `.serializable()`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the component doesn't have `SerializeInfo` attached.
-    pub fn track_component<T>(&self, world: &World)
-    where
-        T: ComponentId + 'static,
-    {
-        let state = self.state.clone();
-
-        // Get the component entity to verify it has SerializeInfo
-        let comp_entity = world.component::<T>().entity();
-        let has_serialize_info = comp_entity.try_get::<&SerializeInfo>(|_| ()).is_some();
-
-        assert!(
-            has_serialize_info,
-            "Component {} must be registered with .serializable() before tracking",
-            core::any::type_name::<T>()
-        );
-
-        let comp_id = comp_entity.id().0;
-
-        // Set up an OnSet hook for this component
-        world.component::<T>().on_set(
-            move |entity: EntityView<'_>, component: &mut <T as ComponentId>::UnderlyingType| {
-                // Get current tick
-                let tick = {
-                    let guard = state.tick.lock().unwrap();
-                    *guard
-                };
-
-                // Serialize the component value using the SerializeInfo
-                // We need to get SerializeInfo from the component entity
-                let world = entity.world();
-                let comp_entity = world.component::<T>().entity();
-
-                if let Some(info) = comp_entity.try_get::<&SerializeInfo>(|s| s.clone()) {
-                    let ptr = core::ptr::from_ref(component).cast::<c_void>();
-                    let bytes = (info.to_bytes)(ptr, info.component_size);
-
-                    // Create a history entry as a new entity with pair relations
-                    world
-                        .entity()
-                        .set(HistoryEntry {
-                            tick,
-                            data: bytes,
-                            component_id: comp_id,
-                        })
-                        .add((HistoryOf, comp_entity))
-                        .add((HistoryFor, entity));
-                }
-            },
-        );
-    }
-
-    /// Advance the tick counter.
-    pub fn advance_tick(&self) {
-        let mut guard = self.state.tick.lock().unwrap();
-        *guard += 1;
-    }
-
-    /// Get the current tick.
-    pub fn current_tick(&self) -> u64 {
-        *self.state.tick.lock().unwrap()
-    }
-
-    /// Set the current tick.
-    pub fn set_tick(&self, tick: u64) {
-        *self.state.tick.lock().unwrap() = tick;
-    }
-
-    /// Query all history entries for a specific entity and component type.
-    pub fn get_component_history<T: ComponentId>(
-        &self,
-        world: &World,
-        entity: impl Into<Entity>,
-    ) -> Vec<HistoryEntry> {
-        let entity = entity.into();
-        let comp_entity = world.component::<T>().entity();
-        self.get_history_for_component_id(world, entity, comp_entity)
-    }
-
-    /// Query all history entries for a specific entity and component ID.
-    pub fn get_history_for_component_id(
-        &self,
-        world: &World,
-        entity: impl Into<Entity>,
-        component: impl Into<Entity>,
-    ) -> Vec<HistoryEntry> {
-        let entity = entity.into();
-        let component = component.into();
-
-        let mut results = Vec::new();
-
-        // Query: HistoryEntry with (HistoryOf, component) and (HistoryFor, entity)
-        world
-            .query::<&HistoryEntry>()
-            .with((HistoryOf, component))
-            .with((HistoryFor, entity))
-            .build()
-            .each(|entry| {
-                results.push(entry.clone());
-            });
-
-        // Sort by tick
-        results.sort_by_key(|e| e.tick);
-        results
-    }
-
-    /// Query all history entries for a specific entity (all components).
-    pub fn get_entity_history(
-        &self,
-        world: &World,
-        entity: impl Into<Entity>,
-    ) -> Vec<HistoryEntry> {
-        let entity = entity.into();
-        let mut results = Vec::new();
-
-        world
-            .query::<&HistoryEntry>()
-            .with((HistoryFor, entity))
-            .build()
-            .each(|entry| {
-                results.push(entry.clone());
-            });
-
-        results.sort_by_key(|e| e.tick);
-        results
-    }
-
-    /// Get the value of a component at a specific tick.
-    ///
-    /// Returns the most recent value at or before the given tick.
-    pub fn get_at_tick<T>(&self, world: &World, entity: impl Into<Entity>, tick: u64) -> Option<T>
-    where
-        T: ComponentId + for<'de> Deserialize<'de>,
-    {
-        let history = self.get_component_history::<T>(world, entity);
-
-        // Find the most recent entry at or before the tick
-        history
-            .into_iter()
-            .rev()
-            .find(|e| e.tick <= tick)
-            .and_then(|e| e.deserialize().ok())
-    }
-
-    /// Get history entries in a tick range (inclusive).
-    pub fn get_in_range<T: ComponentId>(
-        &self,
-        world: &World,
-        entity: impl Into<Entity>,
-        start_tick: u64,
-        end_tick: u64,
-    ) -> Vec<HistoryEntry> {
-        self.get_component_history::<T>(world, entity)
-            .into_iter()
-            .filter(|e| e.tick >= start_tick && e.tick <= end_tick)
-            .collect()
-    }
-
-    /// Clear all history for a specific entity.
-    pub fn clear_entity_history(&self, world: &World, entity: impl Into<Entity>) {
-        let entity = entity.into();
-
-        // Find all history entries for this entity and delete them
-        let mut to_delete = Vec::new();
-
-        world
-            .query::<&HistoryEntry>()
-            .with((HistoryFor, entity))
-            .build()
-            .each_entity(|e, _| {
-                to_delete.push(e.id());
-            });
-
-        for id in to_delete {
-            world.entity_from_id(id).destruct();
-        }
-    }
-
-    /// Clear all history.
-    pub fn clear_all_history(&self, world: &World) {
-        let mut to_delete = Vec::new();
-
-        world.query::<&HistoryEntry>().build().each_entity(|e, _| {
-            to_delete.push(e.id());
-        });
-
-        for id in to_delete {
-            world.entity_from_id(id).destruct();
-        }
-    }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
 // Utility functions
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -508,9 +194,8 @@ where
 
 pub mod prelude {
     pub use crate::{
-        HistoryEntry, HistoryFor, HistoryOf, HistoryTracker, SerializableExt, SerializeError,
-        SerializeInfo, get_serialize_info, is_serializable, serialize_component,
-        serialize_component_json,
+        SerializableExt, SerializeError, SerializeInfo, get_serialize_info, is_serializable,
+        serialize_component, serialize_component_json,
     };
 }
 
@@ -522,6 +207,8 @@ pub mod prelude {
 #[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
     struct Position {
@@ -533,12 +220,6 @@ mod tests {
     struct Velocity {
         x: f32,
         y: f32,
-    }
-
-    #[derive(Component, Clone)]
-    struct NotSerializable {
-        #[allow(dead_code)]
-        handle: u64,
     }
 
     #[test]
@@ -578,156 +259,231 @@ mod tests {
     }
 
     #[test]
-    fn test_history_tracking() {
+    fn test_on_set_observer_with_serializable() {
         let world = World::new();
 
         // Register Position as serializable
         world.component::<Position>().serializable::<Position>();
 
-        // Create history tracker and enable tracking for Position
-        let history = HistoryTracker::new(&world);
-        history.track_component::<Position>(&world);
+        // Track how many times the observer fires and what data it captures
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = call_count.clone();
 
-        // Create an entity and set Position multiple times
+        // Set up an OnSet observer that uses SerializeInfo to serialize the component
+        world
+            .component::<Position>()
+            .on_set(move |entity, pos: &mut Position| {
+                call_count_clone.fetch_add(1, Ordering::SeqCst);
+
+                // Get SerializeInfo from the component entity and serialize
+                let world = entity.world();
+                let comp_entity = world.component::<Position>().entity();
+
+                if let Some(info) = comp_entity.try_get::<&SerializeInfo>(|s| s.clone()) {
+                    let ptr = core::ptr::from_ref(pos).cast::<c_void>();
+                    let bytes = (info.to_bytes)(ptr, info.component_size);
+
+                    // Verify we can serialize
+                    assert!(!bytes.is_empty());
+
+                    // Verify we can deserialize back
+                    let restored: Position = bincode::deserialize(&bytes).unwrap();
+                    assert_eq!(*pos, restored);
+                } else {
+                    panic!("SerializeInfo should be attached!");
+                }
+            });
+
+        // Create entity and set Position - should trigger observer
         let entity = world.entity();
+        entity.set(Position { x: 1.0, y: 2.0 });
+        assert_eq!(call_count.load(Ordering::SeqCst), 1);
 
-        history.set_tick(0);
-        entity.set(Position { x: 0.0, y: 0.0 });
+        // Update Position - should trigger observer again
+        entity.set(Position { x: 3.0, y: 4.0 });
+        assert_eq!(call_count.load(Ordering::SeqCst), 2);
 
-        history.set_tick(1);
-        entity.set(Position { x: 1.0, y: 1.0 });
-
-        history.set_tick(2);
-        entity.set(Position { x: 2.0, y: 2.0 });
-
-        // Query history
-        let entries = history.get_component_history::<Position>(&world, entity);
-        assert_eq!(entries.len(), 3);
-
-        // Verify values
-        let pos0: Position = entries[0].deserialize().unwrap();
-        assert_eq!(pos0, Position { x: 0.0, y: 0.0 });
-
-        let pos1: Position = entries[1].deserialize().unwrap();
-        assert_eq!(pos1, Position { x: 1.0, y: 1.0 });
-
-        let pos2: Position = entries[2].deserialize().unwrap();
-        assert_eq!(pos2, Position { x: 2.0, y: 2.0 });
-    }
-
-    #[test]
-    fn test_get_at_tick() {
-        let world = World::new();
-        world.component::<Position>().serializable::<Position>();
-
-        let history = HistoryTracker::new(&world);
-        history.track_component::<Position>(&world);
-
-        let entity = world.entity();
-
-        history.set_tick(0);
-        entity.set(Position { x: 0.0, y: 0.0 });
-
-        history.set_tick(5);
-        entity.set(Position { x: 5.0, y: 5.0 });
-
-        history.set_tick(10);
-        entity.set(Position { x: 10.0, y: 10.0 });
-
-        // Query at specific ticks
-        let at_0: Position = history.get_at_tick(&world, entity, 0).unwrap();
-        assert_eq!(at_0.x, 0.0);
-
-        let at_3: Position = history.get_at_tick(&world, entity, 3).unwrap();
-        assert_eq!(at_3.x, 0.0); // Most recent at or before tick 3
-
-        let at_7: Position = history.get_at_tick(&world, entity, 7).unwrap();
-        assert_eq!(at_7.x, 5.0); // Most recent at or before tick 7
-
-        let at_10: Position = history.get_at_tick(&world, entity, 10).unwrap();
-        assert_eq!(at_10.x, 10.0);
-    }
-
-    #[test]
-    fn test_clear_history() {
-        let world = World::new();
-        world.component::<Position>().serializable::<Position>();
-
-        let history = HistoryTracker::new(&world);
-        history.track_component::<Position>(&world);
-
-        let entity = world.entity();
-        entity.set(Position { x: 1.0, y: 1.0 });
-        entity.set(Position { x: 2.0, y: 2.0 });
-
-        assert_eq!(
-            history
-                .get_component_history::<Position>(&world, entity)
-                .len(),
-            2
-        );
-
-        history.clear_entity_history(&world, entity);
-
-        assert_eq!(
-            history
-                .get_component_history::<Position>(&world, entity)
-                .len(),
-            0
-        );
-    }
-
-    #[test]
-    fn test_multiple_entities() {
-        let world = World::new();
-        world.component::<Position>().serializable::<Position>();
-
-        let history = HistoryTracker::new(&world);
-        history.track_component::<Position>(&world);
-
-        let entity1 = world.entity();
+        // Create another entity - should trigger observer
         let entity2 = world.entity();
-
-        history.set_tick(0);
-        entity1.set(Position { x: 1.0, y: 1.0 });
-        entity2.set(Position { x: 100.0, y: 100.0 });
-
-        history.set_tick(1);
-        entity1.set(Position { x: 2.0, y: 2.0 });
-        entity2.set(Position { x: 200.0, y: 200.0 });
-
-        // Each entity should have its own history
-        let entries1 = history.get_component_history::<Position>(&world, entity1);
-        let entries2 = history.get_component_history::<Position>(&world, entity2);
-
-        assert_eq!(entries1.len(), 2);
-        assert_eq!(entries2.len(), 2);
-
-        let pos1: Position = entries1[0].deserialize().unwrap();
-        let pos2: Position = entries2[0].deserialize().unwrap();
-
-        assert_eq!(pos1.x, 1.0);
-        assert_eq!(pos2.x, 100.0);
+        entity2.set(Position { x: 5.0, y: 6.0 });
+        assert_eq!(call_count.load(Ordering::SeqCst), 3);
     }
 
     #[test]
-    fn test_entity_history_all_components() {
+    fn test_observer_can_access_entity_uuid() {
         let world = World::new();
+
+        world.component::<Position>().serializable::<Position>();
+
+        let captured_ids = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let captured_ids_clone = captured_ids.clone();
+
+        world
+            .component::<Position>()
+            .on_set(move |entity, _pos: &mut Position| {
+                // Capture entity id - in real use, you'd look up UUID component
+                let entity_id = entity.id().0;
+                captured_ids_clone.lock().unwrap().push(entity_id);
+            });
+
+        let e1 = world.entity();
+        let e2 = world.entity();
+
+        e1.set(Position { x: 1.0, y: 1.0 });
+        e2.set(Position { x: 2.0, y: 2.0 });
+        e1.set(Position { x: 3.0, y: 3.0 }); // Update e1 again
+
+        let ids = captured_ids.lock().unwrap();
+        assert_eq!(ids.len(), 3);
+        assert_eq!(ids[0], e1.id().0);
+        assert_eq!(ids[1], e2.id().0);
+        assert_eq!(ids[2], e1.id().0);
+    }
+
+    #[test]
+    fn test_wildcard_observer_for_any_serializable_component() {
+        let world = World::new();
+
+        // Register multiple components as serializable
         world.component::<Position>().serializable::<Position>();
         world.component::<Velocity>().serializable::<Velocity>();
 
-        let history = HistoryTracker::new(&world);
-        history.track_component::<Position>(&world);
-        history.track_component::<Velocity>(&world);
+        // Track all OnSet events
+        let events = Arc::new(std::sync::Mutex::new(Vec::<(u64, String)>::new()));
+        let events_clone = events.clone();
 
-        let entity = world.entity();
+        // Create a wildcard observer that fires on ANY component OnSet
+        world
+            .observer::<flecs::OnSet, ()>()
+            .with(flecs::Wildcard::id())
+            .each_iter(move |it, index, _| {
+                let entity = it.entity(index);
+                let component_id = it.event_id();
+                let world = it.world();
+                let comp_entity = world.entity_from_id(*component_id.id());
 
-        history.set_tick(0);
-        entity.set(Position { x: 1.0, y: 1.0 });
-        entity.set(Velocity { x: 10.0, y: 10.0 });
+                // Check if this component has SerializeInfo
+                if comp_entity.try_get::<&SerializeInfo>(|_| ()).is_some() {
+                    let comp_name = comp_entity.name();
+                    events_clone
+                        .lock()
+                        .unwrap()
+                        .push((entity.id().0, comp_name));
+                }
+            });
 
-        // Get all history for entity (both components)
-        let all_entries = history.get_entity_history(&world, entity);
-        assert_eq!(all_entries.len(), 2);
+        let e1 = world.entity();
+        let e2 = world.entity();
+
+        e1.set(Position { x: 1.0, y: 2.0 });
+        e1.set(Velocity { x: 3.0, y: 4.0 });
+        e2.set(Position { x: 5.0, y: 6.0 });
+
+        let captured = events.lock().unwrap();
+        assert_eq!(captured.len(), 3);
+        assert_eq!(captured[0].1, "Position");
+        assert_eq!(captured[1].1, "Velocity");
+        assert_eq!(captured[2].1, "Position");
+    }
+
+    /// UUID component for identifying persistable entities
+    #[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
+    struct Uuid(u128);
+
+    #[test]
+    fn test_wildcard_observer_only_persists_entities_with_uuid() {
+        let world = World::new();
+
+        // Register components as serializable
+        world.component::<Position>().serializable::<Position>();
+        world.component::<Uuid>().serializable::<Uuid>();
+
+        // Track persisted events: (uuid, component_name, serialized_bytes)
+        let persisted = Arc::new(std::sync::Mutex::new(Vec::<(u128, String, Vec<u8>)>::new()));
+        let persisted_clone = persisted.clone();
+
+        // Create a wildcard observer that:
+        // 1. Fires on ANY component OnSet
+        // 2. Only persists if entity has Uuid
+        // 3. Only persists if component has SerializeInfo
+        world
+            .observer::<flecs::OnSet, ()>()
+            .with(flecs::Wildcard::id())
+            .each_iter(move |it, index, _| {
+                let entity = it.entity(index);
+                let component_id = it.event_id();
+                let world = it.world();
+                let comp_entity = world.entity_from_id(*component_id.id());
+
+                // Check if entity has Uuid
+                let Some(uuid) = entity.try_get::<&Uuid>(|u| u.0) else {
+                    return; // Entity doesn't have Uuid, skip persistence
+                };
+
+                // Check if component has SerializeInfo and serialize
+                if let Some(info) = comp_entity.try_get::<&SerializeInfo>(|s| s.clone()) {
+                    let comp_name = comp_entity.name();
+
+                    // JANK: Using raw ecs_get_id to get component pointer since wildcard
+                    // observer doesn't give us typed access. There might be a better way
+                    // to get the component data in a wildcard observer context.
+                    let comp_ptr = unsafe {
+                        flecs_ecs::sys::ecs_get_id(
+                            world.world_ptr(),
+                            entity.id().0,
+                            *component_id.id(),
+                        )
+                    };
+
+                    if !comp_ptr.is_null() {
+                        // Serialize using the SerializeInfo
+                        let bytes = (info.to_bytes)(comp_ptr, info.component_size);
+
+                        persisted_clone
+                            .lock()
+                            .unwrap()
+                            .push((uuid, comp_name, bytes));
+                    }
+                }
+            });
+
+        // Entity WITHOUT Uuid - changes should NOT be persisted
+        let e_no_uuid = world.entity();
+        e_no_uuid.set(Position { x: 1.0, y: 2.0 });
+
+        // Entity WITH Uuid - changes SHOULD be persisted
+        let e_with_uuid = world.entity();
+        e_with_uuid.set(Uuid(12345));
+        e_with_uuid.set(Position { x: 3.0, y: 4.0 });
+
+        // Another entity with Uuid
+        let e_with_uuid2 = world.entity();
+        e_with_uuid2.set(Uuid(67890));
+        e_with_uuid2.set(Position { x: 5.0, y: 6.0 });
+
+        let captured = persisted.lock().unwrap();
+
+        // Should have 4 events:
+        // 1. e_with_uuid sets Uuid (persisted because it now has Uuid)
+        // 2. e_with_uuid sets Position (persisted)
+        // 3. e_with_uuid2 sets Uuid (persisted)
+        // 4. e_with_uuid2 sets Position (persisted)
+        // Note: e_no_uuid's Position was NOT persisted
+        assert_eq!(captured.len(), 4);
+
+        // Verify the UUIDs match
+        assert_eq!(captured[0].0, 12345); // Uuid component itself
+        assert_eq!(captured[1].0, 12345); // Position on same entity
+        assert_eq!(captured[2].0, 67890); // Uuid on second entity
+        assert_eq!(captured[3].0, 67890); // Position on second entity
+
+        // Verify actual serialization worked - deserialize Position back
+        let pos_bytes = &captured[1].2;
+        let pos: Position = bincode::deserialize(pos_bytes).unwrap();
+        assert_eq!(pos, Position { x: 3.0, y: 4.0 });
+
+        let pos2_bytes = &captured[3].2;
+        let pos2: Position = bincode::deserialize(pos2_bytes).unwrap();
+        assert_eq!(pos2, Position { x: 5.0, y: 6.0 });
     }
 }
