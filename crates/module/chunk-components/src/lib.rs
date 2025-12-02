@@ -4,7 +4,6 @@
 //! Systems that operate on these components are in `module-chunk`.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use bytes::Bytes;
 use flecs_ecs::prelude::*;
@@ -32,15 +31,13 @@ impl ChunkPos {
 /// Pre-encoded chunk data for network transmission
 #[derive(Component, Clone)]
 pub struct ChunkData {
-    pub encoded: Arc<Bytes>,
+    pub encoded: Bytes,
 }
 
 impl ChunkData {
     #[must_use]
     pub fn new(encoded: Bytes) -> Self {
-        Self {
-            encoded: Arc::new(encoded),
-        }
+        Self { encoded }
     }
 }
 

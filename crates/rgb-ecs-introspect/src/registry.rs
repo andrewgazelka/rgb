@@ -28,10 +28,13 @@ pub struct IntrospectInfo {
     serialize_fn: SerializeFn,
     /// Function to deserialize JSON to component bytes.
     deserialize_fn: DeserializeFn,
+    /// Function to get opaque info summary from raw pointer.
+    opaque_info_fn: OpaqueInfoFn,
 }
 
 type SerializeFn = fn(*const u8) -> serde_json::Value;
 type DeserializeFn = fn(serde_json::Value) -> Result<AlignedBuffer, IntrospectError>;
+type OpaqueInfoFn = fn(*const u8) -> Option<String>;
 
 /// Public fields for IntrospectInfo
 impl IntrospectInfo {
@@ -72,7 +75,20 @@ impl IntrospectInfo {
                 }
                 Ok(buffer)
             },
+            opaque_info_fn: |ptr| {
+                // SAFETY: Caller ensures ptr points to valid T
+                let value: &T = unsafe { &*(ptr.cast::<T>()) };
+                value.opaque_info()
+            },
         }
+    }
+
+    /// Get opaque info summary for a component from an entity.
+    ///
+    /// Returns None if the entity doesn't have this component or no info available.
+    pub fn get_opaque_info(&self, world: &World, entity: rgb_ecs::Entity) -> Option<String> {
+        let ptr = world.get_raw_ptr(entity, self.type_id)?;
+        (self.opaque_info_fn)(ptr)
     }
 
     /// Serialize a component from a raw pointer to JSON.

@@ -159,24 +159,26 @@
 
     {#if activeTab === 'components'}
       <section class="components">
-        {#each Object.entries(entity.components) as [name, value]}
+        {#each entity.components as comp}
           <div class="component">
             <div class="component-header">
-              <h3>{name}</h3>
+              <h3>{comp.name}</h3>
               <div class="component-actions">
-                {#if editingComponent === name}
-                  <button onclick={() => saveComponent(name)} disabled={saving}>
+                {#if editingComponent === comp.name}
+                  <button onclick={() => saveComponent(comp.name)} disabled={saving}>
                     {saving ? 'Saving...' : 'Save'}
                   </button>
                   <button onclick={cancelEditing} disabled={saving}>Cancel</button>
+                {:else if !comp.is_opaque}
+                  <button onclick={() => startEditing(comp.name, comp.value)}>Edit</button>
+                  <button class="btn-danger" onclick={() => removeComponent(comp.name)}>Remove</button>
                 {:else}
-                  <button onclick={() => startEditing(name, value)}>Edit</button>
-                  <button class="btn-danger" onclick={() => removeComponent(name)}>Remove</button>
+                  <button class="btn-danger" onclick={() => removeComponent(comp.name)}>Remove</button>
                 {/if}
               </div>
             </div>
 
-            {#if editingComponent === name}
+            {#if editingComponent === comp.name}
               <textarea
                 bind:value={editValue}
                 class="component-editor"
@@ -184,12 +186,12 @@
                 disabled={saving}
               ></textarea>
             {:else}
-              <pre class="component-value">{JSON.stringify(value, null, 2)}</pre>
+              <pre class="component-value">{JSON.stringify(comp.value, null, 2)}</pre>
             {/if}
           </div>
         {/each}
 
-        {#if Object.keys(entity.components).length === 0}
+        {#if entity.components.length === 0}
           <p class="no-components">No components</p>
         {/if}
       </section>

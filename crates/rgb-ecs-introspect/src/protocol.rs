@@ -214,6 +214,8 @@ pub struct ComponentValue {
     pub full_name: String,
     pub value: serde_json::Value,
     pub is_opaque: bool,
+    /// Human-readable summary for opaque components (e.g., "45.2 KB")
+    pub opaque_info: Option<String>,
     pub schema: Option<serde_json::Value>,
 }
 

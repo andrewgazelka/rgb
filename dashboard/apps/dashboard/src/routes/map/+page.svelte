@@ -255,6 +255,8 @@
     flex-direction: column;
     padding: 16px;
     gap: 12px;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .toolbar {
@@ -369,6 +371,7 @@
 
   .canvas-wrap {
     flex: 1;
+    min-height: 0;
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid rgba(0, 0, 0, 0.08);

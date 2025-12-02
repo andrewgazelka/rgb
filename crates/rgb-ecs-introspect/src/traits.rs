@@ -52,6 +52,14 @@ pub trait Introspectable: rgb_ecs::Component + Clone + Send + Sync + 'static {
         false
     }
 
+    /// Get a human-readable summary for opaque components.
+    ///
+    /// Override this to provide useful info like byte sizes, handle counts, etc.
+    /// Returns `None` by default (no summary available).
+    fn opaque_info(&self) -> Option<String> {
+        None
+    }
+
     /// Get the short type name (without module path).
     fn type_name() -> &'static str {
         let full = core::any::type_name::<Self>();

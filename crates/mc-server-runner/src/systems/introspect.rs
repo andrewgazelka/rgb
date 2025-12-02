@@ -113,6 +113,7 @@ pub fn system_process_introspect(world: &mut World) {
                             full_name: info.full_name.to_string(),
                             value,
                             is_opaque: info.is_opaque,
+                            opaque_info: info.get_opaque_info(world, entity),
                             schema: None,
                         });
                     }
@@ -140,6 +141,7 @@ pub fn system_process_introspect(world: &mut World) {
                             full_name: info.full_name.to_string(),
                             value: v,
                             is_opaque: info.is_opaque,
+                            opaque_info: info.get_opaque_info(world, entity),
                             schema: None,
                         }
                     })

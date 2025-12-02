@@ -377,8 +377,9 @@ pub fn generate_spawn_chunks(world: &mut World, view_distance: i32) {
             let pos = ChunkPos::new(cx, cz);
 
             if let Ok(data) = create_dune_chunk(cx, cz) {
-                // Use named entity for chunk lookup by position
-                let entity = world.entity_named(&pos.to_key());
+                // Use readable string name for dashboard visibility
+                let name = format!("chunk({cx}, {cz})");
+                let entity = world.entity_named(name.as_bytes());
                 world.insert(entity, pos);
                 world.insert(entity, ChunkData::new(data));
                 world.insert(entity, ChunkLoaded);

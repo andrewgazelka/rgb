@@ -23,18 +23,13 @@
   let dragStartX = 0;
   let dragStartY = 0;
   let hoveredEntity: EntityMarker | null = $state(null);
-  let mouseX = $state(0);
-  let mouseY = $state(0);
   let selectedEntity: EntityMarker | null = $state(null);
 
   async function loadEntities() {
     loading = true;
     error = null;
     try {
-      const result = await client.current.query({
-        with: ['Position'],
-        limit: 1000,
-      });
+      const result = await client.current.query({ with: ['Position'], limit: 1000 });
       entities = result.entities.map((row: QueryResultRow) => {
         const pos = row.components['Position'] as { x: number; y: number; z: number } | undefined;
         return {
@@ -55,70 +50,41 @@
   function worldToScreen(worldX: number, worldZ: number): { x: number; y: number } {
     const centerX = canvas.width / 2 + offsetX;
     const centerY = canvas.height / 2 + offsetY;
-    return {
-      x: centerX + worldX * scale,
-      y: centerY + worldZ * scale,
-    };
+    return { x: centerX + worldX * scale, y: centerY + worldZ * scale };
   }
 
   function screenToWorld(screenX: number, screenY: number): { x: number; z: number } {
     const centerX = canvas.width / 2 + offsetX;
     const centerY = canvas.height / 2 + offsetY;
-    return {
-      x: (screenX - centerX) / scale,
-      z: (screenY - centerY) / scale,
-    };
-  }
-
-  function getEntityColor(marker: EntityMarker): string {
-    // Color based on Y height
-    const minY = 0;
-    const maxY = 256;
-    const t = Math.max(0, Math.min(1, (marker.y - minY) / (maxY - minY)));
-
-    // Gradient from deep blue (low) through green to red (high)
-    if (t < 0.5) {
-      const s = t * 2;
-      const r = Math.round(0 + s * 100);
-      const g = Math.round(100 + s * 155);
-      const b = Math.round(200 - s * 100);
-      return `rgb(${r}, ${g}, ${b})`;
-    } else {
-      const s = (t - 0.5) * 2;
-      const r = Math.round(100 + s * 155);
-      const g = Math.round(255 - s * 155);
-      const b = Math.round(100 - s * 100);
-      return `rgb(${r}, ${g}, ${b})`;
-    }
+    return { x: (screenX - centerX) / scale, z: (screenY - centerY) / scale };
   }
 
   function drawMap() {
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const width = canvas.width;
     const height = canvas.height;
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    // Clear canvas with dark background
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = isDark ? '#0a0a0f' : '#fafafa';
     ctx.fillRect(0, 0, width, height);
 
     const centerX = width / 2 + offsetX;
     const centerY = height / 2 + offsetY;
 
-    // Draw grid
-    ctx.strokeStyle = '#1e293b';
+    // Grid
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
     ctx.lineWidth = 1;
+    const gridSize = 16 * scale;
 
-    const gridSize = 16 * scale; // 16 block grid
-    const startGridX = Math.floor(-centerX / gridSize) - 1;
-    const endGridX = Math.ceil((width - centerX) / gridSize) + 1;
-    const startGridZ = Math.floor(-centerY / gridSize) - 1;
-    const endGridZ = Math.ceil((height - centerY) / gridSize) + 1;
+    const startX = Math.floor(-centerX / gridSize) - 1;
+    const endX = Math.ceil((width - centerX) / gridSize) + 1;
+    const startZ = Math.floor(-centerY / gridSize) - 1;
+    const endZ = Math.ceil((height - centerY) / gridSize) + 1;
 
-    for (let gx = startGridX; gx <= endGridX; gx++) {
+    for (let gx = startX; gx <= endX; gx++) {
       const x = centerX + gx * gridSize;
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -126,7 +92,7 @@
       ctx.stroke();
     }
 
-    for (let gz = startGridZ; gz <= endGridZ; gz++) {
+    for (let gz = startZ; gz <= endZ; gz++) {
       const y = centerY + gz * gridSize;
       ctx.beginPath();
       ctx.moveTo(0, y);
@@ -134,138 +100,71 @@
       ctx.stroke();
     }
 
-    // Draw chunk boundaries (16x16) with slightly brighter lines
-    ctx.strokeStyle = '#334155';
-    const chunkSize = 16 * scale;
-    const startChunkX = Math.floor(-centerX / chunkSize) - 1;
-    const endChunkX = Math.ceil((width - centerX) / chunkSize) + 1;
-    const startChunkZ = Math.floor(-centerY / chunkSize) - 1;
-    const endChunkZ = Math.ceil((height - centerY) / chunkSize) + 1;
-
-    for (let cx = startChunkX; cx <= endChunkX; cx++) {
-      if (cx % 2 === 0) {
-        const x = centerX + cx * chunkSize;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-    }
-
-    for (let cz = startChunkZ; cz <= endChunkZ; cz++) {
-      if (cz % 2 === 0) {
-        const y = centerY + cz * chunkSize;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-    }
-
-    // Draw axes
-    ctx.strokeStyle = '#475569';
-    ctx.lineWidth = 2;
-
-    // X axis (horizontal)
+    // Axes
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, centerY);
     ctx.lineTo(width, centerY);
     ctx.stroke();
-
-    // Z axis (vertical)
     ctx.beginPath();
     ctx.moveTo(centerX, 0);
     ctx.lineTo(centerX, height);
     ctx.stroke();
 
-    // Draw origin marker
-    ctx.fillStyle = '#fff';
+    // Origin
     ctx.beginPath();
     ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = isDark ? '#fff' : '#111';
     ctx.fill();
 
-    // Draw axis labels
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '12px system-ui';
-    ctx.fillText('+X', width - 25, centerY - 8);
-    ctx.fillText('-X', 10, centerY - 8);
-    ctx.fillText('+Z', centerX + 8, height - 10);
-    ctx.fillText('-Z', centerX + 8, 20);
-
-    // Draw entities
-    const markerRadius = Math.max(4, Math.min(12, scale * 2));
+    // Entities
+    const markerRadius = Math.max(4, Math.min(10, scale * 1.5));
 
     for (const marker of entities) {
       const screen = worldToScreen(marker.x, marker.z);
-
-      // Skip if off-screen
       if (screen.x < -markerRadius || screen.x > width + markerRadius ||
-          screen.y < -markerRadius || screen.y > height + markerRadius) {
-        continue;
-      }
+          screen.y < -markerRadius || screen.y > height + markerRadius) continue;
 
       const isHovered = hoveredEntity?.entity === marker.entity;
       const isSelected = selectedEntity?.entity === marker.entity;
 
-      // Draw shadow
-      ctx.beginPath();
-      ctx.arc(screen.x + 2, screen.y + 2, markerRadius + (isHovered ? 2 : 0), 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      ctx.fill();
-
-      // Draw marker
       ctx.beginPath();
       ctx.arc(screen.x, screen.y, markerRadius + (isHovered ? 2 : 0), 0, Math.PI * 2);
-      ctx.fillStyle = getEntityColor(marker);
+      ctx.fillStyle = '#ef4444';
       ctx.fill();
 
-      // Draw border
-      ctx.strokeStyle = isSelected ? '#fbbf24' : (isHovered ? '#fff' : 'rgba(255, 255, 255, 0.5)');
-      ctx.lineWidth = isSelected ? 3 : (isHovered ? 2 : 1);
-      ctx.stroke();
-
-      // Draw name label for hovered/selected
-      if (isHovered || isSelected) {
-        const label = marker.name ?? `Entity ${marker.entity}`;
-        ctx.font = 'bold 12px system-ui';
-        const textWidth = ctx.measureText(label).width;
-
-        // Background
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-        ctx.fillRect(screen.x - textWidth / 2 - 6, screen.y - markerRadius - 28, textWidth + 12, 22);
-
-        // Text
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.fillText(label, screen.x, screen.y - markerRadius - 12);
-        ctx.textAlign = 'left';
+      if (isSelected || isHovered) {
+        ctx.strokeStyle = isDark ? '#fff' : '#111';
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
     }
 
-    // Draw coordinate info in corner
+    // Tooltip
     if (hoveredEntity) {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.fillRect(10, height - 70, 160, 60);
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '11px monospace';
-      ctx.fillText(`X: ${hoveredEntity.x.toFixed(1)}`, 20, height - 50);
-      ctx.fillText(`Y: ${hoveredEntity.y.toFixed(1)}`, 20, height - 35);
-      ctx.fillText(`Z: ${hoveredEntity.z.toFixed(1)}`, 20, height - 20);
+      const screen = worldToScreen(hoveredEntity.x, hoveredEntity.z);
+      const label = hoveredEntity.name ?? `#${hoveredEntity.entity}`;
+      ctx.font = '12px -apple-system, sans-serif';
+      const textWidth = ctx.measureText(label).width;
+
+      ctx.fillStyle = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
+      ctx.fillRect(screen.x - textWidth / 2 - 8, screen.y - markerRadius - 30, textWidth + 16, 24);
+
+      ctx.fillStyle = isDark ? '#fff' : '#111';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, screen.x, screen.y - markerRadius - 14);
+      ctx.textAlign = 'left';
     }
   }
 
   function findEntityAt(screenX: number, screenY: number): EntityMarker | null {
-    const markerRadius = Math.max(4, Math.min(12, scale * 2));
-
+    const markerRadius = Math.max(4, Math.min(10, scale * 1.5));
     for (const marker of entities) {
       const screen = worldToScreen(marker.x, marker.z);
       const dx = screenX - screen.x;
       const dy = screenY - screen.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist <= markerRadius + 4) {
-        return marker;
-      }
+      if (Math.sqrt(dx * dx + dy * dy) <= markerRadius + 4) return marker;
     }
     return null;
   }
@@ -273,19 +172,16 @@
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
-    const mouseCanvasX = e.clientX - rect.left;
-    const mouseCanvasY = e.clientY - rect.top;
-
-    const worldBefore = screenToWorld(mouseCanvasX, mouseCanvasY);
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const worldBefore = screenToWorld(mouseX, mouseY);
 
     const delta = e.deltaY > 0 ? -0.2 : 0.2;
     scale = Math.max(0.1, Math.min(20, scale + delta * scale));
 
-    // Adjust offset to zoom towards mouse position
-    const worldAfter = screenToWorld(mouseCanvasX, mouseCanvasY);
+    const worldAfter = screenToWorld(mouseX, mouseY);
     offsetX += (worldAfter.x - worldBefore.x) * scale;
     offsetY += (worldAfter.z - worldBefore.z) * scale;
-
     drawMap();
   }
 
@@ -299,8 +195,8 @@
 
   function handleMouseMove(e: MouseEvent) {
     const rect = canvas.getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
     if (isDragging) {
       offsetX = e.clientX - dragStartX;
@@ -322,28 +218,15 @@
 
   function handleClick(e: MouseEvent) {
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const entity = findEntityAt(x, y);
-    if (entity) {
-      selectedEntity = entity;
-      drawMap();
-    } else {
-      selectedEntity = null;
-      drawMap();
-    }
+    const entity = findEntityAt(e.clientX - rect.left, e.clientY - rect.top);
+    selectedEntity = entity;
+    drawMap();
   }
 
   function handleDoubleClick(e: MouseEvent) {
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const entity = findEntityAt(x, y);
-    if (entity) {
-      goto(`/entities/${entity.entity}`);
-    }
+    const entity = findEntityAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (entity) goto(`/entities/${entity.entity}`);
   }
 
   function resetView() {
@@ -354,18 +237,8 @@
     drawMap();
   }
 
-  function centerOnSelected() {
-    if (selectedEntity) {
-      offsetX = -selectedEntity.x * scale;
-      offsetY = -selectedEntity.z * scale;
-      drawMap();
-    }
-  }
-
   $effect(() => {
-    if (entities.length > 0) {
-      drawMap();
-    }
+    if (entities.length > 0) drawMap();
   });
 
   onMount(() => {
@@ -379,6 +252,9 @@
       }
     });
 
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', drawMap);
+
     if (canvas) {
       resizeObserver.observe(canvas);
       canvas.width = canvas.clientWidth;
@@ -390,338 +266,192 @@
     return () => {
       clearInterval(interval);
       resizeObserver.disconnect();
+      mediaQuery.removeEventListener('change', drawMap);
     };
   });
 </script>
 
 <svelte:head>
-  <title>World Map - RGB ECS Dashboard</title>
+  <title>World - RGB</title>
 </svelte:head>
 
-<main class="container">
-  <nav class="breadcrumb">
-    <a href="/">Dashboard</a> &gt; <span>World Map</span>
-  </nav>
-
-  <header class="header">
-    <h1>World Map</h1>
-    <div class="controls">
-      <span class="info">
-        {#if loading && entities.length === 0}
-          Loading...
-        {:else}
-          {entities.length} entities
-        {/if}
-      </span>
-      <span class="zoom">Zoom: {scale.toFixed(1)}x</span>
+<div class="page">
+  <div class="toolbar">
+    <div class="stats">
+      <span class="stat">{entities.length} entities</span>
+      <span class="stat">{scale.toFixed(1)}x</span>
+    </div>
+    <div class="actions">
       {#if selectedEntity}
-        <button onclick={centerOnSelected}>Center on Selected</button>
+        <a href="/entities/{selectedEntity.entity}" class="btn">View #{selectedEntity.entity}</a>
       {/if}
-      <button onclick={resetView}>Reset View</button>
-      <button onclick={loadEntities} disabled={loading}>
-        {loading ? 'Loading...' : 'Refresh'}
+      <button class="btn" onclick={resetView}>Reset</button>
+      <button class="btn" onclick={loadEntities} disabled={loading}>
+        {loading ? '...' : 'Refresh'}
       </button>
     </div>
-  </header>
+  </div>
 
   {#if error}
-    <div class="error">
-      <p>Error: {error}</p>
-      <button onclick={loadEntities}>Retry</button>
-    </div>
+    <div class="error">{error}</div>
   {:else}
-    <div class="map-wrapper">
-      <div class="map-container">
-        <canvas
-          bind:this={canvas}
-          class="map-canvas"
-          onwheel={handleWheel}
-          onmousedown={handleMouseDown}
-          onmousemove={handleMouseMove}
-          onmouseup={handleMouseUp}
-          onmouseleave={handleMouseUp}
-          onclick={handleClick}
-          ondblclick={handleDoubleClick}
-        ></canvas>
-      </div>
-
-      <aside class="sidebar">
-        <div class="panel">
-          <h3>Selected Entity</h3>
-          {#if selectedEntity}
-            <div class="entity-info">
-              <p class="entity-name">{selectedEntity.name ?? `Entity ${selectedEntity.entity}`}</p>
-              <p class="entity-id">ID: {selectedEntity.entity}</p>
-              <div class="coords">
-                <span>X: {selectedEntity.x.toFixed(2)}</span>
-                <span>Y: {selectedEntity.y.toFixed(2)}</span>
-                <span>Z: {selectedEntity.z.toFixed(2)}</span>
-              </div>
-              <a href="/entities/{selectedEntity.entity}" class="view-btn">View Details</a>
-            </div>
-          {:else}
-            <p class="no-selection">Click an entity to select</p>
-          {/if}
-        </div>
-
-        <div class="panel">
-          <h3>Height Legend</h3>
-          <div class="height-legend">
-            <div class="gradient"></div>
-            <div class="labels">
-              <span>Y=256</span>
-              <span>Y=128</span>
-              <span>Y=0</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <h3>Controls</h3>
-          <ul class="help-list">
-            <li>Scroll to zoom</li>
-            <li>Drag to pan</li>
-            <li>Click to select</li>
-            <li>Double-click to view</li>
-          </ul>
-        </div>
-      </aside>
+    <div class="canvas-wrap">
+      <canvas
+        bind:this={canvas}
+        class="canvas"
+        onwheel={handleWheel}
+        onmousedown={handleMouseDown}
+        onmousemove={handleMouseMove}
+        onmouseup={handleMouseUp}
+        onmouseleave={handleMouseUp}
+        onclick={handleClick}
+        ondblclick={handleDoubleClick}
+      ></canvas>
     </div>
   {/if}
-</main>
+
+  {#if selectedEntity}
+    <div class="selection">
+      <span class="name">{selectedEntity.name ?? `Entity ${selectedEntity.entity}`}</span>
+      <span class="coords">
+        {selectedEntity.x.toFixed(1)}, {selectedEntity.y.toFixed(1)}, {selectedEntity.z.toFixed(1)}
+      </span>
+    </div>
+  {/if}
+</div>
 
 <style>
-  .container {
-    max-width: 100%;
-    height: 100vh;
+  .page {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    font-family: system-ui, sans-serif;
-    box-sizing: border-box;
-    background: #0f172a;
-    color: #e2e8f0;
+    padding: 16px;
+    gap: 12px;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .breadcrumb {
-    margin-bottom: 16px;
-    font-size: 0.875rem;
-    color: #64748b;
-  }
-
-  .breadcrumb a {
-    color: #3b82f6;
-  }
-
-  .header {
+  .toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
   }
 
-  .header h1 {
-    margin: 0;
-    color: #f8fafc;
-  }
-
-  .controls {
+  .stats {
     display: flex;
-    align-items: center;
     gap: 16px;
   }
 
-  .info, .zoom {
-    font-size: 0.875rem;
-    color: #94a3b8;
+  .stat {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .stat { color: rgba(255, 255, 255, 0.5); }
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.7);
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.1s;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .btn {
+      color: rgba(255, 255, 255, 0.7);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.06);
+    }
   }
 
   .error {
-    background: #450a0a;
-    border: 1px solid #dc2626;
-    padding: 16px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
     border-radius: 8px;
-    color: #fecaca;
   }
 
-  .map-wrapper {
+  .canvas-wrap {
     flex: 1;
-    display: flex;
-    gap: 16px;
     min-height: 0;
-  }
-
-  .map-container {
-    flex: 1;
-    border: 1px solid #1e293b;
-    border-radius: 12px;
+    border-radius: 8px;
     overflow: hidden;
-    min-height: 400px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
   }
 
-  .map-canvas {
+  @media (prefers-color-scheme: dark) {
+    .canvas-wrap { border-color: rgba(255, 255, 255, 0.08); }
+  }
+
+  .canvas {
     width: 100%;
     height: 100%;
     cursor: grab;
   }
 
-  .map-canvas:active {
+  .canvas:active {
     cursor: grabbing;
   }
 
-  .sidebar {
-    width: 240px;
+  .selection {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 12px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    font-size: 13px;
   }
 
-  .panel {
-    background: #1e293b;
-    border-radius: 12px;
-    padding: 16px;
+  @media (prefers-color-scheme: dark) {
+    .selection {
+      background: rgba(20, 20, 30, 0.95);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
   }
 
-  .panel h3 {
-    margin: 0 0 12px 0;
-    font-size: 0.875rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .entity-info {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .entity-name {
-    margin: 0;
-    font-weight: 600;
-    color: #f8fafc;
-  }
-
-  .entity-id {
-    margin: 0;
-    font-size: 0.75rem;
-    color: #64748b;
-    font-family: monospace;
+  .name {
+    font-weight: 500;
   }
 
   .coords {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-family: monospace;
-    font-size: 0.8125rem;
-    color: #94a3b8;
-    background: #0f172a;
-    padding: 8px 12px;
-    border-radius: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.5);
   }
 
-  .view-btn {
-    display: block;
-    text-align: center;
-    padding: 8px 16px;
-    background: #3b82f6;
-    color: #fff;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: background 0.15s;
-  }
-
-  .view-btn:hover {
-    background: #2563eb;
-  }
-
-  .no-selection {
-    margin: 0;
-    color: #64748b;
-    font-style: italic;
-    font-size: 0.875rem;
-  }
-
-  .height-legend {
-    display: flex;
-    gap: 12px;
-  }
-
-  .gradient {
-    width: 20px;
-    border-radius: 4px;
-    background: linear-gradient(
-      to bottom,
-      rgb(255, 100, 0),
-      rgb(100, 255, 100),
-      rgb(0, 100, 200)
-    );
-  }
-
-  .labels {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: #94a3b8;
-    font-family: monospace;
-  }
-
-  .help-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    font-size: 0.8125rem;
-    color: #94a3b8;
-  }
-
-  .help-list li {
-    padding: 4px 0;
-    border-bottom: 1px solid #334155;
-  }
-
-  .help-list li:last-child {
-    border-bottom: none;
-  }
-
-  button {
-    padding: 8px 16px;
-    border: 1px solid #334155;
-    border-radius: 6px;
-    background: #1e293b;
-    color: #e2e8f0;
-    cursor: pointer;
-    font-size: 0.875rem;
-    transition: all 0.15s;
-  }
-
-  button:hover:not(:disabled) {
-    background: #334155;
-    border-color: #475569;
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: 768px) {
-    .map-wrapper {
-      flex-direction: column;
-    }
-
-    .sidebar {
-      width: 100%;
-      flex-direction: row;
-      flex-wrap: wrap;
-    }
-
-    .panel {
-      flex: 1;
-      min-width: 200px;
-    }
+  @media (prefers-color-scheme: dark) {
+    .coords { color: rgba(255, 255, 255, 0.5); }
   }
 </style>

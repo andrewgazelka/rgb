@@ -301,19 +301,45 @@ impl ChunkPos {
 }
 
 /// Pre-encoded chunk data for network transmission
-#[derive(Component, Clone, Introspectable)]
+#[derive(Component, Clone)]
 #[component(opaque)]
-#[introspectable(opaque)]
 pub struct ChunkData {
-    pub encoded: Arc<Bytes>,
+    pub encoded: Bytes,
 }
 
 impl ChunkData {
     #[must_use]
     pub fn new(encoded: Bytes) -> Self {
-        Self {
-            encoded: Arc::new(encoded),
-        }
+        Self { encoded }
+    }
+}
+
+impl Introspectable for ChunkData {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "size": format_bytes(self.encoded.len()),
+        })
+    }
+
+    fn from_json(_value: serde_json::Value) -> Result<Self, rgb_ecs_introspect::IntrospectError> {
+        // Can't deserialize - we don't have the actual chunk data
+        Err(rgb_ecs_introspect::IntrospectError::OpaqueComponent(
+            Self::type_name().to_string(),
+        ))
+    }
+
+    fn is_opaque() -> bool {
+        false // Not opaque - we show size info
+    }
+}
+
+fn format_bytes(bytes: usize) -> String {
+    if bytes >= 1024 * 1024 {
+        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else {
+        format!("{bytes} B")
     }
 }
 

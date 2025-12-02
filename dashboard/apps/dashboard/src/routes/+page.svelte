@@ -1,13 +1,11 @@
 <script lang="ts">
-  import { client, getApiUrl, setApiUrl, type WorldResponse, type ListEntitiesResponse } from '$lib/api';
+  import { client, type WorldResponse, type ListEntitiesResponse } from '$lib/api';
   import { onMount } from 'svelte';
 
   let world: WorldResponse | null = $state(null);
   let entities: ListEntitiesResponse | null = $state(null);
   let loading = $state(true);
   let error: string | null = $state(null);
-  let apiUrl = $state('');
-  let showSettings = $state(false);
 
   async function loadData() {
     loading = true;
@@ -24,80 +22,43 @@
     }
   }
 
-  function handleUrlChange() {
-    setApiUrl(apiUrl);
-    showSettings = false;
-    loadData();
-  }
-
   onMount(() => {
-    apiUrl = getApiUrl();
     loadData();
-    // Refresh every 2 seconds
     const interval = setInterval(loadData, 2000);
     return () => clearInterval(interval);
   });
 </script>
 
 <svelte:head>
-  <title>RGB ECS Dashboard</title>
+  <title>Dashboard - RGB</title>
 </svelte:head>
 
-<main class="container">
-  <header class="header">
-    <h1>RGB ECS Dashboard</h1>
-    <nav class="nav">
-      <a href="/world" class="nav-link">World Map</a>
-      <a href="/map" class="nav-link secondary">Chunk Map</a>
-      <button class="settings-btn" onclick={() => showSettings = !showSettings}>
-        {showSettings ? 'Close' : 'Settings'}
-      </button>
-    </nav>
-  </header>
-
-  {#if showSettings}
-    <div class="settings-panel">
-      <label>
-        <span>API Server URL:</span>
-        <input
-          type="text"
-          bind:value={apiUrl}
-          placeholder="http://localhost:8080"
-        />
-      </label>
-      <button onclick={handleUrlChange}>Connect</button>
-    </div>
-  {/if}
-
+<div class="page">
   {#if loading && !world}
-    <p>Loading...</p>
+    <div class="loading">Loading...</div>
   {:else if error}
     <div class="error">
-      <p>Error: {error}</p>
-      <button onclick={loadData}>Retry</button>
+      {error}
+      <button class="btn" onclick={loadData}>Retry</button>
     </div>
   {:else if world}
-    <section class="stats">
-      <h2>World Stats</h2>
-      <div class="stat-grid">
-        <div class="stat">
-          <span class="stat-value">{world.entity_count}</span>
-          <span class="stat-label">Entities</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">{world.archetype_count}</span>
-          <span class="stat-label">Archetypes</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">{world.component_count}</span>
-          <span class="stat-label">Component Types</span>
-        </div>
+    <div class="stats">
+      <div class="stat">
+        <span class="value">{world.entity_count.toLocaleString()}</span>
+        <span class="label">Entities</span>
       </div>
-    </section>
+      <div class="stat">
+        <span class="value">{world.archetype_count}</span>
+        <span class="label">Archetypes</span>
+      </div>
+      <div class="stat">
+        <span class="value">{world.component_count}</span>
+        <span class="label">Components</span>
+      </div>
+    </div>
 
-    {#if entities}
-      <section class="entities">
-        <h2>Entities ({entities.total})</h2>
+    {#if entities && entities.entities.length > 0}
+      <div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -109,170 +70,225 @@
           <tbody>
             {#each entities.entities as entity}
               <tr>
-                <td>
+                <td class="id">
                   <a href="/entities/{entity.id}">{entity.id}</a>
                 </td>
-                <td>{entity.name ?? '(unnamed)'}</td>
-                <td>{entity.components.join(', ')}</td>
+                <td class="name">{entity.name ?? '-'}</td>
+                <td class="components">{entity.components.join(', ')}</td>
               </tr>
             {/each}
           </tbody>
         </table>
-      </section>
+      </div>
     {/if}
   {/if}
-</main>
+</div>
 
 <style>
-  .container {
-    max-width: 1200px;
+  .page {
+    flex: 1;
+    padding: 24px;
+    max-width: 1000px;
     margin: 0 auto;
-    padding: 20px;
-    font-family: system-ui, sans-serif;
+    width: 100%;
+    min-height: 0;
+    overflow: auto;
   }
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-
-  h1 {
-    margin: 0;
-  }
-
-  .nav {
-    display: flex;
-    gap: 16px;
-  }
-
-  .nav-link {
-    padding: 8px 16px;
-    background: #0066cc;
+  .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
     color: #fff;
-    text-decoration: none;
-    border-radius: 4px;
-  }
-
-  .nav-link:hover {
-    background: #0055aa;
-  }
-
-  .nav-link.secondary {
-    background: #475569;
-  }
-
-  .nav-link.secondary:hover {
-    background: #334155;
-  }
-
-  .settings-btn {
-    padding: 8px 16px;
-    background: #666;
-    color: #fff;
+    background: #1a1a1a;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
   }
 
-  .settings-btn:hover {
-    background: #555;
+  .btn:hover {
+    background: #333;
   }
 
-  .settings-panel {
-    background: #f5f5f5;
-    padding: 16px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    display: flex;
-    gap: 12px;
-    align-items: center;
+  @media (prefers-color-scheme: dark) {
+    .btn {
+      background: #e5e5e5;
+      color: #0a0a0a;
+    }
+    .btn:hover {
+      background: #fff;
+    }
   }
 
-  .settings-panel label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
+  .loading {
+    color: rgba(0, 0, 0, 0.4);
+    font-size: 13px;
   }
 
-  .settings-panel input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-family: monospace;
-  }
-
-  .settings-panel button {
-    padding: 8px 16px;
-    background: #0066cc;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  .settings-panel button:hover {
-    background: #0055aa;
+  @media (prefers-color-scheme: dark) {
+    .loading {
+      color: rgba(255, 255, 255, 0.4);
+    }
   }
 
   .error {
-    background: #fee;
-    border: 1px solid #c00;
-    padding: 10px;
-    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
+    border-radius: 8px;
   }
 
-  .stat-grid {
+  .stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px;
-    margin: 16px 0;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .stats {
+      background: rgba(255, 255, 255, 0.06);
+    }
   }
 
   .stat {
-    background: #f5f5f5;
-    padding: 16px;
-    border-radius: 8px;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.02);
     text-align: center;
   }
 
-  .stat-value {
-    display: block;
-    font-size: 2rem;
-    font-weight: bold;
-    color: #333;
+  @media (prefers-color-scheme: dark) {
+    .stat {
+      background: rgba(255, 255, 255, 0.02);
+    }
   }
 
-  .stat-label {
+  .value {
     display: block;
-    font-size: 0.875rem;
-    color: #666;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  .label {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .label {
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+
+  .table-wrap {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .table-wrap {
+      border-color: rgba(255, 255, 255, 0.08);
+    }
   }
 
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
-  }
-
-  th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
+    font-size: 13px;
   }
 
   th {
-    background: #f5f5f5;
+    padding: 10px 16px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
-  tr:hover {
-    background: #f9f9f9;
+  @media (prefers-color-scheme: dark) {
+    th {
+      color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
   }
 
-  a {
-    color: #0066cc;
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   }
+
+  @media (prefers-color-scheme: dark) {
+    td {
+      border-bottom-color: rgba(255, 255, 255, 0.04);
+    }
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tr:hover td {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  .id {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+  }
+
+  .id a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .id a:hover {
+    text-decoration: underline;
+  }
+
+  .name {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.7);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .name {
+      color: rgba(255, 255, 255, 0.7);
+    }
+  }
+
+  .components {
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 12px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .components {
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+
 </style>
