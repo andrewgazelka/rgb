@@ -12,7 +12,7 @@ use crate::components::{
 };
 use crate::dashboard::{
     ChunkInfo, ComponentValue, DashboardChannels, DashboardRequest, EntityDetails, EntitySummary,
-    HistoryEntryInfo, PlayerInfo, PositionInfo, WorldInfo,
+    HistoryEntryInfo, ListEntitiesResponse, PlayerInfo, PositionInfo, WorldInfo,
 };
 
 /// Process all pending dashboard requests.
@@ -26,11 +26,28 @@ pub fn system_process_dashboard(
         match request {
             DashboardRequest::GetWorld { response } => {
                 let mut count = 0;
-                world.query::<()>().build().each(|_| {
-                    count += 1;
-                });
+                world
+                    .query::<()>()
+                    .with(flecs::Wildcard::id())
+                    .without((flecs::ChildOf::ID, flecs::Flecs::ID))
+                    .self_()
+                    .up()
+                    .without(flecs::Module::id())
+                    .self_()
+                    .up()
+                    .with(flecs::Prefab::id())
+                    .optional()
+                    .with(flecs::Disabled::id())
+                    .optional()
+                    .build()
+                    .each(|_| {
+                        count += 1;
+                    });
                 let _ = response.send(WorldInfo {
                     entity_count: count,
+                    archetype_count: 0,
+                    component_count: 0,
+                    globals: serde_json::json!({}),
                 });
             }
 
@@ -40,41 +57,58 @@ pub fn system_process_dashboard(
                 response,
             } => {
                 let mut entities = Vec::new();
+                let mut total = 0;
                 let mut skipped = 0;
 
-                world.query::<()>().build().each_entity(|entity, _| {
-                    if skipped < offset {
-                        skipped += 1;
-                        return;
-                    }
-                    if entities.len() >= limit {
-                        return;
-                    }
+                world
+                    .query::<()>()
+                    .with(flecs::Wildcard::id())
+                    .without((flecs::ChildOf::ID, flecs::Flecs::ID))
+                    .self_()
+                    .up()
+                    .without(flecs::Module::id())
+                    .self_()
+                    .up()
+                    .with(flecs::Prefab::id())
+                    .optional()
+                    .with(flecs::Disabled::id())
+                    .optional()
+                    .build()
+                    .each_entity(|entity, _| {
+                        total += 1;
 
-                    let name = entity.try_get::<&Name>(|n| n.value.clone());
+                        if skipped < offset {
+                            skipped += 1;
+                            return;
+                        }
+                        if entities.len() >= limit {
+                            return;
+                        }
 
-                    let mut components = Vec::new();
-                    if entity.has(Player) {
-                        components.push("Player".to_string());
-                    }
-                    if entity.has(Connection) {
-                        components.push("Connection".to_string());
-                    }
-                    if entity.try_get::<&Position>(|_| ()).is_some() {
-                        components.push("Position".to_string());
-                    }
-                    if entity.try_get::<&ChunkPos>(|_| ()).is_some() {
-                        components.push("ChunkPos".to_string());
-                    }
+                        let name = entity.try_get::<&Name>(|n| n.value.clone());
 
-                    entities.push(EntitySummary {
-                        id: entity.id().0,
-                        name,
-                        components,
+                        let mut components = Vec::new();
+                        if entity.has(Player) {
+                            components.push("Player".to_string());
+                        }
+                        if entity.has(Connection) {
+                            components.push("Connection".to_string());
+                        }
+                        if entity.try_get::<&Position>(|_| ()).is_some() {
+                            components.push("Position".to_string());
+                        }
+                        if entity.try_get::<&ChunkPos>(|_| ()).is_some() {
+                            components.push("ChunkPos".to_string());
+                        }
+
+                        entities.push(EntitySummary {
+                            id: entity.id().0,
+                            name,
+                            components,
+                        });
                     });
-                });
 
-                let _ = response.send(entities);
+                let _ = response.send(ListEntitiesResponse { entities, total });
             }
 
             DashboardRequest::GetEntity { id, response } => {

@@ -28,7 +28,7 @@ pub enum DashboardRequest {
     ListEntities {
         limit: usize,
         offset: usize,
-        response: Sender<Vec<EntitySummary>>,
+        response: Sender<ListEntitiesResponse>,
     },
     GetEntity {
         id: u64,
@@ -49,6 +49,9 @@ pub enum DashboardRequest {
 #[derive(Serialize, Clone)]
 pub struct WorldInfo {
     pub entity_count: usize,
+    pub archetype_count: usize,
+    pub component_count: usize,
+    pub globals: serde_json::Value,
 }
 
 #[derive(Serialize, Clone)]
@@ -56,6 +59,12 @@ pub struct EntitySummary {
     pub id: u64,
     pub name: Option<String>,
     pub components: Vec<String>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ListEntitiesResponse {
+    pub entities: Vec<EntitySummary>,
+    pub total: usize,
 }
 
 #[derive(Serialize, Clone)]
