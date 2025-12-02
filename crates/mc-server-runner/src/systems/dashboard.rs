@@ -15,6 +15,18 @@ use crate::dashboard::{
     HistoryEntryInfo, ListEntitiesResponse, PlayerInfo, PositionInfo, WorldInfo,
 };
 
+/// Build a query that returns user entities, filtering out internal Flecs entities.
+#[rustfmt::skip]
+fn user_entities_query(world: &World) -> Query<()> {
+    world.query::<()>()
+        .with(flecs::Wildcard::id())
+        .without((flecs::ChildOf::ID, flecs::Flecs::ID)).self_().up()
+        .without(flecs::Module::id()).self_().up()
+        .with(flecs::Prefab::id()).optional()
+        .with(flecs::Disabled::id()).optional()
+        .build()
+}
+
 /// Process all pending dashboard requests.
 pub fn system_process_dashboard(
     world: &World,
