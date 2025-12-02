@@ -1,0 +1,19 @@
+[package]
+name = "flecs-history"
+description = "Serialization and history tracking for Flecs ECS components"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+flecs_ecs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+bincode.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

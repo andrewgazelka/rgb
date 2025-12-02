@@ -47,6 +47,9 @@ members = [
     "crates/rgb-storage",
     "crates/rgb-tick",
     "crates/query-dsl",
+    # Flecs-based crates
+    "crates/flecs-history",
+    "crates/flecs-rgb",
 ]
 
 [workspace.package]
@@ -61,6 +64,7 @@ name = "mc-server"
 [workspace.dependencies]
 rayon = "1.10"
 crossbeam-channel = "0.5"
+flecs_ecs = { path = "../Flecs-Rust/flecs_ecs" }
 
 # New RGB ECS workspace dependencies
 rgb-ecs = { path = "crates/rgb-ecs" }

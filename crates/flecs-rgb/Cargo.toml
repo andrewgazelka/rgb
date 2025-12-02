@@ -1,0 +1,17 @@
+[package]
+name = "flecs-rgb"
+description = "RGB spatial partitioning and parallel execution for Flecs ECS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+flecs_ecs.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true
