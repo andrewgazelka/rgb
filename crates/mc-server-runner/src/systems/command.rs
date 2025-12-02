@@ -1,16 +1,16 @@
 //! Command system with clap integration
 //!
 //! Handles incoming chat commands and generates Minecraft command tree packets.
-//! Uses clap for argument parsing to provide a familiar CLI experience.
 
 use bytes::{BufMut, Bytes, BytesMut};
+use flecs_ecs::prelude::*;
 use mc_protocol::{Decode, Encode};
-use rgb_ecs::{Entity, World};
 use tracing::{debug, info};
 
-use crate::components::{EntityId, InPlayState, Name, PacketBuffer, Position, Rotation};
+use crate::components::{
+    EntityId, InPlayState, Name, PacketBuffer, Position, Rotation, TpsTracker,
+};
 use crate::protocol::encode_packet;
-use crate::systems::history::{enable_history_by_name, format_history, query_history};
 
 use mc_data::play::clientbound::{Commands, SystemChat};
 use mc_data::play::serverbound::ChatCommand;
@@ -62,25 +62,8 @@ pub fn registered_commands() -> Vec<CommandDef> {
             args: vec![ArgDef {
                 name: "entity",
                 parser_id: parser_ids::ENTITY,
-                // Entity selector flags: single entity, players only = false
                 parser_data: Some(vec![0x01]), // SINGLE flag
             }],
-        },
-        CommandDef {
-            name: "history",
-            description: "View component history for an entity",
-            args: vec![
-                ArgDef {
-                    name: "entity",
-                    parser_id: parser_ids::ENTITY,
-                    parser_data: Some(vec![0x01]), // SINGLE flag
-                },
-                ArgDef {
-                    name: "component",
-                    parser_id: parser_ids::STRING_SINGLE_WORD,
-                    parser_data: Some(vec![0x00]), // SINGLE_WORD mode
-                },
-            ],
         },
         CommandDef {
             name: "tps",
@@ -96,22 +79,6 @@ pub fn registered_commands() -> Vec<CommandDef> {
             name: "entities",
             description: "List all entities",
             args: vec![],
-        },
-        CommandDef {
-            name: "track",
-            description: "Enable history tracking for entity/component",
-            args: vec![
-                ArgDef {
-                    name: "entity",
-                    parser_id: parser_ids::ENTITY,
-                    parser_data: Some(vec![0x01]), // SINGLE flag
-                },
-                ArgDef {
-                    name: "component",
-                    parser_id: parser_ids::STRING_SINGLE_WORD,
-                    parser_data: Some(vec![0x00]), // SINGLE_WORD mode
-                },
-            ],
         },
     ]
 }
@@ -302,457 +269,132 @@ fn parse_command(input: &str) -> Option<(&str, Vec<&str>)> {
 fn execute_command(
     cmd: &str,
     args: &[&str],
-    executor: Entity,
-    world: &World,
+    executor: EntityView,
+    world: &WorldRef,
 ) -> Result<String, String> {
     match cmd {
         "tps" => {
-            let tps = world
-                .get::<crate::components::TpsTracker>(Entity::WORLD)
-                .ok_or("TPS tracker not found")?;
+            let tps = world.get::<&TpsTracker>(|t| *t);
             Ok(format!(
-                "§aTPS: §f{:.1} §7(5s) §f{:.1} §7(15s) §f{:.1} §7(1m)",
+                "TPS: {:.1} (5s) {:.1} (15s) {:.1} (1m)",
                 tps.tps_5s, tps.tps_15s, tps.tps_1m
             ))
         }
         "pos" => {
-            let pos = world
-                .get::<Position>(executor)
+            let pos = executor
+                .try_get::<&Position>(|p| *p)
                 .ok_or("Position not found")?;
-            let rot = world.get::<Rotation>(executor);
+            let rot = executor.try_get::<&Rotation>(|r| *r);
             if let Some(rot) = rot {
                 Ok(format!(
-                    "§aPosition: §f{:.2}, {:.2}, {:.2} §7| Yaw: {:.1} Pitch: {:.1}",
+                    "Position: {:.2}, {:.2}, {:.2} | Yaw: {:.1} Pitch: {:.1}",
                     pos.x, pos.y, pos.z, rot.yaw, rot.pitch
                 ))
             } else {
                 Ok(format!(
-                    "§aPosition: §f{:.2}, {:.2}, {:.2}",
+                    "Position: {:.2}, {:.2}, {:.2}",
                     pos.x, pos.y, pos.z
                 ))
             }
         }
         "entities" => {
-            // Parse optional query DSL from args
-            let query_str = if args.is_empty() {
-                "*" // Default: all entities
-            } else {
-                &args.join(" ")
-            };
-
-            let query = match query_dsl::parse_query(query_str) {
-                Ok(q) => q,
-                Err(e) => return Err(format!("§cQuery parse error: {}", e)),
-            };
-
-            // Collect matching entities
-            let mut results = Vec::new();
-
-            for entity in world.entities_iter() {
-                // Skip the WORLD entity
-                if entity == rgb_ecs::Entity::WORLD {
-                    continue;
-                }
-
-                let mut matches = true;
-                let mut components_found = Vec::new();
-
-                for term in &query.terms {
-                    let component_match = match &term.kind {
-                        query_dsl::TermKind::Wildcard => {
-                            // Collect all components this entity has
-                            if let Some(name) = world.get::<Name>(entity) {
-                                components_found.push(format!("Name({})", name.value));
-                            }
-                            if let Some(pos) = world.get::<Position>(entity) {
-                                components_found.push(format!(
-                                    "Position({:.1},{:.1},{:.1})",
-                                    pos.x, pos.y, pos.z
-                                ));
-                            }
-                            if let Some(rot) = world.get::<Rotation>(entity) {
-                                components_found
-                                    .push(format!("Rotation({:.0},{:.0})", rot.yaw, rot.pitch));
-                            }
-                            if let Some(eid) = world.get::<EntityId>(entity) {
-                                components_found.push(format!("EntityId({})", eid.value));
-                            }
-                            if world.has::<InPlayState>(entity) {
-                                components_found.push("InPlayState".to_string());
-                            }
-                            if world.has::<crate::components::Player>(entity) {
-                                components_found.push("Player".to_string());
-                            }
-                            if world.has::<crate::components::Connection>(entity) {
-                                components_found.push("Connection".to_string());
-                            }
-                            if world.has::<crate::components::NeedsSpawnChunks>(entity) {
-                                components_found.push("NeedsSpawnChunks".to_string());
-                            }
-                            true
-                        }
-                        query_dsl::TermKind::Component(name) => {
-                            let has = match name.as_str() {
-                                "Position" => world.has::<Position>(entity),
-                                "Rotation" => world.has::<Rotation>(entity),
-                                "Name" => world.has::<Name>(entity),
-                                "EntityId" => world.has::<EntityId>(entity),
-                                "InPlayState" => world.has::<InPlayState>(entity),
-                                "Player" => world.has::<crate::components::Player>(entity),
-                                "Connection" => world.has::<crate::components::Connection>(entity),
-                                "NeedsSpawnChunks" => {
-                                    world.has::<crate::components::NeedsSpawnChunks>(entity)
-                                }
-                                "ChunkLoaded" => {
-                                    world.has::<crate::components::ChunkLoaded>(entity)
-                                }
-                                "ChunkPos" => world.has::<crate::components::ChunkPos>(entity),
-                                _ => false,
-                            };
-                            if has && term.operator != query_dsl::Operator::Not {
-                                components_found.push(name.clone());
-                            }
-                            has
-                        }
-                        query_dsl::TermKind::Pair(_) => {
-                            // Pairs not yet supported
-                            false
-                        }
-                    };
-
-                    match term.operator {
-                        query_dsl::Operator::And => {
-                            if !component_match {
-                                matches = false;
-                                break;
-                            }
-                        }
-                        query_dsl::Operator::Not => {
-                            if component_match {
-                                matches = false;
-                                break;
-                            }
-                        }
-                        query_dsl::Operator::Optional => {
-                            // Optional doesn't affect matching
-                        }
-                        query_dsl::Operator::Or => {
-                            // For simplicity, OR with previous term
-                            if component_match {
-                                matches = true;
-                            }
-                        }
-                    }
-                }
-
-                if matches && !components_found.is_empty() {
-                    let eid = world.get::<EntityId>(entity).map(|e| e.value);
-                    let name = world.get::<Name>(entity).map(|n| n.value);
-
-                    let label = match (name, eid) {
-                        (Some(n), Some(id)) => format!("§f{} §7(id: {})", n, id),
-                        (Some(n), None) => format!("§f{}", n),
-                        (None, Some(id)) => format!("§7Entity §f{}", id),
-                        (None, None) => format!("§7Entity §f{:?}", entity),
-                    };
-
-                    results.push(format!(
-                        "  §7- {} §8[{}]",
-                        label,
-                        components_found.join(", ")
-                    ));
-                }
-            }
-
-            if results.is_empty() {
-                Ok(format!("§7No entities match query: §f{}", query))
-            } else {
-                Ok(format!(
-                    "§aMatching entities ({}):§r\n{}",
-                    results.len(),
-                    results.join("\n")
-                ))
-            }
+            let mut count = 0;
+            world.query::<&EntityId>().build().each(|_| count += 1);
+            Ok(format!("Total entities with EntityId: {}", count))
         }
         "inspect" => {
             if args.is_empty() {
                 return Err("Usage: /inspect <entity>".to_string());
             }
 
-            // For now, just inspect self if "@s" or parse entity ID
-            let target = if args[0] == "@s" {
-                executor
-            } else if let Ok(eid) = args[0].parse::<i32>() {
-                // Find entity by EntityId
-                world
-                    .query_single::<EntityId>()
-                    .find(|(_, id)| id.value == eid)
-                    .map(|(e, _)| e)
-                    .ok_or_else(|| format!("Entity with ID {} not found", eid))?
-            } else {
-                return Err("Invalid entity selector. Use @s or entity ID".to_string());
-            };
+            // For now, just inspect self if "@s"
+            if args[0] == "@s" {
+                let mut components = Vec::new();
 
-            let mut components = Vec::new();
-
-            // Check for known components
-            if let Some(name) = world.get::<Name>(target) {
-                components.push(format!("§7Name: §f{}", name.value));
-            }
-            if let Some(pos) = world.get::<Position>(target) {
-                components.push(format!(
-                    "§7Position: §f{:.2}, {:.2}, {:.2}",
-                    pos.x, pos.y, pos.z
-                ));
-            }
-            if let Some(rot) = world.get::<Rotation>(target) {
-                components.push(format!(
-                    "§7Rotation: §fyaw={:.1} pitch={:.1}",
-                    rot.yaw, rot.pitch
-                ));
-            }
-            if let Some(eid) = world.get::<EntityId>(target) {
-                components.push(format!("§7EntityId: §f{}", eid.value));
-            }
-            if world.has::<InPlayState>(target) {
-                components.push("§7InPlayState: §atrue".to_string());
-            }
-
-            if components.is_empty() {
-                Ok("§7No known components found".to_string())
-            } else {
-                Ok(format!("§aComponents:\n{}", components.join("\n")))
-            }
-        }
-        "history" => {
-            if args.len() < 2 {
-                return Err(
-                    "§cUsage: /history <entity> <component>\n§7Example: /history @s Position"
-                        .to_string(),
-                );
-            }
-
-            // Parse entity selector
-            let target = if args[0] == "@s" {
-                executor
-            } else if let Ok(eid) = args[0].parse::<i32>() {
-                world
-                    .query_single::<EntityId>()
-                    .find(|(_, id)| id.value == eid)
-                    .map(|(e, _)| e)
-                    .ok_or_else(|| format!("Entity with ID {} not found", eid))?
-            } else {
-                return Err("Invalid entity selector. Use @s or entity ID".to_string());
-            };
-
-            let component_name = args[1];
-
-            // Normalize component name (capitalize first letter)
-            let normalized_name = {
-                let mut chars = component_name.chars();
-                match chars.next() {
-                    None => component_name.to_string(),
-                    Some(first) => first.to_uppercase().chain(chars).collect(),
+                if let Some(name) = executor.try_get::<&Name>(|n| n.value.clone()) {
+                    components.push(format!("Name: {}", name));
                 }
-            };
+                if let Some(pos) = executor.try_get::<&Position>(|p| *p) {
+                    components.push(format!(
+                        "Position: {:.2}, {:.2}, {:.2}",
+                        pos.x, pos.y, pos.z
+                    ));
+                }
+                if let Some(rot) = executor.try_get::<&Rotation>(|r| *r) {
+                    components.push(format!(
+                        "Rotation: yaw={:.1} pitch={:.1}",
+                        rot.yaw, rot.pitch
+                    ));
+                }
+                if let Some(eid) = executor.try_get::<&EntityId>(|e| e.value) {
+                    components.push(format!("EntityId: {}", eid));
+                }
+                if executor.has::<InPlayState>() {
+                    components.push("InPlayState: true".to_string());
+                }
 
-            // Try to get history first
-            if let Some(history) = query_history(world, target, &normalized_name) {
-                return Ok(format_history(history, 10));
-            }
-
-            // No history tracked - show current value instead
-            let current_value = match normalized_name.as_str() {
-                "Position" => world
-                    .get::<Position>(target)
-                    .map(|p| format!("§7Current: §f({:.2}, {:.2}, {:.2})", p.x, p.y, p.z)),
-                "Rotation" => world
-                    .get::<Rotation>(target)
-                    .map(|r| format!("§7Current: §fyaw={:.1}, pitch={:.1}", r.yaw, r.pitch)),
-                "Name" => world
-                    .get::<Name>(target)
-                    .map(|n| format!("§7Current: §f{}", n.value)),
-                "EntityId" => world
-                    .get::<EntityId>(target)
-                    .map(|e| format!("§7Current: §f{}", e.value)),
-                _ => None,
-            };
-
-            match current_value {
-                Some(val) => Ok(format!(
-                    "§eNo history recorded yet for {}.\n{}\n§7Use /track @s {} to enable tracking.",
-                    normalized_name, val, normalized_name
-                )),
-                None => Err(format!(
-                    "§cComponent '{}' not found on entity or unknown component type.",
-                    normalized_name
-                )),
+                if components.is_empty() {
+                    Ok("No known components found".to_string())
+                } else {
+                    Ok(format!("Components:\n{}", components.join("\n")))
+                }
+            } else {
+                Err("Invalid entity selector. Use @s".to_string())
             }
         }
-        // "track" is handled separately as a deferred command
-        "track" => Err("__DEFERRED_TRACK__".to_string()),
-        _ => Err(format!("§cUnknown command: /{}", cmd)),
-    }
-}
-
-/// Deferred command that needs mutable world access
-pub enum DeferredCommand {
-    EnableTracking {
-        entity: Entity,
-        component_name: String,
-        response_to: Entity,
-    },
-}
-
-/// Parse the /track command and return a deferred command
-fn parse_track_command(
-    args: &[&str],
-    executor: Entity,
-    world: &World,
-) -> Result<DeferredCommand, String> {
-    if args.len() < 2 {
-        return Err(
-            "§cUsage: /track <entity> <component>\n§7Example: /track @s Position".to_string(),
-        );
-    }
-
-    // Parse entity selector
-    let target = if args[0] == "@s" {
-        executor
-    } else if let Ok(eid) = args[0].parse::<i32>() {
-        world
-            .query_single::<EntityId>()
-            .find(|(_, id)| id.value == eid)
-            .map(|(e, _)| e)
-            .ok_or_else(|| format!("Entity with ID {} not found", eid))?
-    } else {
-        return Err("Invalid entity selector. Use @s or entity ID".to_string());
-    };
-
-    let component_name = args[1];
-
-    // Normalize component name (capitalize first letter)
-    let normalized_name = {
-        let mut chars = component_name.chars();
-        match chars.next() {
-            None => component_name.to_string(),
-            Some(first) => first.to_uppercase().chain(chars).collect(),
-        }
-    };
-
-    // Check if already tracked
-    if query_history(world, target, &normalized_name).is_some() {
-        return Err(format!(
-            "§eHistory tracking already enabled for {} on this entity.",
-            normalized_name
-        ));
-    }
-
-    Ok(DeferredCommand::EnableTracking {
-        entity: target,
-        component_name: normalized_name,
-        response_to: executor,
-    })
-}
-
-/// Execute a deferred command that needs mutable world access
-pub fn execute_deferred_command(world: &mut World, cmd: DeferredCommand) {
-    match cmd {
-        DeferredCommand::EnableTracking {
-            entity,
-            component_name,
-            response_to,
-        } => {
-            let response = match enable_history_by_name(world, entity, &component_name) {
-                Ok(()) => format!(
-                    "§aEnabled history tracking for {} on entity.",
-                    component_name
-                ),
-                Err(e) => format!("§cFailed to enable tracking: {}", e),
-            };
-
-            if let Some(mut buffer) = world.get::<PacketBuffer>(response_to) {
-                send_chat_message(&mut buffer, &response);
-                world.update(response_to, buffer);
-            }
-        }
+        _ => Err(format!("Unknown command: /{}", cmd)),
     }
 }
 
 /// System: Handle incoming chat commands
-pub fn system_handle_commands(world: &mut World) {
-    let play_entities: Vec<_> = world
-        .query_single::<InPlayState>()
-        .map(|(entity, _)| entity)
-        .collect();
+pub fn system_handle_commands<T>(it: &TableIter<false, T>) {
+    let world = it.world();
 
-    // Collect deferred commands to execute after the main loop
-    let mut deferred_commands = Vec::new();
+    for i in it.iter() {
+        let executor = it.entity(i);
 
-    for executor in play_entities {
-        let Some(mut buffer) = world.get::<PacketBuffer>(executor) else {
-            continue;
-        };
+        executor.try_get::<&mut PacketBuffer>(|buffer| {
+            let mut commands_to_execute = Vec::new();
+            let mut remaining = Vec::new();
 
-        let mut commands_to_execute = Vec::new();
-        let mut remaining = Vec::new();
-
-        while let Some((packet_id, data)) = buffer.pop_incoming() {
-            if packet_id == CHAT_COMMAND_PACKET_ID {
-                // Parse command string
-                let mut cursor = std::io::Cursor::new(&data[..]);
-                if let Ok(command_str) = String::decode(&mut cursor) {
-                    commands_to_execute.push(command_str);
-                }
-            } else {
-                remaining.push((packet_id, data));
-            }
-        }
-
-        // Put remaining packets back
-        for (id, data) in remaining {
-            buffer.push_incoming(id, data);
-        }
-
-        // Execute commands
-        for command_str in commands_to_execute {
-            let executor_name = world
-                .get::<Name>(executor)
-                .map(|n| n.value)
-                .unwrap_or_else(|| "Unknown".to_string());
-
-            info!("{} executed command: /{}", executor_name, command_str);
-
-            if let Some((cmd, args)) = parse_command(&command_str) {
-                // Handle deferred commands (those needing &mut World)
-                if cmd == "track" {
-                    match parse_track_command(&args, executor, world) {
-                        Ok(deferred) => deferred_commands.push(deferred),
-                        Err(err) => send_chat_message(&mut buffer, &err),
+            while let Some((packet_id, data)) = buffer.pop_incoming() {
+                if packet_id == CHAT_COMMAND_PACKET_ID {
+                    // Parse command string
+                    let mut cursor = std::io::Cursor::new(&data[..]);
+                    if let Ok(command_str) = String::decode(&mut cursor) {
+                        commands_to_execute.push(command_str);
                     }
-                    continue;
+                } else {
+                    remaining.push((packet_id, data));
                 }
-
-                let response = match execute_command(cmd, &args, executor, world) {
-                    Ok(msg) => msg,
-                    Err(err) => err,
-                };
-                send_chat_message(&mut buffer, &response);
             }
-        }
 
-        world.update(executor, buffer);
-    }
+            // Put remaining packets back
+            for (id, data) in remaining {
+                buffer.push_incoming(id, data);
+            }
 
-    // Execute deferred commands that need &mut World
-    for cmd in deferred_commands {
-        execute_deferred_command(world, cmd);
+            // Execute commands
+            for command_str in commands_to_execute {
+                let executor_name = executor
+                    .try_get::<&Name>(|n| n.value.clone())
+                    .unwrap_or_else(|| "Unknown".to_string());
+
+                info!("{} executed command: /{}", executor_name, command_str);
+
+                if let Some((cmd, args)) = parse_command(&command_str) {
+                    let response = match execute_command(cmd, &args, executor, &world) {
+                        Ok(msg) => msg,
+                        Err(err) => err,
+                    };
+                    send_chat_message(buffer, &response);
+                }
+            }
+        });
     }
 }
 
 /// System: Send command tree to new players
-///
-/// Should be called when a player enters play state
 pub fn send_commands_to_player(buffer: &mut PacketBuffer) {
     match build_commands_packet() {
         Ok(data) => {

@@ -1,90 +1,74 @@
 //! Handshake and status systems
 
-use rgb_ecs::{Entity, World};
+use flecs_ecs::prelude::*;
 use tracing::{debug, info};
 
 use crate::components::{ConnectionState, PacketBuffer, ProtocolState, ServerConfig};
 use crate::protocol::{encode_packet, parse_handshake, send_status_response};
 
-/// System: Handle handshake packets
-///
-/// Uses ECS query to find all entities with ProtocolState component.
-pub fn system_handle_handshake(world: &mut World) {
-    // Query all entities with ProtocolState - collect to avoid borrow issues
-    let handshaking: Vec<_> = world
-        .query_single::<ProtocolState>()
-        .filter(|(_, state)| state.0 == ConnectionState::Handshaking)
-        .map(|(entity, _)| entity)
-        .collect();
+/// Handle handshake for a single entity
+pub fn handle_handshake(_entity: EntityView, buffer: &mut PacketBuffer, state: &mut ProtocolState) {
+    if state.0 != ConnectionState::Handshaking {
+        return;
+    }
 
-    for entity in handshaking {
-        let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
-            continue;
-        };
+    debug!("HandleHandshake: checking for packets");
 
-        debug!("HandleHandshake: checking for packets");
+    if let Some((packet_id, data)) = buffer.pop_incoming() {
+        debug!("HandleHandshake: got packet_id={}", packet_id);
+        if packet_id == 0 {
+            // Handshake packet
+            if let Ok((protocol_version, next_state)) = parse_handshake(&data) {
+                info!(
+                    "Handshake: protocol={}, next_state={}",
+                    protocol_version, next_state
+                );
 
-        if let Some((packet_id, data)) = buffer.pop_incoming() {
-            debug!("HandleHandshake: got packet_id={}", packet_id);
-            if packet_id == 0 {
-                // Handshake packet
-                if let Ok((protocol_version, next_state)) = parse_handshake(&data) {
-                    info!(
-                        "Handshake: protocol={}, next_state={}",
-                        protocol_version, next_state
-                    );
+                let new_state = match next_state {
+                    1 => ConnectionState::Status,
+                    2 => ConnectionState::Login,
+                    _ => {
+                        tracing::warn!("Unknown next state: {}", next_state);
+                        return;
+                    }
+                };
 
-                    let new_state = match next_state {
-                        1 => ConnectionState::Status,
-                        2 => ConnectionState::Login,
-                        _ => {
-                            tracing::warn!("Unknown next state: {}", next_state);
-                            continue;
-                        }
-                    };
-
-                    world.update(entity, ProtocolState(new_state));
-                }
+                state.0 = new_state;
             }
-            world.update(entity, buffer);
         }
     }
 }
 
 /// System: Handle status request packets
-pub fn system_handle_status(world: &mut World) {
-    let Some(config) = world.get::<ServerConfig>(Entity::WORLD) else {
-        return;
-    };
+pub fn system_handle_status<T>(it: &TableIter<false, T>) {
+    let world = it.world();
 
-    // Query all entities in Status state
-    let status_entities: Vec<_> = world
-        .query_single::<ProtocolState>()
-        .filter(|(_, state)| state.0 == ConnectionState::Status)
-        .map(|(entity, _)| entity)
-        .collect();
+    // Get ServerConfig singleton
+    let config = world.get::<&ServerConfig>(|config| config.clone());
 
-    for entity in status_entities {
-        let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
-            continue;
-        };
+    for i in it.iter() {
+        let entity = it.entity(i);
 
-        while let Some((packet_id, data)) = buffer.pop_incoming() {
-            match packet_id {
-                0 => {
-                    // Status Request
-                    info!("Status request");
-                    send_status_response(&mut buffer, config.max_players, &config.motd);
-                }
-                1 => {
-                    // Ping - echo back the same data
-                    let packet = encode_packet(1, &data);
-                    buffer.push_outgoing(packet);
-                }
-                _ => {}
+        entity.try_get::<(&mut PacketBuffer, &ProtocolState)>(|(buffer, state)| {
+            if state.0 != ConnectionState::Status {
+                return;
             }
-        }
 
-        world.update(entity, buffer);
+            while let Some((packet_id, data)) = buffer.pop_incoming() {
+                match packet_id {
+                    0 => {
+                        // Status Request
+                        info!("Status request");
+                        send_status_response(buffer, config.max_players, &config.motd);
+                    }
+                    1 => {
+                        // Ping - echo back the same data
+                        let packet = encode_packet(1, &data);
+                        buffer.push_outgoing(packet);
+                    }
+                    _ => {}
+                }
+            }
+        });
     }
 }

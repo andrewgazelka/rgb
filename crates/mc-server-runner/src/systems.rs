@@ -1,7 +1,6 @@
 //! ECS Systems - all game logic
 //!
-//! Uses RGB phase execution model where each color phase executes
-//! independently. Audio markers help profile lag per phase.
+//! Uses Flecs ECS with pipeline phases.
 
 mod attack;
 mod command;
@@ -17,70 +16,238 @@ mod time;
 
 pub use command::send_commands_to_player;
 
-use std::time::Instant;
+use flecs_ecs::prelude::*;
 
-use rgb_ecs::World;
-use rgb_spatial::Color;
+use crate::components::*;
 
-// use crate::audio;
+/// Server module - registers all systems
+#[derive(Component)]
+pub struct ServerModule;
 
-/// Run all systems for one tick with RGB phase profiling.
-pub fn tick(world: &mut World, delta_time: f32) {
-    // Global phase: Network ingress (must happen before RGB phases)
-    network::system_network_ingress(world);
-    network::system_handle_disconnects(world);
+impl Module for ServerModule {
+    fn module(world: &World) {
+        world.module::<ServerModule>("server");
 
-    // Process dashboard introspection requests
-    #[cfg(feature = "dashboard")]
-    introspect::system_process_introspect(world);
+        // Register all component types
+        world.component::<NetworkIngress>();
+        world.component::<NetworkEgress>();
+        world.component::<DisconnectIngress>();
+        world.component::<Connection>();
+        world.component::<ConnectionId>();
+        world.component::<ProtocolState>();
+        world.component::<PacketBuffer>();
+        world.component::<PendingPackets>();
+        world.component::<ConnectionIndex>();
+        world.component::<Player>();
+        world.component::<Name>();
+        world.component::<Uuid>();
+        world.component::<EntityId>();
+        world.component::<Position>();
+        world.component::<Rotation>();
+        world.component::<ChunkPosition>();
+        world.component::<GameMode>();
+        world.component::<NeedsSpawnChunks>();
+        world.component::<InPlayState>();
+        world.component::<EntityIdCounter>();
+        world.component::<ChunkPos>();
+        world.component::<ChunkData>();
+        world.component::<ChunkLoaded>();
+        world.component::<ServerConfig>();
+        world.component::<WorldTime>();
+        world.component::<TpsTracker>();
+        world.component::<DeltaTime>();
 
-    // RGB Phase execution with audio profiling
-    for color in Color::ALL {
-        let _phase_start = Instant::now();
-        // audio::tick_start(color);
+        // Mark singletons
+        world
+            .component::<ServerConfig>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<WorldTime>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<TpsTracker>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<DeltaTime>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<EntityIdCounter>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<PendingPackets>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<ConnectionIndex>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<NetworkIngress>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<NetworkEgress>()
+            .add_trait::<flecs::Singleton>();
+        world
+            .component::<DisconnectIngress>()
+            .add_trait::<flecs::Singleton>();
 
-        run_phase(world, color, delta_time);
+        // ============================================================
+        // NETWORK INGRESS - OnLoad phase (first)
+        // ============================================================
+        world
+            .system_named::<(&NetworkIngress, &mut PendingPackets, &mut ConnectionIndex)>(
+                "NetworkIngress",
+            )
+            .kind::<flecs::pipeline::OnLoad>()
+            .run(|mut it| {
+                while it.next() {
+                    network::system_network_ingress(&it);
+                }
+            });
 
-        let _phase_duration = _phase_start.elapsed();
-        // audio::beep_color(color, phase_duration);
-    }
+        world
+            .system_named::<(&DisconnectIngress, &mut ConnectionIndex)>("HandleDisconnects")
+            .kind::<flecs::pipeline::OnLoad>()
+            .run(|mut it| {
+                while it.next() {
+                    network::system_handle_disconnects(&it);
+                }
+            });
 
-    // Global phase: Network egress (must happen after RGB phases)
-    network::system_network_egress(world);
-}
+        // ============================================================
+        // PROTOCOL HANDLING - PreUpdate phase
+        // ============================================================
+        world
+            .system_named::<(&mut PacketBuffer, &mut ProtocolState)>("HandleHandshake")
+            .kind::<flecs::pipeline::PreUpdate>()
+            .with::<Connection>()
+            .each_entity(|entity, (buffer, state)| {
+                handshake::handle_handshake(entity, buffer, state);
+            });
 
-/// Run systems for a specific RGB phase.
-///
-/// In a full implementation, each color phase would only process
-/// entities in cells of that color, enabling parallel execution.
-/// For now, we run all systems but mark the phase for profiling.
-fn run_phase(world: &mut World, color: Color, delta_time: f32) {
-    // TODO: Filter entities by cell color for true parallel execution
-    // For now, distribute systems across phases for demonstration
+        world
+            .system_named::<(&mut PacketBuffer, &ProtocolState, &ServerConfig)>("HandleStatus")
+            .kind::<flecs::pipeline::PreUpdate>()
+            .with::<Connection>()
+            .run(|mut it| {
+                while it.next() {
+                    handshake::system_handle_status(&it);
+                }
+            });
 
-    match color {
-        Color::Red => {
-            // Protocol handling phase
-            handshake::system_handle_handshake(world);
-            handshake::system_handle_status(world);
-            login::system_handle_login(world);
-            config::system_handle_configuration(world);
-        }
-        Color::Green => {
-            // Play state systems phase
-            play::system_send_spawn_data(world);
-            play::system_handle_movement(world);
-            play::system_send_keepalive(world);
-            play::system_send_position_action_bar(world);
+        world
+            .system_named::<(&mut PacketBuffer, &mut ProtocolState, &EntityIdCounter)>(
+                "HandleLogin",
+            )
+            .kind::<flecs::pipeline::PreUpdate>()
+            .with::<Connection>()
+            .run(|mut it| {
+                while it.next() {
+                    login::system_handle_login(&it);
+                }
+            });
 
-            // Combat and command systems
-            attack::system_handle_attacks(world);
-            command::system_handle_commands(world);
-        }
-        Color::Blue => {
-            // Time systems phase
-            time::system_tick_world_time(world);
-            time::system_update_tps(world, delta_time);
-        }
+        world
+            .system_named::<(&mut PacketBuffer, &mut ProtocolState)>("HandleConfiguration")
+            .kind::<flecs::pipeline::PreUpdate>()
+            .with::<Connection>()
+            .run(|mut it| {
+                while it.next() {
+                    config::system_handle_configuration(&it);
+                }
+            });
+
+        // ============================================================
+        // PLAY STATE - OnUpdate phase
+        // ============================================================
+        world
+            .system_named::<(
+                &mut PacketBuffer,
+                &Position,
+                &EntityId,
+                &ServerConfig,
+                &WorldTime,
+            )>("SendSpawnData")
+            .kind::<flecs::pipeline::OnUpdate>()
+            .with::<NeedsSpawnChunks>()
+            .run(|mut it| {
+                while it.next() {
+                    play::system_send_spawn_data(&it);
+                }
+            });
+
+        world
+            .system_named::<(&mut PacketBuffer, &mut Position, &mut Rotation)>("HandleMovement")
+            .kind::<flecs::pipeline::OnUpdate>()
+            .with::<InPlayState>()
+            .each_entity(|_entity, (buffer, pos, rot)| {
+                play::handle_movement(buffer, pos, rot);
+            });
+
+        world
+            .system_named::<(&mut PacketBuffer, &WorldTime)>("SendKeepalive")
+            .kind::<flecs::pipeline::OnUpdate>()
+            .with::<InPlayState>()
+            .run(|mut it| {
+                while it.next() {
+                    play::system_send_keepalive(&it);
+                }
+            });
+
+        world
+            .system_named::<(&mut PacketBuffer, &Position, &TpsTracker, &WorldTime)>(
+                "SendPositionActionBar",
+            )
+            .kind::<flecs::pipeline::OnUpdate>()
+            .with::<InPlayState>()
+            .run(|mut it| {
+                while it.next() {
+                    play::system_send_position_action_bar(&it);
+                }
+            });
+
+        world
+            .system_named::<(&mut PacketBuffer, &InPlayState)>("HandleAttacks")
+            .kind::<flecs::pipeline::OnUpdate>()
+            .run(|mut it| {
+                while it.next() {
+                    attack::system_handle_attacks(&it);
+                }
+            });
+
+        world
+            .system_named::<(&mut PacketBuffer, &InPlayState)>("HandleCommands")
+            .kind::<flecs::pipeline::OnUpdate>()
+            .run(|mut it| {
+                while it.next() {
+                    command::system_handle_commands(&it);
+                }
+            });
+
+        // ============================================================
+        // TIME - PostUpdate phase
+        // ============================================================
+        world
+            .system_named::<&mut WorldTime>("TickWorldTime")
+            .kind::<flecs::pipeline::PostUpdate>()
+            .each(|time| {
+                time.tick();
+            });
+
+        world
+            .system_named::<(&mut TpsTracker, &DeltaTime)>("UpdateTps")
+            .kind::<flecs::pipeline::PostUpdate>()
+            .each(|(tps, delta)| {
+                tps.update(delta.0);
+            });
+
+        // ============================================================
+        // NETWORK EGRESS - OnStore phase (last)
+        // ============================================================
+        world
+            .system_named::<(&mut PacketBuffer, &ConnectionId, &NetworkEgress)>("NetworkEgress")
+            .kind::<flecs::pipeline::OnStore>()
+            .with::<Connection>()
+            .each(|(buffer, conn_id, egress)| {
+                network::handle_egress(buffer, conn_id, egress);
+            });
     }
 }

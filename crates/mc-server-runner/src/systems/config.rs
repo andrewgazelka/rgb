@@ -1,7 +1,7 @@
 //! Configuration phase system
 
+use flecs_ecs::prelude::*;
 use mc_protocol::Decode;
-use rgb_ecs::World;
 use tracing::debug;
 
 use crate::components::{ConnectionState, NeedsSpawnChunks, PacketBuffer, ProtocolState};
@@ -15,57 +15,52 @@ use crate::registry::{
 };
 
 /// System: Handle configuration packets
-pub fn system_handle_configuration(world: &mut World) {
-    // Query all entities in Configuration state
-    let config_entities: Vec<_> = world
-        .query_single::<ProtocolState>()
-        .filter(|(_, state)| state.0 == ConnectionState::Configuration)
-        .map(|(entity, _)| entity)
-        .collect();
+pub fn system_handle_configuration<T>(it: &TableIter<false, T>) {
+    for i in it.iter() {
+        let entity = it.entity(i);
 
-    for entity in config_entities {
-        let Some(mut buffer) = world.get::<PacketBuffer>(entity) else {
-            continue;
-        };
+        entity.try_get::<(&mut PacketBuffer, &mut ProtocolState)>(|(buffer, state)| {
+            if state.0 != ConnectionState::Configuration {
+                return;
+            }
 
-        while let Some((packet_id, data)) = buffer.pop_incoming() {
-            match packet_id {
-                0 => {
-                    // Client Information
-                    debug!("Got Client Information");
-                }
-                2 => {
-                    // Custom Payload (plugin message)
-                    let mut cursor = std::io::Cursor::new(&data[..]);
-                    if let Ok(channel) = String::decode(&mut cursor) {
-                        debug!("Plugin message on channel: {}", channel);
+            while let Some((packet_id, data)) = buffer.pop_incoming() {
+                match packet_id {
+                    0 => {
+                        // Client Information
+                        debug!("Got Client Information");
+                    }
+                    2 => {
+                        // Custom Payload (plugin message)
+                        let mut cursor = std::io::Cursor::new(&data[..]);
+                        if let Ok(channel) = String::decode(&mut cursor) {
+                            debug!("Plugin message on channel: {}", channel);
+                        }
+                    }
+                    3 => {
+                        // Finish Configuration (Acknowledge)
+                        tracing::info!("Client acknowledged configuration, transitioning to Play");
+                        state.0 = ConnectionState::Play;
+                        entity.add::<NeedsSpawnChunks>();
+                    }
+                    7 => {
+                        // Select Known Packs response
+                        debug!("Client selected known packs");
+
+                        // Send Registry Data
+                        send_registry_data(buffer);
+
+                        // Send Finish Configuration
+                        let packet = encode_packet(3, &[]);
+                        buffer.push_outgoing(packet);
+                        debug!("Sent Finish Configuration");
+                    }
+                    _ => {
+                        debug!("Unknown configuration packet: {}", packet_id);
                     }
                 }
-                3 => {
-                    // Finish Configuration (Acknowledge)
-                    tracing::info!("Client acknowledged configuration, transitioning to Play");
-                    world.update(entity, ProtocolState(ConnectionState::Play));
-                    world.insert(entity, NeedsSpawnChunks);
-                }
-                7 => {
-                    // Select Known Packs response
-                    debug!("Client selected known packs");
-
-                    // Send Registry Data
-                    send_registry_data(&mut buffer);
-
-                    // Send Finish Configuration
-                    let packet = encode_packet(3, &[]);
-                    buffer.push_outgoing(packet);
-                    debug!("Sent Finish Configuration");
-                }
-                _ => {
-                    debug!("Unknown configuration packet: {}", packet_id);
-                }
             }
-        }
-
-        world.update(entity, buffer);
+        });
     }
 }
 

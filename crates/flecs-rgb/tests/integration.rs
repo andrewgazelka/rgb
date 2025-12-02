@@ -1,7 +1,7 @@
 //! Integration tests for flecs-rgb
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use flecs_ecs::prelude::*;
 use flecs_rgb::prelude::*;
@@ -101,11 +101,14 @@ fn test_region_colors_are_assigned() {
     let mut green_count = 0;
     let mut blue_count = 0;
 
-    world.query::<&RegionColor>().build().each(|color| match color {
-        RegionColor::Red => red_count += 1,
-        RegionColor::Green => green_count += 1,
-        RegionColor::Blue => blue_count += 1,
-    });
+    world
+        .query::<&RegionColor>()
+        .build()
+        .each(|color| match color {
+            RegionColor::Red => red_count += 1,
+            RegionColor::Green => green_count += 1,
+            RegionColor::Blue => blue_count += 1,
+        });
 
     // Should have approximately equal distribution
     let total = red_count + green_count + blue_count;
@@ -161,12 +164,21 @@ fn test_scoped_world_set_component() {
     let entity = world
         .entity()
         .set(Position::new(8.0, 64.0, 8.0))
-        .set(Health { current: 100, max: 100 });
+        .set(Health {
+            current: 100,
+            max: 100,
+        });
 
     let scoped = ScopedWorld::new((&world).world(), (0, 0));
 
     // Set a new health value
-    let result = scoped.set(entity, Health { current: 50, max: 100 });
+    let result = scoped.set(
+        entity,
+        Health {
+            current: 50,
+            max: 100,
+        },
+    );
     assert!(result.is_ok());
 
     // Verify the change
@@ -314,7 +326,11 @@ fn handle_damage(
     TOTAL_DAMAGE.fetch_add(event.amount, Ordering::Relaxed);
 }
 
-fn handle_heal(event_ptr: *const core::ffi::c_void, _scoped: &ScopedWorld<'_>, _target: EntityView<'_>) {
+fn handle_heal(
+    event_ptr: *const core::ffi::c_void,
+    _scoped: &ScopedWorld<'_>,
+    _target: EntityView<'_>,
+) {
     let event = unsafe { &*event_ptr.cast::<HealEvent>() };
     TOTAL_HEALING.fetch_add(event.amount, Ordering::Relaxed);
 }
@@ -328,7 +344,10 @@ fn test_event_handler_registration() {
     let player = world
         .entity()
         .set(Position::new(0.0, 64.0, 0.0))
-        .set(Health { current: 100, max: 100 });
+        .set(Health {
+            current: 100,
+            max: 100,
+        });
 
     // Register damage handler
     world.register_handler::<DamageEvent>(player, handle_damage);
@@ -336,9 +355,30 @@ fn test_event_handler_registration() {
     let scoped = ScopedWorld::new((&world).world(), (0, 0));
 
     // Dispatch damage events
-    world.dispatch(player, &DamageEvent { amount: 10, source: 0 }, &scoped);
-    world.dispatch(player, &DamageEvent { amount: 25, source: 0 }, &scoped);
-    world.dispatch(player, &DamageEvent { amount: 15, source: 0 }, &scoped);
+    world.dispatch(
+        player,
+        &DamageEvent {
+            amount: 10,
+            source: 0,
+        },
+        &scoped,
+    );
+    world.dispatch(
+        player,
+        &DamageEvent {
+            amount: 25,
+            source: 0,
+        },
+        &scoped,
+    );
+    world.dispatch(
+        player,
+        &DamageEvent {
+            amount: 15,
+            source: 0,
+        },
+        &scoped,
+    );
 
     assert_eq!(TOTAL_DAMAGE.load(Ordering::Relaxed), 50);
 }
@@ -353,7 +393,10 @@ fn test_multiple_event_types_per_entity() {
     let player = world
         .entity()
         .set(Position::new(0.0, 64.0, 0.0))
-        .set(Health { current: 50, max: 100 });
+        .set(Health {
+            current: 50,
+            max: 100,
+        });
 
     // Register both handlers
     world.register_handler::<DamageEvent>(player, handle_damage);
@@ -362,9 +405,23 @@ fn test_multiple_event_types_per_entity() {
     let scoped = ScopedWorld::new((&world).world(), (0, 0));
 
     // Dispatch both event types
-    world.dispatch(player, &DamageEvent { amount: 20, source: 0 }, &scoped);
+    world.dispatch(
+        player,
+        &DamageEvent {
+            amount: 20,
+            source: 0,
+        },
+        &scoped,
+    );
     world.dispatch(player, &HealEvent { amount: 30 }, &scoped);
-    world.dispatch(player, &DamageEvent { amount: 10, source: 0 }, &scoped);
+    world.dispatch(
+        player,
+        &DamageEvent {
+            amount: 10,
+            source: 0,
+        },
+        &scoped,
+    );
 
     assert_eq!(TOTAL_DAMAGE.load(Ordering::Relaxed), 30);
     assert_eq!(TOTAL_HEALING.load(Ordering::Relaxed), 30);
@@ -385,10 +442,24 @@ fn test_events_only_dispatch_to_registered_targets() {
     let scoped = ScopedWorld::new((&world).world(), (0, 0));
 
     // Dispatch to player1 (should work)
-    world.dispatch(player1, &DamageEvent { amount: 100, source: 0 }, &scoped);
+    world.dispatch(
+        player1,
+        &DamageEvent {
+            amount: 100,
+            source: 0,
+        },
+        &scoped,
+    );
 
     // Dispatch to player2 (no handler, should do nothing)
-    world.dispatch(player2, &DamageEvent { amount: 999, source: 0 }, &scoped);
+    world.dispatch(
+        player2,
+        &DamageEvent {
+            amount: 999,
+            source: 0,
+        },
+        &scoped,
+    );
 
     // Only player1's damage should be counted
     assert_eq!(TOTAL_DAMAGE.load(Ordering::Relaxed), 100);
@@ -411,12 +482,18 @@ fn test_full_tick_with_events() {
     let player1 = world
         .entity()
         .set(Position::new(8.0, 64.0, 8.0))
-        .set(Health { current: 100, max: 100 });
+        .set(Health {
+            current: 100,
+            max: 100,
+        });
 
     let player2 = world
         .entity()
         .set(Position::new(24.0, 64.0, 8.0))
-        .set(Health { current: 100, max: 100 });
+        .set(Health {
+            current: 100,
+            max: 100,
+        });
 
     // Track tick execution
     let pre_called = AtomicU32::new(0);

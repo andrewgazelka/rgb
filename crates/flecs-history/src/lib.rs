@@ -286,34 +286,36 @@ impl HistoryTracker {
         let comp_id = comp_entity.id().0;
 
         // Set up an OnSet hook for this component
-        world.component::<T>().on_set(move |entity: EntityView<'_>, component: &mut <T as ComponentId>::UnderlyingType| {
-            // Get current tick
-            let tick = {
-                let guard = state.tick.lock().unwrap();
-                *guard
-            };
+        world.component::<T>().on_set(
+            move |entity: EntityView<'_>, component: &mut <T as ComponentId>::UnderlyingType| {
+                // Get current tick
+                let tick = {
+                    let guard = state.tick.lock().unwrap();
+                    *guard
+                };
 
-            // Serialize the component value using the SerializeInfo
-            // We need to get SerializeInfo from the component entity
-            let world = entity.world();
-            let comp_entity = world.component::<T>().entity();
+                // Serialize the component value using the SerializeInfo
+                // We need to get SerializeInfo from the component entity
+                let world = entity.world();
+                let comp_entity = world.component::<T>().entity();
 
-            if let Some(info) = comp_entity.try_get::<&SerializeInfo>(|s| s.clone()) {
-                let ptr = core::ptr::from_ref(component).cast::<c_void>();
-                let bytes = (info.to_bytes)(ptr, info.component_size);
+                if let Some(info) = comp_entity.try_get::<&SerializeInfo>(|s| s.clone()) {
+                    let ptr = core::ptr::from_ref(component).cast::<c_void>();
+                    let bytes = (info.to_bytes)(ptr, info.component_size);
 
-                // Create a history entry as a new entity with pair relations
-                world
-                    .entity()
-                    .set(HistoryEntry {
-                        tick,
-                        data: bytes,
-                        component_id: comp_id,
-                    })
-                    .add((HistoryOf, comp_entity))
-                    .add((HistoryFor, entity));
-            }
-        });
+                    // Create a history entry as a new entity with pair relations
+                    world
+                        .entity()
+                        .set(HistoryEntry {
+                            tick,
+                            data: bytes,
+                            component_id: comp_id,
+                        })
+                        .add((HistoryOf, comp_entity))
+                        .add((HistoryFor, entity));
+                }
+            },
+        );
     }
 
     /// Advance the tick counter.
@@ -371,7 +373,11 @@ impl HistoryTracker {
     }
 
     /// Query all history entries for a specific entity (all components).
-    pub fn get_entity_history(&self, world: &World, entity: impl Into<Entity>) -> Vec<HistoryEntry> {
+    pub fn get_entity_history(
+        &self,
+        world: &World,
+        entity: impl Into<Entity>,
+    ) -> Vec<HistoryEntry> {
         let entity = entity.into();
         let mut results = Vec::new();
 
@@ -390,12 +396,7 @@ impl HistoryTracker {
     /// Get the value of a component at a specific tick.
     ///
     /// Returns the most recent value at or before the given tick.
-    pub fn get_at_tick<T>(
-        &self,
-        world: &World,
-        entity: impl Into<Entity>,
-        tick: u64,
-    ) -> Option<T>
+    pub fn get_at_tick<T>(&self, world: &World, entity: impl Into<Entity>, tick: u64) -> Option<T>
     where
         T: ComponentId + for<'de> Deserialize<'de>,
     {
@@ -447,12 +448,9 @@ impl HistoryTracker {
     pub fn clear_all_history(&self, world: &World) {
         let mut to_delete = Vec::new();
 
-        world
-            .query::<&HistoryEntry>()
-            .build()
-            .each_entity(|e, _| {
-                to_delete.push(e.id());
-            });
+        world.query::<&HistoryEntry>().build().each_entity(|e, _| {
+            to_delete.push(e.id());
+        });
 
         for id in to_delete {
             world.entity_from_id(id).destruct();
@@ -492,7 +490,10 @@ where
 }
 
 /// Serialize a component value to JSON.
-pub fn serialize_component_json<T>(world: &World, value: &T) -> Result<serde_json::Value, SerializeError>
+pub fn serialize_component_json<T>(
+    world: &World,
+    value: &T,
+) -> Result<serde_json::Value, SerializeError>
 where
     T: ComponentId + Serialize,
 {
@@ -507,9 +508,9 @@ where
 
 pub mod prelude {
     pub use crate::{
-        get_serialize_info, is_serializable, serialize_component, serialize_component_json,
         HistoryEntry, HistoryFor, HistoryOf, HistoryTracker, SerializableExt, SerializeError,
-        SerializeInfo,
+        SerializeInfo, get_serialize_info, is_serializable, serialize_component,
+        serialize_component_json,
     };
 }
 
@@ -658,11 +659,21 @@ mod tests {
         entity.set(Position { x: 1.0, y: 1.0 });
         entity.set(Position { x: 2.0, y: 2.0 });
 
-        assert_eq!(history.get_component_history::<Position>(&world, entity).len(), 2);
+        assert_eq!(
+            history
+                .get_component_history::<Position>(&world, entity)
+                .len(),
+            2
+        );
 
         history.clear_entity_history(&world, entity);
 
-        assert_eq!(history.get_component_history::<Position>(&world, entity).len(), 0);
+        assert_eq!(
+            history
+                .get_component_history::<Position>(&world, entity)
+                .len(),
+            0
+        );
     }
 
     #[test]

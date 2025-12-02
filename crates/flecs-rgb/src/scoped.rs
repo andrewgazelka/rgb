@@ -2,7 +2,7 @@
 
 use flecs_ecs::prelude::*;
 
-use crate::region::{chebyshev_distance, Position};
+use crate::region::{Position, chebyshev_distance};
 
 /// Error returned when accessing entities outside the allowed scope
 #[derive(Debug, Clone, thiserror::Error)]
@@ -12,7 +12,9 @@ pub enum ScopeError {
     NoPosition,
 
     /// Entity is outside the allowed chunk neighborhood
-    #[error("entity at chunk ({entity_chunk_x}, {entity_chunk_z}) is outside bounds of center ({center_chunk_x}, {center_chunk_z})")]
+    #[error(
+        "entity at chunk ({entity_chunk_x}, {entity_chunk_z}) is outside bounds of center ({center_chunk_x}, {center_chunk_z})"
+    )]
     OutOfBounds {
         entity_chunk_x: i32,
         entity_chunk_z: i32,
@@ -58,7 +60,11 @@ impl<'w> ScopedWorld<'w> {
 
     /// Create a ScopedWorld with custom max distance
     #[must_use]
-    pub fn with_max_distance(stage: WorldRef<'w>, center_chunk: (i32, i32), max_distance: i32) -> Self {
+    pub fn with_max_distance(
+        stage: WorldRef<'w>,
+        center_chunk: (i32, i32),
+        max_distance: i32,
+    ) -> Self {
         Self {
             stage,
             center_chunk,
@@ -155,9 +161,7 @@ mod tests {
         let world = World::new();
 
         // Create an entity at chunk (0, 0)
-        let entity = world
-            .entity()
-            .set(Position::new(8.0, 64.0, 8.0)); // Center of chunk (0, 0)
+        let entity = world.entity().set(Position::new(8.0, 64.0, 8.0)); // Center of chunk (0, 0)
 
         // ScopedWorld centered at (0, 0) should allow access
         let scoped = ScopedWorld::new((&world).world(), (0, 0));
@@ -169,9 +173,7 @@ mod tests {
         let world = World::new();
 
         // Entity at chunk (1, 0) - neighbor of (0, 0)
-        let entity = world
-            .entity()
-            .set(Position::new(24.0, 64.0, 8.0)); // chunk (1, 0)
+        let entity = world.entity().set(Position::new(24.0, 64.0, 8.0)); // chunk (1, 0)
 
         // Should be accessible from center (0, 0)
         let scoped = ScopedWorld::new((&world).world(), (0, 0));
@@ -187,9 +189,7 @@ mod tests {
         let world = World::new();
 
         // Entity at chunk (5, 5) - far from (0, 0)
-        let entity = world
-            .entity()
-            .set(Position::new(88.0, 64.0, 88.0)); // chunk (5, 5)
+        let entity = world.entity().set(Position::new(88.0, 64.0, 88.0)); // chunk (5, 5)
 
         // Should NOT be accessible from center (0, 0)
         let scoped = ScopedWorld::new((&world).world(), (0, 0));

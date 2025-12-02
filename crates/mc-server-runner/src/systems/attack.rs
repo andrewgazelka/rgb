@@ -2,9 +2,9 @@
 //!
 //! Handles player attacks on entities via the Interact packet (action type = ATTACK).
 
+use flecs_ecs::prelude::*;
 use mc_data::play::serverbound::Interact;
 use mc_protocol::{Decode, Packet};
-use rgb_ecs::{Entity, World};
 use tracing::{debug, info};
 
 use crate::components::{EntityId, InPlayState, Name, PacketBuffer, Position};
@@ -75,81 +75,71 @@ fn parse_interact_packet(data: &[u8]) -> Option<InteractPacket> {
 const INTERACT_PACKET_ID: i32 = Interact::ID;
 
 /// System: Handle player attack interactions
-///
-/// Processes incoming Interact packets with Attack action type.
-/// For now, just logs the attack - actual damage will be implemented
-/// when we have a proper Health component system.
-pub fn system_handle_attacks(world: &mut World) {
-    // Collect all play entities
-    let play_entities: Vec<_> = world
-        .query_single::<InPlayState>()
-        .map(|(entity, _)| entity)
-        .collect();
+pub fn system_handle_attacks<T>(it: &TableIter<false, T>) {
+    let world = it.world();
 
     // Build entity ID to entity map for target lookup
-    let entity_id_map: std::collections::HashMap<i32, Entity> = world
-        .query_single::<EntityId>()
-        .map(|(entity, eid)| (eid.value, entity))
-        .collect();
+    let mut entity_id_map = std::collections::HashMap::new();
+    world
+        .query::<&EntityId>()
+        .build()
+        .each_entity(|entity, eid| {
+            entity_id_map.insert(eid.value, entity.id());
+        });
 
-    for attacker in play_entities {
-        let Some(mut buffer) = world.get::<PacketBuffer>(attacker) else {
-            continue;
-        };
+    for i in it.iter() {
+        let attacker_entity = it.entity(i);
 
-        let mut attacks_to_process = Vec::new();
+        attacker_entity.try_get::<&mut PacketBuffer>(|buffer| {
+            let mut attacks_to_process = Vec::new();
 
-        // Scan for interact packets
-        let mut remaining = Vec::new();
-        while let Some((packet_id, data)) = buffer.pop_incoming() {
-            if packet_id == INTERACT_PACKET_ID {
-                if let Some(interact) = parse_interact_packet(&data) {
-                    if interact.action == InteractionType::Attack {
-                        attacks_to_process.push(interact);
-                    } else {
-                        // Non-attack interactions go back for other systems
-                        remaining.push((packet_id, data));
+            // Scan for interact packets
+            let mut remaining = Vec::new();
+            while let Some((packet_id, data)) = buffer.pop_incoming() {
+                if packet_id == INTERACT_PACKET_ID {
+                    if let Some(interact) = parse_interact_packet(&data) {
+                        if interact.action == InteractionType::Attack {
+                            attacks_to_process.push(interact);
+                        } else {
+                            // Non-attack interactions go back for other systems
+                            remaining.push((packet_id, data));
+                        }
                     }
+                } else {
+                    remaining.push((packet_id, data));
                 }
-            } else {
-                remaining.push((packet_id, data));
             }
-        }
 
-        // Put remaining packets back
-        for (id, data) in remaining {
-            buffer.push_incoming(id, data);
-        }
-        world.update(attacker, buffer);
-
-        // Process attacks
-        for attack in attacks_to_process {
-            let attacker_name = world
-                .get::<Name>(attacker)
-                .map(|n| n.value)
-                .unwrap_or_else(|| "Unknown".to_string());
-            let attacker_pos = world.get::<Position>(attacker);
-
-            // Find target entity
-            if let Some(&target) = entity_id_map.get(&attack.target_entity_id) {
-                let target_name = world
-                    .get::<Name>(target)
-                    .map(|n| n.value)
-                    .unwrap_or_else(|| format!("Entity#{}", attack.target_entity_id));
-
-                info!(
-                    "{} attacked {} (sneaking: {})",
-                    attacker_name, target_name, attack.sneaking
-                );
-
-                // TODO: Apply damage when we have Health component
-                // world.send(target, DamageEvent { amount: 1.0, source: attacker });
-            } else {
-                debug!(
-                    "{} attacked unknown entity ID {} at {:?}",
-                    attacker_name, attack.target_entity_id, attacker_pos
-                );
+            // Put remaining packets back
+            for (id, data) in remaining {
+                buffer.push_incoming(id, data);
             }
-        }
+
+            // Process attacks
+            for attack in attacks_to_process {
+                let attacker_name = attacker_entity
+                    .try_get::<&Name>(|n| n.value.clone())
+                    .unwrap_or_else(|| "Unknown".to_string());
+                let attacker_pos = attacker_entity.try_get::<&Position>(|p| *p);
+
+                // Find target entity
+                if let Some(&target_id) = entity_id_map.get(&attack.target_entity_id) {
+                    let target = world.entity_from_id(target_id);
+                    let target_name = target
+                        .try_get::<&Name>(|n| n.value.clone())
+                        .unwrap_or_else(|| format!("Entity#{}", attack.target_entity_id));
+
+                    info!(
+                        "{} attacked {} (sneaking: {})",
+                        attacker_name, target_name, attack.sneaking
+                    );
+                } else {
+                    debug!(
+                        "{} attacked unknown entity ID {} at {:?}",
+                        attacker_name, attack.target_entity_id, attacker_pos
+                    );
+                }
+            }
+        });
     }
 }

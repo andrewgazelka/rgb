@@ -1,115 +1,91 @@
 //! Network systems - packet ingress/egress
 
-use rgb_ecs::{Entity, World};
+use flecs_ecs::prelude::*;
 
 use crate::components::{
-    Connection, ConnectionId, DisconnectIngress, NetworkEgress, NetworkIngress, OutgoingPacket,
-    PacketBuffer, PendingPackets, ProtocolState,
+    Connection, ConnectionId, ConnectionIndex, DisconnectIngress, NetworkEgress, NetworkIngress,
+    OutgoingPacket, PacketBuffer, PendingPackets, ProtocolState,
 };
 
 /// System: Receive packets from network thread and route to connection entities
-pub fn system_network_ingress(world: &mut World) {
-    // Get global state
-    let Some(ingress) = world.get::<NetworkIngress>(Entity::WORLD) else {
-        return;
-    };
-    let mut pending = world
-        .get::<PendingPackets>(Entity::WORLD)
-        .unwrap_or_default();
+pub fn system_network_ingress(
+    it: &TableIter<false, (&NetworkIngress, &mut PendingPackets, &mut ConnectionIndex)>,
+) {
+    let world = it.world();
+    let ingress = &it.field::<NetworkIngress>(0).unwrap()[0];
+    let pending = &mut it.field::<PendingPackets>(1).unwrap()[0];
+    let conn_index = &mut it.field::<ConnectionIndex>(2).unwrap()[0];
 
     // Process pending packets from last tick
     let old_pending = core::mem::take(&mut pending.packets);
     for (conn_id, packet_id, data) in old_pending {
-        let key = ConnectionId(conn_id).to_key();
-        if let Some(entity) = world.lookup(&key) {
-            if let Some(mut buffer) = world.get::<PacketBuffer>(entity) {
+        if let Some(&entity) = conn_index.map.get(&conn_id) {
+            let entity_view = world.entity_from_id(entity);
+            entity_view.try_get::<&mut PacketBuffer>(|buffer| {
                 buffer.push_incoming(packet_id, data);
-                world.update(entity, buffer);
-            }
+            });
         }
     }
 
     // Drain all packets from the channel
     while let Ok(packet) = ingress.rx.try_recv() {
-        let conn_id = ConnectionId(packet.connection_id);
-        let key = conn_id.to_key();
+        let conn_id = packet.connection_id;
 
-        if world.lookup(&key).is_none() {
-            // New connection - create entity with named key
-            let mut buffer = PacketBuffer::new();
-            buffer.push_incoming(packet.packet_id, packet.data);
+        if !conn_index.map.contains_key(&conn_id) {
+            // New connection - create entity
+            let name = format!("connection:{}", conn_id);
+            let entity = world
+                .entity_named(&name)
+                .add::<Connection>()
+                .set(ConnectionId(conn_id))
+                .set(PacketBuffer::new())
+                .set(ProtocolState::default())
+                .id();
+            conn_index.map.insert(conn_id, entity);
 
-            let entity = world.entity_named(&key);
-            world.insert(entity, Connection);
-            world.insert(entity, conn_id);
-            world.insert(entity, buffer);
-            world.insert(entity, ProtocolState::default());
+            // Queue packet for next tick
+            pending
+                .packets
+                .push((conn_id, packet.packet_id, packet.data));
         } else {
             // Existing connection - route packet
-            let entity = world.lookup(&key).unwrap();
-            if let Some(mut buffer) = world.get::<PacketBuffer>(entity) {
-                buffer.push_incoming(packet.packet_id, packet.data.clone());
-                world.update(entity, buffer);
-            } else {
-                // Entity doesn't have buffer yet, defer
-                pending
-                    .packets
-                    .push((packet.connection_id, packet.packet_id, packet.data));
+            let entity = conn_index.map[&conn_id];
+            let entity_view = world.entity_from_id(entity);
+            let packet_id = packet.packet_id;
+            let data = packet.data;
+            let data_clone = data.clone();
+            let routed = entity_view.try_get::<&mut PacketBuffer>(|buffer| {
+                buffer.push_incoming(packet_id, data);
+            });
+            if routed.is_none() {
+                pending.packets.push((conn_id, packet_id, data_clone));
             }
         }
     }
-
-    // Write back pending packets
-    world.update(Entity::WORLD, pending);
 }
 
 /// System: Handle disconnect events
-pub fn system_handle_disconnects(world: &mut World) {
-    let Some(disconnect) = world.get::<DisconnectIngress>(Entity::WORLD) else {
-        return;
-    };
-    let mut pending = world
-        .get::<PendingPackets>(Entity::WORLD)
-        .unwrap_or_default();
+pub fn system_handle_disconnects(
+    it: &TableIter<false, (&DisconnectIngress, &mut ConnectionIndex)>,
+) {
+    let world = it.world();
+    let disconnect = &it.field::<DisconnectIngress>(0).unwrap()[0];
+    let conn_index = &mut it.field::<ConnectionIndex>(1).unwrap()[0];
 
     while let Ok(event) = disconnect.rx.try_recv() {
-        let conn_id = ConnectionId(event.connection_id);
-        let key = conn_id.to_key();
-
-        // Despawn the connection entity (this also removes it from name index)
-        if let Some(entity) = world.lookup(&key) {
-            world.despawn(entity);
+        let conn_id = event.connection_id;
+        if let Some(entity) = conn_index.map.remove(&conn_id) {
+            world.entity_from_id(entity).destruct();
         }
-
-        // Remove any pending packets for this connection
-        pending.packets.retain(|(id, _, _)| *id != conn_id.0);
     }
-
-    world.update(Entity::WORLD, pending);
 }
 
-/// System: Send outgoing packets to network thread
-pub fn system_network_egress(world: &mut World) {
-    let Some(egress) = world.get::<NetworkEgress>(Entity::WORLD) else {
-        return;
-    };
-
-    // Query all connection entities
-    let connections: Vec<_> = world
-        .query_single::<ConnectionId>()
-        .map(|(entity, conn_id)| (entity, conn_id.0))
-        .collect();
-
-    // Send outgoing packets for each connection
-    for (entity, conn_id) in connections {
-        if let Some(mut buffer) = world.get::<PacketBuffer>(entity) {
-            while let Some(data) = buffer.pop_outgoing() {
-                let _ = egress.tx.send(OutgoingPacket {
-                    connection_id: conn_id,
-                    data,
-                });
-            }
-            world.update(entity, buffer);
-        }
+/// Handle egress for a single connection
+pub fn handle_egress(buffer: &mut PacketBuffer, conn_id: &ConnectionId, egress: &NetworkEgress) {
+    while let Some(data) = buffer.pop_outgoing() {
+        let _ = egress.tx.send(OutgoingPacket {
+            connection_id: conn_id.0,
+            data,
+        });
     }
 }

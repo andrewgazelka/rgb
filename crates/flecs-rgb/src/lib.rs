@@ -31,14 +31,14 @@ mod scoped;
 mod tick;
 
 pub use event::{Event, EventHandler, EventWorldExt, HandlerInfo};
-pub use region::{chebyshev_distance, Chunk, Position, Region, RegionColor};
+pub use region::{Chunk, Position, Region, RegionColor, chebyshev_distance};
 pub use scoped::{ScopeError, ScopedWorld};
 pub use tick::{RgbScheduler, TickPhase};
 
 /// Prelude for convenient imports
 pub mod prelude {
     pub use crate::{
-        chebyshev_distance, Chunk, Event, EventHandler, EventWorldExt, HandlerInfo, Position,
-        Region, RegionColor, RgbScheduler, ScopeError, ScopedWorld,
+        Chunk, Event, EventHandler, EventWorldExt, HandlerInfo, Position, Region, RegionColor,
+        RgbScheduler, ScopeError, ScopedWorld, chebyshev_distance,
     };
 }

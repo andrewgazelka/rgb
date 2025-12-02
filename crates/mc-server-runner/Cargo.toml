@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "RGB ECS-based Minecraft server runner"
+description = "Flecs ECS-based Minecraft server runner"
 
 [[bin]]
 name = "mc-server-runner"
@@ -15,14 +15,7 @@ default = ["dashboard"]
 dashboard = ["axum", "tower-http"]
 
 [dependencies]
-rgb-ecs.workspace = true
-rgb-ecs-introspect.workspace = true
-rgb-event.workspace = true
-rgb-spatial.workspace = true
-rgb-query.workspace = true
-rgb-storage.workspace = true
-rgb-tick.workspace = true
-query-dsl.workspace = true
+flecs_ecs.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 eyre.workspace = true
@@ -30,7 +23,6 @@ ctrlc.workspace = true
 bytes.workspace = true
 byteorder.workspace = true
 crossbeam-channel.workspace = true
-parking_lot.workspace = true
 hashbrown.workspace = true
 tokio = { version = "1", features = ["full"] }
 serde.workspace = true

@@ -6,8 +6,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use bytes::Bytes;
 use crossbeam_channel::{Receiver, Sender};
-use rgb_ecs::Component;
-use rgb_ecs_introspect::Introspectable;
+use flecs_ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -36,37 +35,29 @@ pub struct OutgoingPacket {
 }
 
 /// Global: Receiver for incoming packets from async layer
-#[derive(Component, Clone, Introspectable)]
-#[component(opaque)]
-#[introspectable(opaque)]
+#[derive(Component)]
 pub struct NetworkIngress {
     pub rx: Receiver<IncomingPacket>,
 }
 
 /// Global: Sender for outgoing packets to async layer
-#[derive(Component, Clone, Introspectable)]
-#[component(opaque)]
-#[introspectable(opaque)]
+#[derive(Component)]
 pub struct NetworkEgress {
     pub tx: Sender<OutgoingPacket>,
 }
 
 /// Global: Receiver for disconnect events
-#[derive(Component, Clone, Introspectable)]
-#[component(opaque)]
-#[introspectable(opaque)]
+#[derive(Component)]
 pub struct DisconnectIngress {
     pub rx: Receiver<DisconnectEvent>,
 }
 
 /// Tag: Entity is a network connection
-#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Default)]
 pub struct Connection;
 
 /// Unique ID for routing packets to correct connection
-#[derive(
-    Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Introspectable,
-)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ConnectionId(pub u64);
 
 impl ConnectionId {
@@ -94,13 +85,11 @@ pub enum ConnectionState {
     Play,
 }
 
-#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct ProtocolState(pub ConnectionState);
 
 /// Buffer for incoming/outgoing packets per connection
-#[derive(Component, Default, Clone, Introspectable)]
-#[component(opaque)]
-#[introspectable(opaque)]
+#[derive(Component, Default)]
 pub struct PacketBuffer {
     pub incoming: VecDeque<(i32, Bytes)>,
     pub outgoing: VecDeque<Bytes>,
@@ -132,12 +121,16 @@ impl PacketBuffer {
 /// Global: Temporary buffer for packets arriving before connection entity is ready.
 ///
 /// Note: Connection ID -> Entity mapping is done via named entities (world.lookup).
-#[derive(Component, Default, Clone, Introspectable)]
-#[component(opaque)]
-#[introspectable(opaque)]
+#[derive(Component, Default)]
 pub struct PendingPackets {
     /// Packets for newly created connections (deferred until next tick)
     pub packets: Vec<(u64, i32, Bytes)>,
+}
+
+/// Global: Index for looking up connection entities by ID
+#[derive(Component, Default)]
+pub struct ConnectionIndex {
+    pub map: hashbrown::HashMap<u64, Entity>,
 }
 
 // ============================================================================
@@ -145,27 +138,27 @@ pub struct PendingPackets {
 // ============================================================================
 
 /// Tag: Entity is a player
-#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Default)]
 pub struct Player;
 
 /// Player's username
-#[derive(Component, Debug, Clone, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Name {
     pub value: String,
 }
 
 /// Player's UUID
-#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Uuid(pub u128);
 
 /// Entity ID assigned by server (for protocol)
-#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct EntityId {
     pub value: i32,
 }
 
 /// Player position in world
-#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -192,7 +185,7 @@ impl Position {
 }
 
 /// Player rotation
-#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Rotation {
     pub yaw: f32,
     pub pitch: f32,
@@ -206,7 +199,7 @@ impl Rotation {
 }
 
 /// Player's current chunk position
-#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct ChunkPosition {
     pub x: i32,
     pub z: i32,
@@ -220,7 +213,7 @@ impl ChunkPosition {
 }
 
 /// Player game mode
-#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct GameMode {
     pub value: u8,
 }
@@ -233,17 +226,15 @@ impl GameMode {
 }
 
 /// Tag: Player needs initial spawn chunks sent
-#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Default)]
 pub struct NeedsSpawnChunks;
 
 /// Tag: Player has completed login and is in Play state
-#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Default)]
 pub struct InPlayState;
 
 /// Global: Entity ID counter for protocol
-#[derive(Component, Clone, Introspectable)]
-#[component(opaque)]
-#[introspectable(opaque)]
+#[derive(Component)]
 pub struct EntityIdCounter(pub Arc<AtomicI64>);
 
 impl Default for EntityIdCounter {
@@ -263,19 +254,7 @@ impl EntityIdCounter {
 // ============================================================================
 
 /// Chunk coordinates
-#[derive(
-    Component,
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    Default,
-    Serialize,
-    Deserialize,
-    Introspectable,
-)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ChunkPos {
     pub x: i32,
     pub z: i32,
@@ -301,8 +280,7 @@ impl ChunkPos {
 }
 
 /// Pre-encoded chunk data for network transmission
-#[derive(Component, Clone)]
-#[component(opaque)]
+#[derive(Component)]
 pub struct ChunkData {
     pub encoded: Bytes,
 }
@@ -314,37 +292,8 @@ impl ChunkData {
     }
 }
 
-impl Introspectable for ChunkData {
-    fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "size": format_bytes(self.encoded.len()),
-        })
-    }
-
-    fn from_json(_value: serde_json::Value) -> Result<Self, rgb_ecs_introspect::IntrospectError> {
-        // Can't deserialize - we don't have the actual chunk data
-        Err(rgb_ecs_introspect::IntrospectError::OpaqueComponent(
-            Self::type_name().to_string(),
-        ))
-    }
-
-    fn is_opaque() -> bool {
-        false // Not opaque - we show size info
-    }
-}
-
-fn format_bytes(bytes: usize) -> String {
-    if bytes >= 1024 * 1024 {
-        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
-    } else if bytes >= 1024 {
-        format!("{:.1} KB", bytes as f64 / 1024.0)
-    } else {
-        format!("{bytes} B")
-    }
-}
-
 /// Tag: Chunk is fully loaded and ready
-#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Default)]
 pub struct ChunkLoaded;
 
 // ============================================================================
@@ -352,7 +301,7 @@ pub struct ChunkLoaded;
 // ============================================================================
 
 /// Global: Server configuration
-#[derive(Component, Debug, Clone, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     /// Maximum number of players allowed
     pub max_players: i32,
@@ -364,7 +313,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             max_players: 20_000,
-            motd: "A Rust Minecraft Server (RGB ECS)".to_string(),
+            motd: "A Rust Minecraft Server (Flecs ECS)".to_string(),
         }
     }
 }
@@ -374,7 +323,7 @@ impl Default for ServerConfig {
 // ============================================================================
 
 /// Global: World time tracking
-#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldTime {
     pub world_age: i64,
     pub time_of_day: i64,
@@ -398,7 +347,7 @@ impl WorldTime {
 }
 
 /// Global: TPS (ticks per second) tracking with exponential moving averages
-#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct TpsTracker {
     /// TPS with 5-second smoothing
     pub tps_5s: f32,
@@ -436,3 +385,7 @@ impl TpsTracker {
         self.tps_1m += alpha_1m * (instant_tps - self.tps_1m);
     }
 }
+
+/// Global: Delta time for current tick
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct DeltaTime(pub f32);

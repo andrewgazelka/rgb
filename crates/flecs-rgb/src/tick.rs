@@ -149,11 +149,14 @@ impl RgbScheduler {
         // Try to find existing region
         let mut found_id: Option<Entity> = None;
 
-        world.query::<&Region>().build().each_entity(|entity, region| {
-            if region.rx == rx && region.rz == rz {
-                found_id = Some(entity.id());
-            }
-        });
+        world
+            .query::<&Region>()
+            .build()
+            .each_entity(|entity, region| {
+                if region.rx == rx && region.rz == rz {
+                    found_id = Some(entity.id());
+                }
+            });
 
         if let Some(id) = found_id {
             id
