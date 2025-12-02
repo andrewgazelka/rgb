@@ -2,6 +2,7 @@
   import { client } from '$lib/api';
   import type { ChunksResponse } from '$lib/api';
   import { onMount } from 'svelte';
+  import { registerPageHandlers } from '$lib/keybinds.svelte';
 
   interface EntityPosition {
     entity: number;
@@ -165,6 +166,38 @@
     drawMap();
   }
 
+  const PAN_AMOUNT = 50;
+
+  function panLeft() {
+    offsetX += PAN_AMOUNT;
+    drawMap();
+  }
+
+  function panRight() {
+    offsetX -= PAN_AMOUNT;
+    drawMap();
+  }
+
+  function panUp() {
+    offsetY += PAN_AMOUNT;
+    drawMap();
+  }
+
+  function panDown() {
+    offsetY -= PAN_AMOUNT;
+    drawMap();
+  }
+
+  function zoomIn() {
+    scale = Math.min(32, scale + 1);
+    drawMap();
+  }
+
+  function zoomOut() {
+    scale = Math.max(1, scale - 1);
+    drawMap();
+  }
+
   $effect(() => {
     if (chunks) {
       drawMap();
@@ -173,6 +206,18 @@
 
   onMount(() => {
     loadData();
+
+    // Register keybind handlers
+    const unregisterKeybinds = registerPageHandlers({
+      panUp,
+      panDown,
+      panLeft,
+      panRight,
+      zoomIn,
+      zoomOut,
+      reset: resetView,
+      refresh: loadData,
+    });
 
     const resizeObserver = new ResizeObserver(() => {
       if (canvas) {
@@ -198,6 +243,7 @@
       clearInterval(interval);
       resizeObserver.disconnect();
       mediaQuery.removeEventListener('change', handleColorSchemeChange);
+      unregisterKeybinds();
     };
   });
 </script>

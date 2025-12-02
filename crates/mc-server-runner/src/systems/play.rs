@@ -53,6 +53,9 @@ pub fn send_spawn_data(
 
 /// Handle movement for a single entity
 pub fn handle_movement(buffer: &mut PacketBuffer, pos: &mut Position, rot: &mut Rotation) {
+    // Collect unhandled packets to put back after processing
+    let mut unhandled = Vec::new();
+
     while let Some((packet_id, data)) = buffer.pop_incoming() {
         let mut cursor = std::io::Cursor::new(&data[..]);
         match packet_id {
@@ -107,11 +110,15 @@ pub fn handle_movement(buffer: &mut PacketBuffer, pos: &mut Position, rot: &mut 
                 }
             }
             _ => {
-                // Unknown packet, put it back
-                buffer.push_incoming(packet_id, Bytes::from(data.to_vec()));
-                break;
+                // Unknown packet - save for other handlers
+                unhandled.push((packet_id, data));
             }
         }
+    }
+
+    // Put unhandled packets back for other systems to process
+    for (packet_id, data) in unhandled {
+        buffer.push_incoming(packet_id, data);
     }
 }
 

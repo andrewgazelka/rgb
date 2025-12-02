@@ -3,6 +3,7 @@
   import type { QueryResultRow } from '@rgb/api-client';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { registerPageHandlers } from '$lib/keybinds.svelte';
 
   interface EntityMarker {
     entity: number;
@@ -237,12 +238,56 @@
     drawMap();
   }
 
+  const PAN_AMOUNT = 50;
+
+  function panLeft() {
+    offsetX += PAN_AMOUNT;
+    drawMap();
+  }
+
+  function panRight() {
+    offsetX -= PAN_AMOUNT;
+    drawMap();
+  }
+
+  function panUp() {
+    offsetY += PAN_AMOUNT;
+    drawMap();
+  }
+
+  function panDown() {
+    offsetY -= PAN_AMOUNT;
+    drawMap();
+  }
+
+  function zoomIn() {
+    scale = Math.min(20, scale * 1.2);
+    drawMap();
+  }
+
+  function zoomOut() {
+    scale = Math.max(0.1, scale / 1.2);
+    drawMap();
+  }
+
   $effect(() => {
     if (entities.length > 0) drawMap();
   });
 
   onMount(() => {
     loadEntities();
+
+    // Register keybind handlers
+    const unregisterKeybinds = registerPageHandlers({
+      panUp,
+      panDown,
+      panLeft,
+      panRight,
+      zoomIn,
+      zoomOut,
+      reset: resetView,
+      refresh: loadEntities,
+    });
 
     const resizeObserver = new ResizeObserver(() => {
       if (canvas) {
@@ -267,6 +312,7 @@
       clearInterval(interval);
       resizeObserver.disconnect();
       mediaQuery.removeEventListener('change', drawMap);
+      unregisterKeybinds();
     };
   });
 </script>

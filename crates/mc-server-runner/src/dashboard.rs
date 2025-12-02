@@ -10,7 +10,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
 };
 use crossbeam_channel::{Receiver, Sender, bounded};
 use serde::{Deserialize, Serialize};
@@ -42,8 +42,44 @@ pub enum DashboardRequest {
     },
     GetEntityHistory {
         id: u64,
-        response: Sender<Vec<HistoryEntryInfo>>,
+        limit: usize,
+        response: Sender<HistoryResponse>,
     },
+    Query {
+        spec: QuerySpec,
+        response: Sender<QueryResponse>,
+    },
+}
+
+/// Query specification for filtering entities.
+#[derive(Deserialize, Clone, Default)]
+pub struct QuerySpec {
+    #[serde(default)]
+    pub with: Vec<String>,
+    #[serde(default)]
+    pub optional: Vec<String>,
+    #[serde(default)]
+    pub without: Vec<String>,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub offset: Option<usize>,
+}
+
+/// Query result row.
+#[derive(Serialize, Clone)]
+pub struct QueryResultRow {
+    pub entity: u64,
+    pub name: Option<String>,
+    pub components: std::collections::HashMap<String, serde_json::Value>,
+}
+
+/// Query response.
+#[derive(Serialize, Clone)]
+pub struct QueryResponse {
+    pub entities: Vec<QueryResultRow>,
+    pub total: usize,
+    pub execution_time_us: u64,
 }
 
 #[derive(Serialize, Clone)]
@@ -69,21 +105,29 @@ pub struct ListEntitiesResponse {
 
 #[derive(Serialize, Clone)]
 pub struct EntityDetails {
+    pub found: bool,
     pub id: u64,
     pub name: Option<String>,
     pub components: Vec<ComponentValue>,
+    pub parent: Option<u64>,
+    pub children: Vec<u64>,
 }
 
 #[derive(Serialize, Clone)]
 pub struct ComponentValue {
     pub name: String,
+    pub full_name: String,
     pub value: serde_json::Value,
+    pub is_opaque: bool,
+    pub schema: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Clone)]
 pub struct ChunkInfo {
     pub x: i32,
     pub z: i32,
+    pub color: String,
+    pub loaded: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -104,9 +148,19 @@ pub struct PositionInfo {
 
 #[derive(Serialize, Clone)]
 pub struct HistoryEntryInfo {
-    pub tick: u64,
-    pub component_id: u64,
-    pub data_size: usize,
+    pub id: u64,
+    pub timestamp: u64,
+    pub entity: u64,
+    pub component: String,
+    pub old_value: Option<serde_json::Value>,
+    pub new_value: Option<serde_json::Value>,
+    pub source: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct HistoryResponse {
+    pub entries: Vec<HistoryEntryInfo>,
+    pub total: usize,
 }
 
 // ============================================================================
@@ -179,6 +233,8 @@ pub fn create_router(state: DashboardState) -> Router {
         .route("/api/players", get(list_players))
         // Chunks
         .route("/api/chunks", get(list_chunks))
+        // Query
+        .route("/api/query", post(query_entities))
         // History
         .route("/api/history/entity/{id}", get(get_entity_history))
         .with_state(state)
@@ -331,12 +387,22 @@ async fn list_chunks(State(state): State<DashboardState>) -> impl IntoResponse {
     }
 }
 
+#[derive(Deserialize)]
+struct HistoryParams {
+    limit: Option<usize>,
+}
+
 async fn get_entity_history(
     State(state): State<DashboardState>,
     Path(id): Path<u64>,
+    axum::extract::Query(params): axum::extract::Query<HistoryParams>,
 ) -> impl IntoResponse {
     let (tx, rx) = bounded(1);
-    let request = DashboardRequest::GetEntityHistory { id, response: tx };
+    let request = DashboardRequest::GetEntityHistory {
+        id,
+        limit: params.limit.unwrap_or(50),
+        response: tx,
+    };
 
     if state.request_tx.send(request).is_err() {
         return (
@@ -348,6 +414,31 @@ async fn get_entity_history(
 
     match rx.recv_timeout(REQUEST_TIMEOUT) {
         Ok(history) => Json(history).into_response(),
+        Err(_) => (
+            StatusCode::REQUEST_TIMEOUT,
+            Json(serde_json::json!({"error": "Request timeout"})),
+        )
+            .into_response(),
+    }
+}
+
+async fn query_entities(
+    State(state): State<DashboardState>,
+    Json(spec): Json<QuerySpec>,
+) -> impl IntoResponse {
+    let (tx, rx) = bounded(1);
+    let request = DashboardRequest::Query { spec, response: tx };
+
+    if state.request_tx.send(request).is_err() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "Game loop not available"})),
+        )
+            .into_response();
+    }
+
+    match rx.recv_timeout(REQUEST_TIMEOUT) {
+        Ok(result) => Json(result).into_response(),
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
             Json(serde_json::json!({"error": "Request timeout"})),

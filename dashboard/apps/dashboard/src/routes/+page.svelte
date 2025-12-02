@@ -1,11 +1,14 @@
 <script lang="ts">
   import { client, type WorldResponse, type ListEntitiesResponse } from '$lib/api';
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { registerPageHandlers } from '$lib/keybinds.svelte';
 
   let world: WorldResponse | null = $state(null);
   let entities: ListEntitiesResponse | null = $state(null);
   let loading = $state(true);
   let error: string | null = $state(null);
+  let selectedIndex = $state(-1);
 
   async function loadData() {
     loading = true;
@@ -22,10 +25,37 @@
     }
   }
 
+  function selectNext() {
+    if (!entities || entities.entities.length === 0) return;
+    selectedIndex = Math.min(selectedIndex + 1, entities.entities.length - 1);
+  }
+
+  function selectPrev() {
+    if (!entities || entities.entities.length === 0) return;
+    selectedIndex = Math.max(selectedIndex - 1, 0);
+  }
+
+  function openSelected() {
+    if (!entities || selectedIndex < 0 || selectedIndex >= entities.entities.length) return;
+    const entity = entities.entities[selectedIndex];
+    goto(`/entities/${entity.id}`);
+  }
+
   onMount(() => {
     loadData();
+
+    const unregisterKeybinds = registerPageHandlers({
+      selectNext,
+      selectPrev,
+      openSelected,
+      refresh: loadData,
+    });
+
     const interval = setInterval(loadData, 2000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      unregisterKeybinds();
+    };
   });
 </script>
 
@@ -68,8 +98,12 @@
             </tr>
           </thead>
           <tbody>
-            {#each entities.entities as entity}
-              <tr>
+            {#each entities.entities as entity, i}
+              <tr
+                class:selected={i === selectedIndex}
+                onclick={() => { selectedIndex = i; }}
+                ondblclick={() => goto(`/entities/${entity.id}`)}
+              >
                 <td class="id">
                   <a href="/entities/{entity.id}">{entity.id}</a>
                 </td>
@@ -244,13 +278,31 @@
     border-bottom: none;
   }
 
+  tr {
+    cursor: pointer;
+  }
+
   tr:hover td {
     background: rgba(0, 0, 0, 0.02);
+  }
+
+  tr.selected td {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  tr.selected:hover td {
+    background: rgba(59, 130, 246, 0.15);
   }
 
   @media (prefers-color-scheme: dark) {
     tr:hover td {
       background: rgba(255, 255, 255, 0.02);
+    }
+    tr.selected td {
+      background: rgba(59, 130, 246, 0.15);
+    }
+    tr.selected:hover td {
+      background: rgba(59, 130, 246, 0.2);
     }
   }
 

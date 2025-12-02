@@ -2,9 +2,9 @@
   import { page } from '$app/stores';
 
   const navItems = [
-    { href: '/', label: 'Dashboard' },
-    { href: '/world', label: 'World' },
-    { href: '/map', label: 'Map' },
+    { href: '/', label: 'Dashboard', key: 'g d' },
+    { href: '/world', label: 'World', key: 'g w' },
+    { href: '/map', label: 'Map', key: 'g m' },
   ];
 
   function isActive(href: string, pathname: string): boolean {
@@ -24,13 +24,17 @@
         class:active={isActive(item.href, $page.url.pathname)}
       >
         {item.label}
+        <kbd class="keyhint">{item.key}</kbd>
       </a>
     {/each}
   </div>
 
-  <div class="status">
-    <span class="dot"></span>
-    Connected
+  <div class="right">
+    <kbd class="help-hint" title="Keyboard shortcuts">?</kbd>
+    <div class="status">
+      <span class="dot"></span>
+      Connected
+    </div>
   </div>
 </nav>
 
@@ -123,5 +127,61 @@
     height: 6px;
     border-radius: 50%;
     background: #34c759;
+  }
+
+  .right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .keyhint {
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    padding: 2px 4px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 3px;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: 6px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .nav-link:hover .keyhint {
+    opacity: 1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .keyhint {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.4);
+    }
+  }
+
+  .help-hint {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+    color: rgba(0, 0, 0, 0.4);
+    cursor: help;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .help-hint:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .help-hint {
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.4);
+    }
+    .help-hint:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+    }
   }
 </style>
