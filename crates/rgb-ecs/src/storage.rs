@@ -244,6 +244,32 @@ impl Column {
         unsafe { &mut *self.get_unchecked_raw(index).cast::<T>() }
     }
 
+    /// Set raw bytes at the given index, dropping the existing value.
+    ///
+    /// # Safety
+    ///
+    /// - `index` must be less than `len`.
+    /// - `src` must point to a valid instance of the column's component type.
+    /// - The data at `src` will be copied; caller retains ownership of `src`.
+    pub unsafe fn set_raw(&mut self, index: usize, src: *const u8) {
+        debug_assert!(index < self.len, "Index out of bounds in set_raw");
+
+        // SAFETY: Caller ensures index is valid
+        let dst = unsafe { self.get_unchecked_raw(index) };
+
+        // Drop the existing value first
+        // SAFETY: dst points to a valid initialized component
+        unsafe {
+            self.info.drop_in_place(dst);
+        }
+
+        // Copy the new value
+        // SAFETY: dst is valid, src is valid, and they don't overlap
+        unsafe {
+            core::ptr::copy_nonoverlapping(src, dst, self.info.size());
+        }
+    }
+
     /// Get a pointer to the start of the data array.
     #[must_use]
     pub fn as_ptr(&self) -> *const u8 {

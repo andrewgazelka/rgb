@@ -10,8 +10,13 @@ description = "RGB ECS-based Minecraft server runner"
 name = "mc-server-runner"
 path = "src/main.rs"
 
+[features]
+default = ["dashboard"]
+dashboard = ["axum", "tower-http"]
+
 [dependencies]
 rgb-ecs.workspace = true
+rgb-ecs-introspect.workspace = true
 rgb-event.workspace = true
 rgb-spatial.workspace = true
 rgb-query.workspace = true
@@ -31,12 +36,16 @@ tokio = { version = "1", features = ["full"] }
 serde.workspace = true
 serde_json.workspace = true
 
+# Dashboard (optional, default enabled)
+axum = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+
 # Minecraft protocol
 mc-protocol = { path = "../mc-protocol" }
 mc-data = { path = "../mc-data" }
 
 # Audio profiling
-rodio.workspace = true
+# rodio.workspace = true
 
 [lints]
 workspace = true

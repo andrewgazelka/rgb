@@ -12,8 +12,10 @@
 //! This server uses the custom RGB ECS instead of Flecs.
 //! All game state is stored on Entity::WORLD or individual entities.
 
-mod audio;
+// mod audio;
 mod components;
+#[cfg(feature = "dashboard")]
+mod dashboard;
 mod network;
 mod protocol;
 mod registry;
@@ -92,6 +94,52 @@ fn main() -> eyre::Result<()> {
 
     // Generate spawn chunks
     world_gen::generate_spawn_chunks(&mut world, 8);
+
+    // Start dashboard server if feature enabled
+    #[cfg(feature = "dashboard")]
+    {
+        use rgb_ecs_introspect::{IntrospectChannels, IntrospectIngress, IntrospectRegistry};
+
+        let mut registry = IntrospectRegistry::new();
+        // Register components for introspection (must be done after world creates them)
+        registry.register::<Position>(&world);
+        registry.register::<Rotation>(&world);
+        registry.register::<Name>(&world);
+        registry.register::<ServerConfig>(&world);
+        registry.register::<WorldTime>(&world);
+        registry.register::<ChunkData>(&world);
+
+        let registry = Arc::new(registry);
+        let introspect_channels = IntrospectChannels::default();
+
+        // Add ingress component so systems can process requests
+        world.insert(
+            Entity::WORLD,
+            IntrospectIngress {
+                rx: introspect_channels.request_rx.clone(),
+                registry: registry.clone(),
+            },
+        );
+
+        let dashboard_state = dashboard::DashboardState::new(&introspect_channels, registry);
+        let dashboard_port = std::env::var("DASHBOARD_PORT")
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(8080u16);
+
+        // Spawn dashboard server in background thread with its own tokio runtime
+        std::thread::spawn(move || {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to create Tokio runtime")
+                .block_on(async move {
+                    dashboard::start_server(dashboard_state, dashboard_port).await;
+                });
+        });
+
+        info!("Dashboard server starting on port {}", dashboard_port);
+    }
 
     info!("Server initialized");
 

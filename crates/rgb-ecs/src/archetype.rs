@@ -275,6 +275,30 @@ impl Archetype {
         Some(unsafe { self.columns[*col_idx].get_unchecked_mut::<T>(row) })
     }
 
+    /// Set a component value from raw bytes at the given row.
+    ///
+    /// # Safety
+    ///
+    /// - `row` must be a valid row index (less than `len()`).
+    /// - `src` must point to valid, initialized component data matching the component type.
+    /// - The layout of the source data must match the component's layout.
+    pub unsafe fn set_component_raw(
+        &mut self,
+        component_id: ComponentId,
+        row: usize,
+        src: *const u8,
+    ) -> bool {
+        let Some(&col_idx) = self.component_indices.get(&component_id) else {
+            return false;
+        };
+
+        // SAFETY: Caller ensures row is valid and src points to valid component data
+        unsafe {
+            self.columns[col_idx].set_raw(row, src);
+        }
+        true
+    }
+
     /// Reserve capacity in all columns.
     pub fn reserve(&mut self, additional: usize) {
         self.entities.reserve(additional);

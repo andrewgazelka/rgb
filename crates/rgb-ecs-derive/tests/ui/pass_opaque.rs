@@ -19,10 +19,9 @@ struct SharedData {
     data: Arc<[u8]>,
 }
 
-// Opaque with String
+// String is now allowed without opaque
 #[derive(Component, Clone)]
-#[component(opaque)]
-struct RuntimeName {
+struct PlayerName {
     name: String,
 }
 

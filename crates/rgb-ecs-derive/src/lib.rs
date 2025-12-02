@@ -40,13 +40,13 @@
 //! - `Vec<T>` - Use relations: spawn child entities with `(Data, ChildOf(parent))`
 //! - `VecDeque<T>` - Use relations with sequence field for ordering
 //! - `HashMap<K, V>` / `HashSet<T>` - Use relations with pair queries
-//! - `String` - Use fixed-size arrays or interned strings
 //! - `Box<T>` / `Rc<T>` / `Arc<T>` - Use entity references
 //! - `Mutex<T>` / `RwLock<T>` - ECS handles synchronization
 //!
 //! # Allowed Types (for non-opaque)
 //!
 //! - Primitives: `i8`..`i128`, `u8`..`u128`, `f32`, `f64`, `bool`, `char`
+//! - `String` - Heap-allocated strings (O(n) clone)
 //! - Fixed arrays: `[T; N]` where T is allowed
 //! - Tuples: `(A, B)` where all elements are allowed
 //! - `Option<T>` where T is allowed
@@ -104,14 +104,6 @@ const FORBIDDEN_TYPES: &[(&str, &str)] = &[
     (
         "BTreeSet",
         "BTreeSet<T> is not allowed in components. Use relations with order_by instead.\n\
-         - Or mark this component as #[component(opaque)] if it's a runtime-only handle",
-    ),
-    (
-        "String",
-        "String is not allowed in components. Alternatives:\n\
-         - Use fixed-size arrays: [u8; 32] or a wrapper struct\n\
-         - Use interned/hashed strings: StringId(u64)\n\
-         - For names: use world.set_name(entity, \"name\") and world.lookup(\"name\")\n\
          - Or mark this component as #[component(opaque)] if it's a runtime-only handle",
     ),
     (

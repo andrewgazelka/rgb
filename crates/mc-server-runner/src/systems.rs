@@ -8,6 +8,8 @@ mod command;
 mod config;
 mod handshake;
 pub mod history;
+#[cfg(feature = "dashboard")]
+mod introspect;
 mod login;
 mod network;
 mod play;
@@ -20,7 +22,7 @@ use std::time::Instant;
 use rgb_ecs::World;
 use rgb_spatial::Color;
 
-use crate::audio;
+// use crate::audio;
 
 /// Run all systems for one tick with RGB phase profiling.
 pub fn tick(world: &mut World, delta_time: f32) {
@@ -28,15 +30,19 @@ pub fn tick(world: &mut World, delta_time: f32) {
     network::system_network_ingress(world);
     network::system_handle_disconnects(world);
 
+    // Process dashboard introspection requests
+    #[cfg(feature = "dashboard")]
+    introspect::system_process_introspect(world);
+
     // RGB Phase execution with audio profiling
     for color in Color::ALL {
-        let phase_start = Instant::now();
-        audio::tick_start(color);
+        let _phase_start = Instant::now();
+        // audio::tick_start(color);
 
         run_phase(world, color, delta_time);
 
-        let phase_duration = phase_start.elapsed();
-        audio::beep_color(color, phase_duration);
+        let _phase_duration = _phase_start.elapsed();
+        // audio::beep_color(color, phase_duration);
     }
 
     // Global phase: Network egress (must happen after RGB phases)

@@ -39,6 +39,8 @@ members = [
     # New RGB ECS crates
     "crates/rgb-ecs",
     "crates/rgb-ecs-derive",
+    "crates/rgb-ecs-introspect",
+    "crates/rgb-ecs-introspect-derive",
     "crates/rgb-event",
     "crates/rgb-spatial",
     "crates/rgb-query",
@@ -63,6 +65,8 @@ crossbeam-channel = "0.5"
 # New RGB ECS workspace dependencies
 rgb-ecs = { path = "crates/rgb-ecs" }
 rgb-ecs-derive = { path = "crates/rgb-ecs-derive" }
+rgb-ecs-introspect = { path = "crates/rgb-ecs-introspect" }
+rgb-ecs-introspect-derive = { path = "crates/rgb-ecs-introspect-derive" }
 rgb-event = { path = "crates/rgb-event" }
 rgb-spatial = { path = "crates/rgb-spatial" }
 rgb-query = { path = "crates/rgb-query" }
@@ -95,6 +99,8 @@ log = "0.4"
 env_logger = "0.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
 quote = "1"
 proc-macro2 = "1"
 syn = "2"

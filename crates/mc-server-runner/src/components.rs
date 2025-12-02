@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use bytes::Bytes;
 use crossbeam_channel::{Receiver, Sender};
 use rgb_ecs::Component;
+use rgb_ecs_introspect::Introspectable;
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // Network Components
@@ -34,32 +36,37 @@ pub struct OutgoingPacket {
 }
 
 /// Global: Receiver for incoming packets from async layer
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Introspectable)]
 #[component(opaque)]
+#[introspectable(opaque)]
 pub struct NetworkIngress {
     pub rx: Receiver<IncomingPacket>,
 }
 
 /// Global: Sender for outgoing packets to async layer
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Introspectable)]
 #[component(opaque)]
+#[introspectable(opaque)]
 pub struct NetworkEgress {
     pub tx: Sender<OutgoingPacket>,
 }
 
 /// Global: Receiver for disconnect events
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Introspectable)]
 #[component(opaque)]
+#[introspectable(opaque)]
 pub struct DisconnectIngress {
     pub rx: Receiver<DisconnectEvent>,
 }
 
 /// Tag: Entity is a network connection
-#[derive(Component, Default, Clone, Copy)]
+#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct Connection;
 
 /// Unique ID for routing packets to correct connection
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(
+    Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Introspectable,
+)]
 pub struct ConnectionId(pub u64);
 
 impl ConnectionId {
@@ -76,7 +83,7 @@ impl ConnectionId {
 }
 
 /// Current protocol state of the connection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum ConnectionState {
     #[default]
@@ -87,12 +94,13 @@ pub enum ConnectionState {
     Play,
 }
 
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
 pub struct ProtocolState(pub ConnectionState);
 
 /// Buffer for incoming/outgoing packets per connection
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Introspectable)]
 #[component(opaque)]
+#[introspectable(opaque)]
 pub struct PacketBuffer {
     pub incoming: VecDeque<(i32, Bytes)>,
     pub outgoing: VecDeque<Bytes>,
@@ -124,8 +132,9 @@ impl PacketBuffer {
 /// Global: Temporary buffer for packets arriving before connection entity is ready.
 ///
 /// Note: Connection ID -> Entity mapping is done via named entities (world.lookup).
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Introspectable)]
 #[component(opaque)]
+#[introspectable(opaque)]
 pub struct PendingPackets {
     /// Packets for newly created connections (deferred until next tick)
     pub packets: Vec<(u64, i32, Bytes)>,
@@ -136,28 +145,27 @@ pub struct PendingPackets {
 // ============================================================================
 
 /// Tag: Entity is a player
-#[derive(Component, Default, Clone, Copy)]
+#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct Player;
 
 /// Player's username
-#[derive(Component, Debug, Clone)]
-#[component(opaque)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize, Introspectable)]
 pub struct Name {
     pub value: String,
 }
 
 /// Player's UUID
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct Uuid(pub u128);
 
 /// Entity ID assigned by server (for protocol)
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct EntityId {
     pub value: i32,
 }
 
 /// Player position in world
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -184,7 +192,7 @@ impl Position {
 }
 
 /// Player rotation
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
 pub struct Rotation {
     pub yaw: f32,
     pub pitch: f32,
@@ -198,7 +206,7 @@ impl Rotation {
 }
 
 /// Player's current chunk position
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
 pub struct ChunkPosition {
     pub x: i32,
     pub z: i32,
@@ -212,7 +220,7 @@ impl ChunkPosition {
 }
 
 /// Player game mode
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize, Introspectable)]
 pub struct GameMode {
     pub value: u8,
 }
@@ -225,16 +233,17 @@ impl GameMode {
 }
 
 /// Tag: Player needs initial spawn chunks sent
-#[derive(Component, Default, Clone, Copy)]
+#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct NeedsSpawnChunks;
 
 /// Tag: Player has completed login and is in Play state
-#[derive(Component, Default, Clone, Copy)]
+#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct InPlayState;
 
 /// Global: Entity ID counter for protocol
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Introspectable)]
 #[component(opaque)]
+#[introspectable(opaque)]
 pub struct EntityIdCounter(pub Arc<AtomicI64>);
 
 impl Default for EntityIdCounter {
@@ -254,7 +263,19 @@ impl EntityIdCounter {
 // ============================================================================
 
 /// Chunk coordinates
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Component,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    Serialize,
+    Deserialize,
+    Introspectable,
+)]
 pub struct ChunkPos {
     pub x: i32,
     pub z: i32,
@@ -280,8 +301,9 @@ impl ChunkPos {
 }
 
 /// Pre-encoded chunk data for network transmission
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Introspectable)]
 #[component(opaque)]
+#[introspectable(opaque)]
 pub struct ChunkData {
     pub encoded: Arc<Bytes>,
 }
@@ -296,7 +318,7 @@ impl ChunkData {
 }
 
 /// Tag: Chunk is fully loaded and ready
-#[derive(Component, Default, Clone, Copy)]
+#[derive(Component, Default, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct ChunkLoaded;
 
 // ============================================================================
@@ -304,8 +326,7 @@ pub struct ChunkLoaded;
 // ============================================================================
 
 /// Global: Server configuration
-#[derive(Component, Debug, Clone)]
-#[component(opaque)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize, Introspectable)]
 pub struct ServerConfig {
     /// Maximum number of players allowed
     pub max_players: i32,
@@ -327,7 +348,7 @@ impl Default for ServerConfig {
 // ============================================================================
 
 /// Global: World time tracking
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct WorldTime {
     pub world_age: i64,
     pub time_of_day: i64,
@@ -351,7 +372,7 @@ impl WorldTime {
 }
 
 /// Global: TPS (ticks per second) tracking with exponential moving averages
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Serialize, Deserialize, Introspectable)]
 pub struct TpsTracker {
     /// TPS with 5-second smoothing
     pub tps_5s: f32,
