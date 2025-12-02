@@ -260,6 +260,6 @@ rgb_commands::register_command::<HelloCommand>(world);
 - `minecraft:command_suggestions` (Clientbound, Play state, ID 15) - autocomplete response
 
 ### Decompiled Source References
-- `/tmp/mc-decompile-1.21.11-pre3/decompiled/net/minecraft/network/protocol/game/ClientboundCommandsPacket.java`
-- `/tmp/mc-decompile-1.21.11-pre3/decompiled/net/minecraft/commands/Commands.java`
-- `/tmp/mc-decompile-1.21.11-pre3/decompiled/net/minecraft/network/protocol/game/ServerboundChatCommandPacket.java`
+- `/tmp/mc-decompile-1.21.11-pre4/decompiled/net/minecraft/network/protocol/game/ClientboundCommandsPacket.java`
+- `/tmp/mc-decompile-1.21.11-pre4/decompiled/net/minecraft/commands/Commands.java`
+- `/tmp/mc-decompile-1.21.11-pre4/decompiled/net/minecraft/network/protocol/game/ServerboundChatCommandPacket.java`

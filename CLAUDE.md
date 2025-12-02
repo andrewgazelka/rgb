@@ -30,20 +30,20 @@ tokio.workspace = true
 
 ## Project: Minecraft Server in Rust
 
-This is a Minecraft server implementation targeting version 1.21.11-pre3.
+This is a Minecraft server implementation targeting version 1.21.11-pre4.
 
 ### Decompiled Minecraft Source Code
 
 **CRITICAL**: The decompiled Minecraft source is the **SINGLE SOURCE OF TRUTH**. Always consult it first before web searches or wikis. The wiki can be outdated or wrong - the decompiled code never lies.
 
-Decompiled source location: `/tmp/mc-decompile-1.21.11-pre3/decompiled/net/minecraft/`
+Decompiled source location: `/tmp/mc-decompile-1.21.11-pre4/decompiled/net/minecraft/`
 
-To decompile 1.21.11-pre3:
+To decompile 1.21.11-pre4:
 ```bash
 # Download client jar (get hash from version manifest)
-curl -o client.jar 'https://piston-data.mojang.com/v1/objects/<hash>/client.jar'
+curl -o client.jar 'https://piston-data.mojang.com/v1/objects/6dfa43a11558357822e03d8cec024f5b4bdb526e/client.jar'
 # Decompile with CFR
-java -jar cfr.jar client.jar --outputdir /tmp/mc-decompile-1.21.11-pre3/decompiled
+java -jar cfr.jar client.jar --outputdir /tmp/mc-decompile-1.21.11-pre4/decompiled
 ```
 
 **Key decompiled locations**:

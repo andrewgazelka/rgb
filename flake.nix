@@ -38,7 +38,7 @@
           strictDeps = true;
         };
 
-        mcVersion = "1.21.11-pre3";
+        mcVersion = "1.21.11-pre4";
 
         # Download and cache MC server jar
         downloadMcJar = pkgs.writeShellScriptBin "download-mc-jar" ''
@@ -92,8 +92,8 @@
             25w46a)
               URL="https://piston-data.mojang.com/v1/objects/2a1e9a8e09a6312adb91bf2a1b1188c57861ab65/client.jar"
               ;;
-            1.21.11-pre3)
-              URL="https://piston-data.mojang.com/v1/objects/70ab73433d42e46d3838462e724cdb3c0116b0c4/client.jar"
+            1.21.11-pre4)
+              URL="https://piston-data.mojang.com/v1/objects/6dfa43a11558357822e03d8cec024f5b4bdb526e/client.jar"
               ;;
             *)
               echo "No unobfuscated client available for $VERSION" >&2

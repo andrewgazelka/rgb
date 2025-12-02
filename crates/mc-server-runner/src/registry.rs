@@ -373,7 +373,7 @@ pub fn create_dimension_type_registry() -> eyre::Result<Vec<u8>> {
     "minecraft:overworld".to_string().encode(&mut data)?;
     true.encode(&mut data)?;
 
-    // DimensionType format for 1.21.11-pre3:
+    // DimensionType format for 1.21.11-pre4:
     // - has_fixed_time (optional, default false)
     // - has_skylight
     // - has_ceiling
@@ -428,7 +428,7 @@ pub fn create_biome_registry() -> eyre::Result<Vec<u8>> {
     "minecraft:plains".to_string().encode(&mut data)?;
     true.encode(&mut data)?;
 
-    // Biome format for 1.21.11-pre3:
+    // Biome format for 1.21.11-pre4:
     // - ClimateSettings: has_precipitation, temperature, downfall
     // - attributes (optional): EnvironmentAttributeMap for positional overrides
     //   (sky_color is now in dimension type, biome can override based on temperature)

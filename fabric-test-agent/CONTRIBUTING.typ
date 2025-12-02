@@ -9,7 +9,7 @@ Rust Test Harness ←── Unix Socket (JSON-RPC) ──→ Fabric Test Agent (
         │                                                │
         │ spawns                                         │ connects
         ↓                                                ↓
-   mc-server (Rust)                              Minecraft Client (1.21.11-pre3)
+   mc-server (Rust)                              Minecraft Client (1.21.11-pre4)
 ```
 
 == Building
@@ -36,7 +36,7 @@ nix run .#run-integration-tests
 ```
 fabric-test-agent/
 ├── build.gradle.kts          # Fabric Loom + Kotlin config
-├── gradle.properties         # MC 1.21.11-pre3, Fabric versions
+├── gradle.properties         # MC 1.21.11-pre4, Fabric versions
 └── src/main/
     ├── kotlin/dev/rgb/testagent/
     │   ├── RgbTestAgentMod.kt      # Entrypoint, starts socket server

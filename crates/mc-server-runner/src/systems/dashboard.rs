@@ -7,13 +7,19 @@ use flecs_ecs::prelude::*;
 use flecs_history::HistoryTracker;
 
 use crate::components::{
-    ChunkPos, Connection, ConnectionId, EntityId, GameMode, Name, Player, Position, ProtocolState,
+    ChunkPos, Connection, ConnectionId, EntityId, GameMode, Player, Position, ProtocolState,
     Rotation, Uuid,
 };
 use crate::dashboard::{
     ChunkInfo, ComponentValue, DashboardChannels, DashboardRequest, EntityDetails, EntitySummary,
     HistoryEntryInfo, ListEntitiesResponse, PlayerInfo, PositionInfo, WorldInfo,
 };
+
+/// Get entity name, returning None if empty.
+fn get_entity_name(entity: &EntityView<'_>) -> Option<String> {
+    let name = entity.name();
+    if name.is_empty() { None } else { Some(name) }
+}
 
 /// Build a query that returns user entities, filtering out internal Flecs entities.
 #[rustfmt::skip]
@@ -37,24 +43,7 @@ pub fn system_process_dashboard(
     while let Ok(request) = channels.request_rx.try_recv() {
         match request {
             DashboardRequest::GetWorld { response } => {
-                let mut count = 0;
-                world
-                    .query::<()>()
-                    .with(flecs::Wildcard::id())
-                    .without((flecs::ChildOf::ID, flecs::Flecs::ID))
-                    .self_()
-                    .up()
-                    .without(flecs::Module::id())
-                    .self_()
-                    .up()
-                    .with(flecs::Prefab::id())
-                    .optional()
-                    .with(flecs::Disabled::id())
-                    .optional()
-                    .build()
-                    .each(|_| {
-                        count += 1;
-                    });
+                let count = user_entities_query(world).count() as usize;
                 let _ = response.send(WorldInfo {
                     entity_count: count,
                     archetype_count: 0,
@@ -68,57 +57,43 @@ pub fn system_process_dashboard(
                 offset,
                 response,
             } => {
+                let query = user_entities_query(world);
+                let total = query.count() as usize;
+
                 let mut entities = Vec::new();
-                let mut total = 0;
                 let mut skipped = 0;
 
-                world
-                    .query::<()>()
-                    .with(flecs::Wildcard::id())
-                    .without((flecs::ChildOf::ID, flecs::Flecs::ID))
-                    .self_()
-                    .up()
-                    .without(flecs::Module::id())
-                    .self_()
-                    .up()
-                    .with(flecs::Prefab::id())
-                    .optional()
-                    .with(flecs::Disabled::id())
-                    .optional()
-                    .build()
-                    .each_entity(|entity, _| {
-                        total += 1;
+                query.each_entity(|entity, _| {
+                    if skipped < offset {
+                        skipped += 1;
+                        return;
+                    }
+                    if entities.len() >= limit {
+                        return;
+                    }
 
-                        if skipped < offset {
-                            skipped += 1;
-                            return;
-                        }
-                        if entities.len() >= limit {
-                            return;
-                        }
+                    let name = get_entity_name(&entity);
 
-                        let name = entity.try_get::<&Name>(|n| n.value.clone());
+                    let mut components = Vec::new();
+                    if entity.has(Player) {
+                        components.push("Player".to_string());
+                    }
+                    if entity.has(Connection) {
+                        components.push("Connection".to_string());
+                    }
+                    if entity.try_get::<&Position>(|_| ()).is_some() {
+                        components.push("Position".to_string());
+                    }
+                    if entity.try_get::<&ChunkPos>(|_| ()).is_some() {
+                        components.push("ChunkPos".to_string());
+                    }
 
-                        let mut components = Vec::new();
-                        if entity.has(Player) {
-                            components.push("Player".to_string());
-                        }
-                        if entity.has(Connection) {
-                            components.push("Connection".to_string());
-                        }
-                        if entity.try_get::<&Position>(|_| ()).is_some() {
-                            components.push("Position".to_string());
-                        }
-                        if entity.try_get::<&ChunkPos>(|_| ()).is_some() {
-                            components.push("ChunkPos".to_string());
-                        }
-
-                        entities.push(EntitySummary {
-                            id: entity.id().0,
-                            name,
-                            components,
-                        });
+                    entities.push(EntitySummary {
+                        id: entity.id().0,
+                        name,
+                        components,
                     });
+                });
 
                 let _ = response.send(ListEntitiesResponse { entities, total });
             }
@@ -131,7 +106,7 @@ pub fn system_process_dashboard(
                     continue;
                 }
 
-                let name = entity.try_get::<&Name>(|n| n.value.clone());
+                let name = get_entity_name(&entity);
                 let mut components = Vec::new();
 
                 // Try to get each known component and serialize it
@@ -231,7 +206,7 @@ pub fn system_process_dashboard(
                     .with(Player)
                     .build()
                     .each_entity(|entity, _| {
-                        let name = entity.try_get::<&Name>(|n| n.value.clone());
+                        let name = get_entity_name(&entity);
                         let uuid = entity.try_get::<&Uuid>(|u| format!("{:032x}", u.0));
                         let position = entity.try_get::<&Position>(|p| PositionInfo {
                             x: p.x,

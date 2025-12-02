@@ -91,7 +91,7 @@ impl FabricClient {
         .arg("--gameDir")
         .arg(&config.game_dir)
         .arg("--version")
-        .arg("1.21.11-pre3")
+        .arg("1.21.11-pre4")
         .current_dir(&config.game_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
