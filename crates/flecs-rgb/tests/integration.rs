@@ -1,4 +1,5 @@
 //! Integration tests for flecs-rgb
+#![allow(unsafe_code)]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -38,9 +39,9 @@ fn test_region_hierarchy_structure() {
 
     // Create chunks in different regions
     let chunk_0_0 = scheduler.create_chunk(&world, 0, 0);
-    let chunk_1_1 = scheduler.create_chunk(&world, 1, 1);
+    let _chunk_1_1 = scheduler.create_chunk(&world, 1, 1);
     let chunk_16_0 = scheduler.create_chunk(&world, 16, 0); // Different region
-    let chunk_17_1 = scheduler.create_chunk(&world, 17, 1); // Same region as chunk_16_0
+    let _chunk_17_1 = scheduler.create_chunk(&world, 17, 1); // Same region as chunk_16_0
 
     // Verify chunks have Chunk component
     assert!(chunk_0_0.try_get::<&Chunk>(|_| ()).is_some());
@@ -70,7 +71,7 @@ fn test_negative_coordinates() {
 
     // Create chunks with negative coordinates
     let chunk_neg = scheduler.create_chunk(&world, -5, -10);
-    let chunk_neg2 = scheduler.create_chunk(&world, -20, -5);
+    let _chunk_neg2 = scheduler.create_chunk(&world, -20, -5);
 
     // Verify chunk coordinates are preserved
     let c = chunk_neg.try_get::<&Chunk>(|c| (c.x, c.z)).unwrap();
@@ -487,7 +488,7 @@ fn test_full_tick_with_events() {
             max: 100,
         });
 
-    let player2 = world
+    let _player2 = world
         .entity()
         .set(Position::new(24.0, 64.0, 8.0))
         .set(Health {

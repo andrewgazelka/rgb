@@ -7,7 +7,7 @@ use mc_data::play::serverbound::Interact;
 use mc_protocol::{Decode, Packet};
 use tracing::{debug, info};
 
-use crate::components::{EntityId, InPlayState, Name, PacketBuffer, Position};
+use crate::components::{EntityId, Name, PacketBuffer, Position};
 
 /// Interaction action types from the protocol
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,10 +74,12 @@ fn parse_interact_packet(data: &[u8]) -> Option<InteractPacket> {
 /// Serverbound Interact packet ID in Play state
 const INTERACT_PACKET_ID: i32 = Interact::ID;
 
-/// System: Handle player attack interactions
-pub fn system_handle_attacks<T>(it: &TableIter<false, T>) {
-    let world = it.world();
-
+/// Handle player attack interactions
+pub fn handle_attacks(
+    world: &WorldRef<'_>,
+    attacker_entity: EntityView<'_>,
+    buffer: &mut PacketBuffer,
+) {
     // Build entity ID to entity map for target lookup
     let mut entity_id_map = std::collections::HashMap::new();
     world
@@ -87,59 +89,53 @@ pub fn system_handle_attacks<T>(it: &TableIter<false, T>) {
             entity_id_map.insert(eid.value, entity.id());
         });
 
-    for i in it.iter() {
-        let attacker_entity = it.entity(i);
+    let mut attacks_to_process = Vec::new();
 
-        attacker_entity.try_get::<&mut PacketBuffer>(|buffer| {
-            let mut attacks_to_process = Vec::new();
-
-            // Scan for interact packets
-            let mut remaining = Vec::new();
-            while let Some((packet_id, data)) = buffer.pop_incoming() {
-                if packet_id == INTERACT_PACKET_ID {
-                    if let Some(interact) = parse_interact_packet(&data) {
-                        if interact.action == InteractionType::Attack {
-                            attacks_to_process.push(interact);
-                        } else {
-                            // Non-attack interactions go back for other systems
-                            remaining.push((packet_id, data));
-                        }
-                    }
+    // Scan for interact packets
+    let mut remaining = Vec::new();
+    while let Some((packet_id, data)) = buffer.pop_incoming() {
+        if packet_id == INTERACT_PACKET_ID {
+            if let Some(interact) = parse_interact_packet(&data) {
+                if interact.action == InteractionType::Attack {
+                    attacks_to_process.push(interact);
                 } else {
+                    // Non-attack interactions go back for other systems
                     remaining.push((packet_id, data));
                 }
             }
+        } else {
+            remaining.push((packet_id, data));
+        }
+    }
 
-            // Put remaining packets back
-            for (id, data) in remaining {
-                buffer.push_incoming(id, data);
-            }
+    // Put remaining packets back
+    for (id, data) in remaining {
+        buffer.push_incoming(id, data);
+    }
 
-            // Process attacks
-            for attack in attacks_to_process {
-                let attacker_name = attacker_entity
-                    .try_get::<&Name>(|n| n.value.clone())
-                    .unwrap_or_else(|| "Unknown".to_string());
-                let attacker_pos = attacker_entity.try_get::<&Position>(|p| *p);
+    // Process attacks
+    for attack in attacks_to_process {
+        let attacker_name = attacker_entity
+            .try_get::<&Name>(|n| n.value.clone())
+            .unwrap_or_else(|| "Unknown".to_string());
+        let attacker_pos = attacker_entity.try_get::<&Position>(|p| *p);
 
-                // Find target entity
-                if let Some(&target_id) = entity_id_map.get(&attack.target_entity_id) {
-                    let target = world.entity_from_id(target_id);
-                    let target_name = target
-                        .try_get::<&Name>(|n| n.value.clone())
-                        .unwrap_or_else(|| format!("Entity#{}", attack.target_entity_id));
+        // Find target entity
+        if let Some(&target_id) = entity_id_map.get(&attack.target_entity_id) {
+            let target = world.entity_from_id(target_id);
+            let target_name = target
+                .try_get::<&Name>(|n| n.value.clone())
+                .unwrap_or_else(|| format!("Entity#{}", attack.target_entity_id));
 
-                    info!(
-                        "{} attacked {} (sneaking: {})",
-                        attacker_name, target_name, attack.sneaking
-                    );
-                } else {
-                    debug!(
-                        "{} attacked unknown entity ID {} at {:?}",
-                        attacker_name, attack.target_entity_id, attacker_pos
-                    );
-                }
-            }
-        });
+            info!(
+                "{} attacked {} (sneaking: {})",
+                attacker_name, target_name, attack.sneaking
+            );
+        } else {
+            debug!(
+                "{} attacked unknown entity ID {} at {:?}",
+                attacker_name, attack.target_entity_id, attacker_pos
+            );
+        }
     }
 }

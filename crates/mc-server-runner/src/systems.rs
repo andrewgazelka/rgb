@@ -5,10 +5,10 @@
 mod attack;
 mod command;
 mod config;
+#[cfg(feature = "dashboard")]
+pub mod dashboard;
 mod handshake;
 pub mod history;
-#[cfg(feature = "dashboard")]
-mod introspect;
 mod login;
 mod network;
 mod play;
@@ -20,234 +20,157 @@ use flecs_ecs::prelude::*;
 
 use crate::components::*;
 
-/// Server module - registers all systems
-#[derive(Component)]
-pub struct ServerModule;
+/// Initialize all systems for the server
+pub fn init_systems(world: &World) {
+    // ============================================================
+    // NETWORK INGRESS - OnLoad phase (first)
+    // ============================================================
+    world
+        .system::<()>()
+        .kind(id::<flecs::pipeline::OnLoad>())
+        .each_iter(|it, _i, _| {
+            network::system_network_ingress(&it.world());
+        });
 
-impl Module for ServerModule {
-    fn module(world: &World) {
-        world.module::<ServerModule>("server");
+    world
+        .system::<()>()
+        .kind(id::<flecs::pipeline::OnLoad>())
+        .each_iter(|it, _i, _| {
+            network::system_handle_disconnects(&it.world());
+        });
 
-        // Register all component types
-        world.component::<NetworkIngress>();
-        world.component::<NetworkEgress>();
-        world.component::<DisconnectIngress>();
-        world.component::<Connection>();
-        world.component::<ConnectionId>();
-        world.component::<ProtocolState>();
-        world.component::<PacketBuffer>();
-        world.component::<PendingPackets>();
-        world.component::<ConnectionIndex>();
-        world.component::<Player>();
-        world.component::<Name>();
-        world.component::<Uuid>();
-        world.component::<EntityId>();
-        world.component::<Position>();
-        world.component::<Rotation>();
-        world.component::<ChunkPosition>();
-        world.component::<GameMode>();
-        world.component::<NeedsSpawnChunks>();
-        world.component::<InPlayState>();
-        world.component::<EntityIdCounter>();
-        world.component::<ChunkPos>();
-        world.component::<ChunkData>();
-        world.component::<ChunkLoaded>();
-        world.component::<ServerConfig>();
-        world.component::<WorldTime>();
-        world.component::<TpsTracker>();
-        world.component::<DeltaTime>();
+    // ============================================================
+    // PROTOCOL HANDLING - PreUpdate phase
+    // ============================================================
+    world
+        .system::<(&mut PacketBuffer, &mut ProtocolState)>()
+        .with(Connection)
+        .kind(id::<flecs::pipeline::PreUpdate>())
+        .each_entity(|entity, (buffer, state)| {
+            handshake::handle_handshake(entity, buffer, state);
+        });
 
-        // Mark singletons
-        world
-            .component::<ServerConfig>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<WorldTime>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<TpsTracker>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<DeltaTime>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<EntityIdCounter>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<PendingPackets>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<ConnectionIndex>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<NetworkIngress>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<NetworkEgress>()
-            .add_trait::<flecs::Singleton>();
-        world
-            .component::<DisconnectIngress>()
-            .add_trait::<flecs::Singleton>();
+    world
+        .system::<(&mut PacketBuffer, &ProtocolState)>()
+        .with(Connection)
+        .kind(id::<flecs::pipeline::PreUpdate>())
+        .each_iter(|it, _i, (buffer, state)| {
+            let world = it.world();
+            let config = world.get::<&ServerConfig>(|c| c.clone());
+            handshake::handle_status(buffer, state, &config);
+        });
 
-        // ============================================================
-        // NETWORK INGRESS - OnLoad phase (first)
-        // ============================================================
-        world
-            .system_named::<(&NetworkIngress, &mut PendingPackets, &mut ConnectionIndex)>(
-                "NetworkIngress",
-            )
-            .kind::<flecs::pipeline::OnLoad>()
-            .run(|mut it| {
-                while it.next() {
-                    network::system_network_ingress(&it);
-                }
-            });
+    world
+        .system::<(&mut PacketBuffer, &mut ProtocolState)>()
+        .with(Connection)
+        .kind(id::<flecs::pipeline::PreUpdate>())
+        .each_iter(|it, i, (buffer, state)| {
+            let world = it.world();
+            let entity_counter = world.get::<&EntityIdCounter>(|c| EntityIdCounter(c.0.clone()));
+            let entity = it.entity(i);
+            login::handle_login(entity, buffer, state, &entity_counter);
+        });
 
-        world
-            .system_named::<(&DisconnectIngress, &mut ConnectionIndex)>("HandleDisconnects")
-            .kind::<flecs::pipeline::OnLoad>()
-            .run(|mut it| {
-                while it.next() {
-                    network::system_handle_disconnects(&it);
-                }
-            });
+    world
+        .system::<(&mut PacketBuffer, &mut ProtocolState)>()
+        .with(Connection)
+        .kind(id::<flecs::pipeline::PreUpdate>())
+        .each_entity(|entity, (buffer, state)| {
+            config::handle_configuration(entity, buffer, state);
+        });
 
-        // ============================================================
-        // PROTOCOL HANDLING - PreUpdate phase
-        // ============================================================
-        world
-            .system_named::<(&mut PacketBuffer, &mut ProtocolState)>("HandleHandshake")
-            .kind::<flecs::pipeline::PreUpdate>()
-            .with::<Connection>()
-            .each_entity(|entity, (buffer, state)| {
-                handshake::handle_handshake(entity, buffer, state);
-            });
+    // ============================================================
+    // PLAY STATE - OnUpdate phase
+    // ============================================================
+    world
+        .system::<(&mut PacketBuffer, &Position, &EntityId)>()
+        .with(NeedsSpawnChunks)
+        .kind(id::<flecs::pipeline::OnUpdate>())
+        .each_iter(|it, i, (buffer, pos, entity_id)| {
+            let world = it.world();
+            let entity = it.entity(i);
+            play::send_spawn_data(&world, entity, buffer, pos, entity_id);
+        });
 
-        world
-            .system_named::<(&mut PacketBuffer, &ProtocolState, &ServerConfig)>("HandleStatus")
-            .kind::<flecs::pipeline::PreUpdate>()
-            .with::<Connection>()
-            .run(|mut it| {
-                while it.next() {
-                    handshake::system_handle_status(&it);
-                }
-            });
+    world
+        .system::<(&mut PacketBuffer, &mut Position, &mut Rotation)>()
+        .with(InPlayState)
+        .kind(id::<flecs::pipeline::OnUpdate>())
+        .each(|(buffer, pos, rot)| {
+            play::handle_movement(buffer, pos, rot);
+        });
 
-        world
-            .system_named::<(&mut PacketBuffer, &mut ProtocolState, &EntityIdCounter)>(
-                "HandleLogin",
-            )
-            .kind::<flecs::pipeline::PreUpdate>()
-            .with::<Connection>()
-            .run(|mut it| {
-                while it.next() {
-                    login::system_handle_login(&it);
-                }
-            });
+    world
+        .system::<&mut PacketBuffer>()
+        .with(InPlayState)
+        .kind(id::<flecs::pipeline::OnUpdate>())
+        .each_iter(|it, _i, buffer| {
+            let world = it.world();
+            let world_time = world.get::<&WorldTime>(|t| *t);
+            play::send_keepalive(buffer, &world_time);
+        });
 
-        world
-            .system_named::<(&mut PacketBuffer, &mut ProtocolState)>("HandleConfiguration")
-            .kind::<flecs::pipeline::PreUpdate>()
-            .with::<Connection>()
-            .run(|mut it| {
-                while it.next() {
-                    config::system_handle_configuration(&it);
-                }
-            });
+    world
+        .system::<(&mut PacketBuffer, &Position)>()
+        .with(InPlayState)
+        .kind(id::<flecs::pipeline::OnUpdate>())
+        .each_iter(|it, _i, (buffer, pos)| {
+            let world = it.world();
+            let world_time = world.get::<&WorldTime>(|t| *t);
+            let tps = world.get::<&TpsTracker>(|t| *t);
+            play::send_position_action_bar(buffer, pos, &world_time, &tps);
+        });
 
-        // ============================================================
-        // PLAY STATE - OnUpdate phase
-        // ============================================================
-        world
-            .system_named::<(
-                &mut PacketBuffer,
-                &Position,
-                &EntityId,
-                &ServerConfig,
-                &WorldTime,
-            )>("SendSpawnData")
-            .kind::<flecs::pipeline::OnUpdate>()
-            .with::<NeedsSpawnChunks>()
-            .run(|mut it| {
-                while it.next() {
-                    play::system_send_spawn_data(&it);
-                }
-            });
+    world
+        .system::<&mut PacketBuffer>()
+        .with(InPlayState)
+        .kind(id::<flecs::pipeline::OnUpdate>())
+        .each_iter(|it, i, buffer| {
+            let world = it.world();
+            let entity = it.entity(i);
+            attack::handle_attacks(&world, entity, buffer);
+        });
 
-        world
-            .system_named::<(&mut PacketBuffer, &mut Position, &mut Rotation)>("HandleMovement")
-            .kind::<flecs::pipeline::OnUpdate>()
-            .with::<InPlayState>()
-            .each_entity(|_entity, (buffer, pos, rot)| {
-                play::handle_movement(buffer, pos, rot);
-            });
+    world
+        .system::<&mut PacketBuffer>()
+        .with(InPlayState)
+        .kind(id::<flecs::pipeline::OnUpdate>())
+        .each_iter(|it, i, buffer| {
+            let world = it.world();
+            let entity = it.entity(i);
+            command::handle_commands(&world, entity, buffer);
+        });
 
-        world
-            .system_named::<(&mut PacketBuffer, &WorldTime)>("SendKeepalive")
-            .kind::<flecs::pipeline::OnUpdate>()
-            .with::<InPlayState>()
-            .run(|mut it| {
-                while it.next() {
-                    play::system_send_keepalive(&it);
-                }
-            });
+    // ============================================================
+    // TIME - PostUpdate phase
+    // ============================================================
+    world
+        .system::<&mut WorldTime>()
+        .kind(id::<flecs::pipeline::PostUpdate>())
+        .each(|time| {
+            time.tick();
+        });
 
-        world
-            .system_named::<(&mut PacketBuffer, &Position, &TpsTracker, &WorldTime)>(
-                "SendPositionActionBar",
-            )
-            .kind::<flecs::pipeline::OnUpdate>()
-            .with::<InPlayState>()
-            .run(|mut it| {
-                while it.next() {
-                    play::system_send_position_action_bar(&it);
-                }
-            });
+    world
+        .system::<&mut TpsTracker>()
+        .kind(id::<flecs::pipeline::PostUpdate>())
+        .each_iter(|it, _i, tps| {
+            let world = it.world();
+            let delta = world.get::<&DeltaTime>(|d| d.0);
+            tps.update(delta);
+        });
 
-        world
-            .system_named::<(&mut PacketBuffer, &InPlayState)>("HandleAttacks")
-            .kind::<flecs::pipeline::OnUpdate>()
-            .run(|mut it| {
-                while it.next() {
-                    attack::system_handle_attacks(&it);
-                }
-            });
-
-        world
-            .system_named::<(&mut PacketBuffer, &InPlayState)>("HandleCommands")
-            .kind::<flecs::pipeline::OnUpdate>()
-            .run(|mut it| {
-                while it.next() {
-                    command::system_handle_commands(&it);
-                }
-            });
-
-        // ============================================================
-        // TIME - PostUpdate phase
-        // ============================================================
-        world
-            .system_named::<&mut WorldTime>("TickWorldTime")
-            .kind::<flecs::pipeline::PostUpdate>()
-            .each(|time| {
-                time.tick();
-            });
-
-        world
-            .system_named::<(&mut TpsTracker, &DeltaTime)>("UpdateTps")
-            .kind::<flecs::pipeline::PostUpdate>()
-            .each(|(tps, delta)| {
-                tps.update(delta.0);
-            });
-
-        // ============================================================
-        // NETWORK EGRESS - OnStore phase (last)
-        // ============================================================
-        world
-            .system_named::<(&mut PacketBuffer, &ConnectionId, &NetworkEgress)>("NetworkEgress")
-            .kind::<flecs::pipeline::OnStore>()
-            .with::<Connection>()
-            .each(|(buffer, conn_id, egress)| {
+    // ============================================================
+    // NETWORK EGRESS - OnStore phase (last)
+    // ============================================================
+    world
+        .system::<(&mut PacketBuffer, &ConnectionId)>()
+        .with(Connection)
+        .kind(id::<flecs::pipeline::OnStore>())
+        .each_iter(|it, _i, (buffer, conn_id)| {
+            let world = it.world();
+            world.get::<&NetworkEgress>(|egress| {
                 network::handle_egress(buffer, conn_id, egress);
             });
-    }
+        });
 }

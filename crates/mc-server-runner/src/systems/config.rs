@@ -14,53 +14,51 @@ use crate::registry::{
     create_zombie_nautilus_variant_registry,
 };
 
-/// System: Handle configuration packets
-pub fn system_handle_configuration<T>(it: &TableIter<false, T>) {
-    for i in it.iter() {
-        let entity = it.entity(i);
+/// Handle configuration packets for a single entity
+pub fn handle_configuration(
+    entity: EntityView<'_>,
+    buffer: &mut PacketBuffer,
+    state: &mut ProtocolState,
+) {
+    if state.0 != ConnectionState::Configuration {
+        return;
+    }
 
-        entity.try_get::<(&mut PacketBuffer, &mut ProtocolState)>(|(buffer, state)| {
-            if state.0 != ConnectionState::Configuration {
-                return;
+    while let Some((packet_id, data)) = buffer.pop_incoming() {
+        match packet_id {
+            0 => {
+                // Client Information
+                debug!("Got Client Information");
             }
-
-            while let Some((packet_id, data)) = buffer.pop_incoming() {
-                match packet_id {
-                    0 => {
-                        // Client Information
-                        debug!("Got Client Information");
-                    }
-                    2 => {
-                        // Custom Payload (plugin message)
-                        let mut cursor = std::io::Cursor::new(&data[..]);
-                        if let Ok(channel) = String::decode(&mut cursor) {
-                            debug!("Plugin message on channel: {}", channel);
-                        }
-                    }
-                    3 => {
-                        // Finish Configuration (Acknowledge)
-                        tracing::info!("Client acknowledged configuration, transitioning to Play");
-                        state.0 = ConnectionState::Play;
-                        entity.add::<NeedsSpawnChunks>();
-                    }
-                    7 => {
-                        // Select Known Packs response
-                        debug!("Client selected known packs");
-
-                        // Send Registry Data
-                        send_registry_data(buffer);
-
-                        // Send Finish Configuration
-                        let packet = encode_packet(3, &[]);
-                        buffer.push_outgoing(packet);
-                        debug!("Sent Finish Configuration");
-                    }
-                    _ => {
-                        debug!("Unknown configuration packet: {}", packet_id);
-                    }
+            2 => {
+                // Custom Payload (plugin message)
+                let mut cursor = std::io::Cursor::new(&data[..]);
+                if let Ok(channel) = String::decode(&mut cursor) {
+                    debug!("Plugin message on channel: {}", channel);
                 }
             }
-        });
+            3 => {
+                // Finish Configuration (Acknowledge)
+                tracing::info!("Client acknowledged configuration, transitioning to Play");
+                state.0 = ConnectionState::Play;
+                entity.add(NeedsSpawnChunks);
+            }
+            7 => {
+                // Select Known Packs response
+                debug!("Client selected known packs");
+
+                // Send Registry Data
+                send_registry_data(buffer);
+
+                // Send Finish Configuration
+                let packet = encode_packet(3, &[]);
+                buffer.push_outgoing(packet);
+                debug!("Sent Finish Configuration");
+            }
+            _ => {
+                debug!("Unknown configuration packet: {}", packet_id);
+            }
+        }
     }
 }
 

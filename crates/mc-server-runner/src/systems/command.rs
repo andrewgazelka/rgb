@@ -1,4 +1,4 @@
-//! Command system with clap integration
+//! Command system
 //!
 //! Handles incoming chat commands and generates Minecraft command tree packets.
 
@@ -33,16 +33,14 @@ const FLAG_EXECUTABLE: u8 = 0x04;
 
 /// Argument parser IDs from Minecraft registry
 mod parser_ids {
-    pub const STRING_SINGLE_WORD: i32 = 5; // brigadier:string with single word mode
-    pub const INTEGER: i32 = 3; // brigadier:integer
-    pub const ENTITY: i32 = 6; // minecraft:entity
+    pub const STRING_SINGLE_WORD: i32 = 5;
+    pub const ENTITY: i32 = 6;
 }
 
 /// Command definition for building command trees
 #[derive(Clone)]
 pub struct CommandDef {
     pub name: &'static str,
-    pub description: &'static str,
     pub args: Vec<ArgDef>,
 }
 
@@ -58,32 +56,27 @@ pub fn registered_commands() -> Vec<CommandDef> {
     vec![
         CommandDef {
             name: "inspect",
-            description: "Inspect an entity's components",
             args: vec![ArgDef {
                 name: "entity",
                 parser_id: parser_ids::ENTITY,
-                parser_data: Some(vec![0x01]), // SINGLE flag
+                parser_data: Some(vec![0x01]),
             }],
         },
         CommandDef {
             name: "tps",
-            description: "Show server TPS",
             args: vec![],
         },
         CommandDef {
             name: "pos",
-            description: "Show your position",
             args: vec![],
         },
         CommandDef {
             name: "entities",
-            description: "List all entities",
             args: vec![],
         },
     ]
 }
 
-/// Write a varint to BytesMut
 fn write_varint_bytes(data: &mut BytesMut, mut value: i32) {
     loop {
         let mut byte = (value & 0x7F) as u8;
@@ -103,7 +96,6 @@ pub fn build_commands_packet() -> eyre::Result<Bytes> {
     let commands = registered_commands();
     let mut nodes = Vec::new();
 
-    // Node 0: Root node
     nodes.push(CommandNode {
         flags: NODE_TYPE_ROOT,
         children: Vec::new(),
@@ -113,7 +105,6 @@ pub fn build_commands_packet() -> eyre::Result<Bytes> {
         parser_data: None,
     });
 
-    // Add each command as a literal child of root
     let mut root_children = Vec::new();
 
     for cmd in &commands {
@@ -121,7 +112,6 @@ pub fn build_commands_packet() -> eyre::Result<Bytes> {
         root_children.push(cmd_node_idx);
 
         if cmd.args.is_empty() {
-            // Simple command with no args - executable literal
             nodes.push(CommandNode {
                 flags: NODE_TYPE_LITERAL | FLAG_EXECUTABLE,
                 children: Vec::new(),
@@ -131,17 +121,13 @@ pub fn build_commands_packet() -> eyre::Result<Bytes> {
                 parser_data: None,
             });
         } else {
-            // Command with args - literal node followed by argument chain
             let mut arg_indices = Vec::new();
-
-            // Build argument nodes (in reverse so we can chain children)
             for (i, _arg) in cmd.args.iter().enumerate().rev() {
                 let arg_idx = nodes.len() as i32 + (cmd.args.len() - 1 - i) as i32 + 1;
                 arg_indices.push(arg_idx);
             }
             arg_indices.reverse();
 
-            // Create literal node pointing to first arg
             let first_arg_idx = if arg_indices.is_empty() {
                 Vec::new()
             } else {
@@ -157,7 +143,6 @@ pub fn build_commands_packet() -> eyre::Result<Bytes> {
                 parser_data: None,
             });
 
-            // Add argument nodes
             for (i, arg) in cmd.args.iter().enumerate() {
                 let is_last = i == cmd.args.len() - 1;
                 let children = if is_last {
@@ -180,38 +165,28 @@ pub fn build_commands_packet() -> eyre::Result<Bytes> {
         }
     }
 
-    // Update root node with children
     nodes[0].children = root_children;
 
-    // Encode packet
     let mut data = BytesMut::new();
-
-    // Node count
     write_varint_bytes(&mut data, nodes.len() as i32);
 
-    // Encode each node
     for node in &nodes {
         data.put_u8(node.flags);
-
-        // Children count and indices
         write_varint_bytes(&mut data, node.children.len() as i32);
         for &child in &node.children {
             write_varint_bytes(&mut data, child);
         }
 
-        // Redirect (optional, not used)
         if node.redirect.is_some() {
             write_varint_bytes(&mut data, node.redirect.unwrap());
         }
 
-        // Name (for literal and argument nodes)
         if let Some(ref name) = node.name {
             let mut name_buf = Vec::new();
             name.clone().encode(&mut name_buf)?;
             data.extend_from_slice(&name_buf);
         }
 
-        // Parser (for argument nodes)
         if let Some(parser_id) = node.parser_id {
             write_varint_bytes(&mut data, parser_id);
             if let Some(ref parser_data) = node.parser_data {
@@ -220,7 +195,6 @@ pub fn build_commands_packet() -> eyre::Result<Bytes> {
         }
     }
 
-    // Root index
     write_varint_bytes(&mut data, 0);
 
     Ok(data.freeze())
@@ -235,42 +209,32 @@ struct CommandNode {
     parser_data: Option<Vec<u8>>,
 }
 
-/// Send a system chat message to a player
 fn send_chat_message(buffer: &mut PacketBuffer, message: &str) {
     let mut data = BytesMut::new();
-
-    // Chat component as NBT (text component)
     let nbt = mc_protocol::nbt! {
         "text" => message,
     };
     data.extend_from_slice(&nbt.to_network_bytes());
-
-    // Overlay = false (not action bar)
     data.put_u8(0);
-
     buffer.push_outgoing(encode_packet(SYSTEM_CHAT_PACKET_ID, &data));
 }
 
-/// Parse a command string and return the command name and arguments
 fn parse_command(input: &str) -> Option<(&str, Vec<&str>)> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return None;
     }
-
     let mut parts = trimmed.split_whitespace();
     let cmd_name = parts.next()?;
     let args: Vec<&str> = parts.collect();
-
     Some((cmd_name, args))
 }
 
-/// Execute a command and return the response message
 fn execute_command(
     cmd: &str,
     args: &[&str],
-    executor: EntityView,
-    world: &WorldRef,
+    executor: EntityView<'_>,
+    world: &WorldRef<'_>,
 ) -> Result<String, String> {
     match cmd {
         "tps" => {
@@ -307,7 +271,6 @@ fn execute_command(
                 return Err("Usage: /inspect <entity>".to_string());
             }
 
-            // For now, just inspect self if "@s"
             if args[0] == "@s" {
                 let mut components = Vec::new();
 
@@ -329,7 +292,7 @@ fn execute_command(
                 if let Some(eid) = executor.try_get::<&EntityId>(|e| e.value) {
                     components.push(format!("EntityId: {}", eid));
                 }
-                if executor.has::<InPlayState>() {
+                if executor.has(InPlayState) {
                     components.push("InPlayState: true".to_string());
                 }
 
@@ -346,55 +309,44 @@ fn execute_command(
     }
 }
 
-/// System: Handle incoming chat commands
-pub fn system_handle_commands<T>(it: &TableIter<false, T>) {
-    let world = it.world();
+/// Handle incoming chat commands
+pub fn handle_commands(world: &WorldRef<'_>, executor: EntityView<'_>, buffer: &mut PacketBuffer) {
+    let mut commands_to_execute = Vec::new();
+    let mut remaining = Vec::new();
 
-    for i in it.iter() {
-        let executor = it.entity(i);
-
-        executor.try_get::<&mut PacketBuffer>(|buffer| {
-            let mut commands_to_execute = Vec::new();
-            let mut remaining = Vec::new();
-
-            while let Some((packet_id, data)) = buffer.pop_incoming() {
-                if packet_id == CHAT_COMMAND_PACKET_ID {
-                    // Parse command string
-                    let mut cursor = std::io::Cursor::new(&data[..]);
-                    if let Ok(command_str) = String::decode(&mut cursor) {
-                        commands_to_execute.push(command_str);
-                    }
-                } else {
-                    remaining.push((packet_id, data));
-                }
+    while let Some((packet_id, data)) = buffer.pop_incoming() {
+        if packet_id == CHAT_COMMAND_PACKET_ID {
+            let mut cursor = std::io::Cursor::new(&data[..]);
+            if let Ok(command_str) = String::decode(&mut cursor) {
+                commands_to_execute.push(command_str);
             }
+        } else {
+            remaining.push((packet_id, data));
+        }
+    }
 
-            // Put remaining packets back
-            for (id, data) in remaining {
-                buffer.push_incoming(id, data);
-            }
+    for (id, data) in remaining {
+        buffer.push_incoming(id, data);
+    }
 
-            // Execute commands
-            for command_str in commands_to_execute {
-                let executor_name = executor
-                    .try_get::<&Name>(|n| n.value.clone())
-                    .unwrap_or_else(|| "Unknown".to_string());
+    for command_str in commands_to_execute {
+        let executor_name = executor
+            .try_get::<&Name>(|n| n.value.clone())
+            .unwrap_or_else(|| "Unknown".to_string());
 
-                info!("{} executed command: /{}", executor_name, command_str);
+        info!("{} executed command: /{}", executor_name, command_str);
 
-                if let Some((cmd, args)) = parse_command(&command_str) {
-                    let response = match execute_command(cmd, &args, executor, &world) {
-                        Ok(msg) => msg,
-                        Err(err) => err,
-                    };
-                    send_chat_message(buffer, &response);
-                }
-            }
-        });
+        if let Some((cmd, args)) = parse_command(&command_str) {
+            let response = match execute_command(cmd, &args, executor, world) {
+                Ok(msg) => msg,
+                Err(err) => err,
+            };
+            send_chat_message(buffer, &response);
+        }
     }
 }
 
-/// System: Send command tree to new players
+/// Send command tree to new players
 pub fn send_commands_to_player(buffer: &mut PacketBuffer) {
     match build_commands_packet() {
         Ok(data) => {

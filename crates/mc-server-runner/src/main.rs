@@ -31,7 +31,6 @@ use tracing::info;
 
 use crate::components::*;
 use crate::network::NetworkChannels;
-use crate::systems::ServerModule;
 
 fn main() -> eyre::Result<()> {
     // Initialize logging
@@ -47,11 +46,33 @@ fn main() -> eyre::Result<()> {
     // Create ECS world
     let world = World::new();
 
-    // Import the server module (registers all components and systems)
-    world.import::<ServerModule>();
+    // Initialize history tracking (must be before systems so hooks are set up)
+    let history = systems::history::init_history_tracking(&world);
+
+    // Initialize all systems
+    systems::init_systems(&world);
 
     // Create network channels and start network thread
     let channels = NetworkChannels::new();
+
+    // Create dashboard channels and start dashboard server
+    #[cfg(feature = "dashboard")]
+    let dashboard_channels = {
+        let channels = dashboard::DashboardChannels::new();
+        let state = dashboard::DashboardState::new(&channels);
+        let port = std::env::var("DASHBOARD_PORT")
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(8080);
+
+        // Start dashboard server in a separate async runtime
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+            rt.block_on(dashboard::start_server(state, port));
+        });
+
+        channels
+    };
 
     // Set singletons
     world.set(ServerConfig::default());
@@ -110,6 +131,13 @@ fn main() -> eyre::Result<()> {
 
         // Run all systems via Flecs pipeline
         world.progress();
+
+        // Process dashboard requests
+        #[cfg(feature = "dashboard")]
+        systems::dashboard::system_process_dashboard(&world, &dashboard_channels, &history);
+
+        // Advance history tick
+        history.advance_tick();
 
         // Sleep to maintain target FPS
         let elapsed = start.elapsed();

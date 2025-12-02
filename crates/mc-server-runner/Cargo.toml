@@ -16,6 +16,7 @@ dashboard = ["axum", "tower-http"]
 
 [dependencies]
 flecs_ecs.workspace = true
+flecs-history = { path = "../flecs-history" }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 eyre.workspace = true

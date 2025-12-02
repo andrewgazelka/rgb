@@ -7,7 +7,11 @@ use crate::components::{ConnectionState, PacketBuffer, ProtocolState, ServerConf
 use crate::protocol::{encode_packet, parse_handshake, send_status_response};
 
 /// Handle handshake for a single entity
-pub fn handle_handshake(_entity: EntityView, buffer: &mut PacketBuffer, state: &mut ProtocolState) {
+pub fn handle_handshake(
+    _entity: EntityView<'_>,
+    buffer: &mut PacketBuffer,
+    state: &mut ProtocolState,
+) {
     if state.0 != ConnectionState::Handshaking {
         return;
     }
@@ -39,36 +43,25 @@ pub fn handle_handshake(_entity: EntityView, buffer: &mut PacketBuffer, state: &
     }
 }
 
-/// System: Handle status request packets
-pub fn system_handle_status<T>(it: &TableIter<false, T>) {
-    let world = it.world();
+/// Handle status request packets
+pub fn handle_status(buffer: &mut PacketBuffer, state: &ProtocolState, config: &ServerConfig) {
+    if state.0 != ConnectionState::Status {
+        return;
+    }
 
-    // Get ServerConfig singleton
-    let config = world.get::<&ServerConfig>(|config| config.clone());
-
-    for i in it.iter() {
-        let entity = it.entity(i);
-
-        entity.try_get::<(&mut PacketBuffer, &ProtocolState)>(|(buffer, state)| {
-            if state.0 != ConnectionState::Status {
-                return;
+    while let Some((packet_id, data)) = buffer.pop_incoming() {
+        match packet_id {
+            0 => {
+                // Status Request
+                info!("Status request");
+                send_status_response(buffer, config.max_players, &config.motd);
             }
-
-            while let Some((packet_id, data)) = buffer.pop_incoming() {
-                match packet_id {
-                    0 => {
-                        // Status Request
-                        info!("Status request");
-                        send_status_response(buffer, config.max_players, &config.motd);
-                    }
-                    1 => {
-                        // Ping - echo back the same data
-                        let packet = encode_packet(1, &data);
-                        buffer.push_outgoing(packet);
-                    }
-                    _ => {}
-                }
+            1 => {
+                // Ping - echo back the same data
+                let packet = encode_packet(1, &data);
+                buffer.push_outgoing(packet);
             }
-        });
+            _ => {}
+        }
     }
 }

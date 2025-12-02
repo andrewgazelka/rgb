@@ -107,9 +107,8 @@ impl HistoryStore {
         new_value: Option<serde_json::Value>,
         source: ChangeSource,
     ) -> u64 {
-        let tree = match self.tree() {
-            Ok(t) => t,
-            Err(_) => return 0,
+        let Ok(tree) = self.tree() else {
+            return 0;
         };
 
         let id = {
@@ -135,9 +134,8 @@ impl HistoryStore {
         };
 
         // Serialize entry
-        let entry_bytes = match serde_json::to_vec(&entry) {
-            Ok(b) => b,
-            Err(_) => return 0,
+        let Ok(entry_bytes) = serde_json::to_vec(&entry) else {
+            return 0;
         };
 
         // Key format: entity:component:id (zero-padded for sorting)
@@ -167,9 +165,8 @@ impl HistoryStore {
         component: &str,
         limit: Option<usize>,
     ) -> Vec<HistoryEntry> {
-        let tree = match self.tree() {
-            Ok(t) => t,
-            Err(_) => return Vec::new(),
+        let Ok(tree) = self.tree() else {
+            return Vec::new();
         };
 
         let prefix = format!("{entity:016x}:{component}:");
@@ -182,9 +179,8 @@ impl HistoryStore {
 
         let limit = limit.unwrap_or(100);
 
-        let results = match tree.get_range(&(start..&end_bytes[..])) {
-            Ok(r) => r,
-            Err(_) => return Vec::new(),
+        let Ok(results) = tree.get_range(&(start..&end_bytes[..])) else {
+            return Vec::new();
         };
 
         let mut entries: Vec<HistoryEntry> = results
@@ -200,9 +196,8 @@ impl HistoryStore {
 
     /// Get history for a specific entity (all components).
     pub fn get_entity_history(&self, entity: u64, limit: Option<usize>) -> Vec<HistoryEntry> {
-        let tree = match self.tree() {
-            Ok(t) => t,
-            Err(_) => return Vec::new(),
+        let Ok(tree) = self.tree() else {
+            return Vec::new();
         };
 
         let prefix = format!("{entity:016x}:");
@@ -214,9 +209,8 @@ impl HistoryStore {
 
         let limit = limit.unwrap_or(100);
 
-        let results = match tree.get_range(&(start..&end_bytes[..])) {
-            Ok(r) => r,
-            Err(_) => return Vec::new(),
+        let Ok(results) = tree.get_range(&(start..&end_bytes[..])) else {
+            return Vec::new();
         };
 
         let mut entries: Vec<HistoryEntry> = results
@@ -231,9 +225,8 @@ impl HistoryStore {
 
     /// Get global history (all entities, all components).
     pub fn get_global_history(&self, limit: Option<usize>) -> Vec<HistoryEntry> {
-        let tree = match self.tree() {
-            Ok(t) => t,
-            Err(_) => return Vec::new(),
+        let Ok(tree) = self.tree() else {
+            return Vec::new();
         };
 
         let limit = limit.unwrap_or(100);
@@ -242,9 +235,8 @@ impl HistoryStore {
         let start = b"0".as_slice();
         let end = b"g".as_slice(); // After all hex digits
 
-        let results = match tree.get_range(&(start..end)) {
-            Ok(r) => r,
-            Err(_) => return Vec::new(),
+        let Ok(results) = tree.get_range(&(start..end)) else {
+            return Vec::new();
         };
 
         let mut entries: Vec<HistoryEntry> = results

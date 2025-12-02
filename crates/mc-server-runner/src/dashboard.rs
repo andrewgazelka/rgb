@@ -1,9 +1,8 @@
 //! ECS Dashboard web server for introspection.
 //!
-//! Provides REST API endpoints for inspecting and modifying ECS state
-//! from a web dashboard.
+//! Provides REST API endpoints for inspecting ECS state from a web dashboard.
+//! Uses a channel-based approach to safely communicate with the Flecs world.
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
@@ -11,78 +10,170 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
+    routing::get,
 };
-use crossbeam_channel::Sender;
-use rgb_ecs_introspect::{
-    ChangeSource, HistoryStore, IntrospectChannels, IntrospectRegistry, IntrospectRequest,
-    QuerySpec, protocol::oneshot,
-};
-use serde::Deserialize;
+use crossbeam_channel::{Receiver, Sender, bounded};
+use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
 
-/// Shared state for the dashboard API.
-#[derive(Clone)]
-pub struct DashboardState {
-    /// Channel to send requests to the ECS world.
-    request_tx: Sender<IntrospectRequest>,
-    /// Registry of introspectable components.
-    registry: Arc<IntrospectRegistry>,
-    /// Component change history.
-    history: HistoryStore,
+// ============================================================================
+// Request/Response Types for Channel Communication
+// ============================================================================
+
+/// Request types that can be sent to the game loop.
+pub enum DashboardRequest {
+    GetWorld {
+        response: Sender<WorldInfo>,
+    },
+    ListEntities {
+        limit: usize,
+        offset: usize,
+        response: Sender<Vec<EntitySummary>>,
+    },
+    GetEntity {
+        id: u64,
+        response: Sender<Option<EntityDetails>>,
+    },
+    ListPlayers {
+        response: Sender<Vec<PlayerInfo>>,
+    },
+    ListChunks {
+        response: Sender<Vec<ChunkInfo>>,
+    },
+    GetEntityHistory {
+        id: u64,
+        response: Sender<Vec<HistoryEntryInfo>>,
+    },
 }
 
-impl DashboardState {
-    /// Create dashboard state from introspect channels and registry.
-    pub fn new(channels: &IntrospectChannels, registry: Arc<IntrospectRegistry>) -> Self {
+#[derive(Serialize, Clone)]
+pub struct WorldInfo {
+    pub entity_count: usize,
+}
+
+#[derive(Serialize, Clone)]
+pub struct EntitySummary {
+    pub id: u64,
+    pub name: Option<String>,
+    pub components: Vec<String>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct EntityDetails {
+    pub id: u64,
+    pub name: Option<String>,
+    pub components: Vec<ComponentValue>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ComponentValue {
+    pub name: String,
+    pub value: serde_json::Value,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ChunkInfo {
+    pub x: i32,
+    pub z: i32,
+}
+
+#[derive(Serialize, Clone)]
+pub struct PlayerInfo {
+    pub entity_id: u64,
+    pub name: Option<String>,
+    pub uuid: Option<String>,
+    pub position: Option<PositionInfo>,
+    pub game_mode: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct PositionInfo {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct HistoryEntryInfo {
+    pub tick: u64,
+    pub component_id: u64,
+    pub data_size: usize,
+}
+
+// ============================================================================
+// Dashboard Channels
+// ============================================================================
+
+/// Channels for dashboard communication with the game loop.
+pub struct DashboardChannels {
+    /// Sender for dashboard to send requests to game loop.
+    pub request_tx: Sender<DashboardRequest>,
+    /// Receiver for game loop to receive requests from dashboard.
+    pub request_rx: Receiver<DashboardRequest>,
+}
+
+impl DashboardChannels {
+    /// Create a new pair of dashboard channels.
+    pub fn new() -> Self {
+        let (request_tx, request_rx) = bounded(64);
         Self {
-            request_tx: channels.request_tx.clone(),
-            registry,
-            history: HistoryStore::default(),
+            request_tx,
+            request_rx,
         }
     }
 }
 
-/// Request timeout for ECS operations.
+impl Default for DashboardChannels {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// Dashboard State (for Axum)
+// ============================================================================
+
+/// Shared state for the dashboard API.
+#[derive(Clone)]
+pub struct DashboardState {
+    /// Channel to send requests to the game loop.
+    request_tx: Sender<DashboardRequest>,
+}
+
+impl DashboardState {
+    /// Create dashboard state from channels.
+    pub fn new(channels: &DashboardChannels) -> Self {
+        Self {
+            request_tx: channels.request_tx.clone(),
+        }
+    }
+}
+
+/// Request timeout for game loop operations.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+// ============================================================================
+// Router
+// ============================================================================
 
 /// Create the dashboard router with all endpoints.
 pub fn create_router(state: DashboardState) -> Router {
-    // Permissive CORS for development - allows any origin
     let cors = CorsLayer::permissive();
 
-    let api = Router::new()
-        // World endpoints
+    Router::new()
+        // World info
         .route("/api/world", get(get_world))
-        // Entity endpoints
-        .route("/api/entities", get(list_entities).post(spawn_entity))
-        .route("/api/entities/{id}", get(get_entity).delete(despawn_entity))
-        // Component endpoints
-        .route(
-            "/api/entities/{id}/components/{name}",
-            get(get_component)
-                .put(update_component)
-                .post(add_component)
-                .delete(remove_component),
-        )
-        // Query endpoint
-        .route("/api/query", post(execute_query))
-        // Component types endpoint
-        .route("/api/component-types", get(get_component_types))
-        // Chunks endpoint (for map view)
-        .route("/api/chunks", get(get_chunks))
-        // History endpoints
-        .route("/api/history", get(get_global_history))
+        // Entities
+        .route("/api/entities", get(list_entities))
+        .route("/api/entities/{id}", get(get_entity))
+        // Players (convenience endpoint)
+        .route("/api/players", get(list_players))
+        // Chunks
+        .route("/api/chunks", get(list_chunks))
+        // History
         .route("/api/history/entity/{id}", get(get_entity_history))
-        .route(
-            "/api/history/entity/{id}/component/{name}",
-            get(get_component_history),
-        )
-        .route("/api/history/revert/{entry_id}", post(revert_to_entry))
-        .with_state(state);
-
-    // CORS layer must be outermost to handle OPTIONS preflight
-    api.layer(cors)
+        .with_state(state)
+        .layer(cors)
 }
 
 /// Start the dashboard server on the given port.
@@ -104,19 +195,19 @@ pub async fn start_server(state: DashboardState, port: u16) {
 // ============================================================================
 
 async fn get_world(State(state): State<DashboardState>) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let request = IntrospectRequest::GetWorld { response: tx };
+    let (tx, rx) = bounded(1);
+    let request = DashboardRequest::GetWorld { response: tx };
 
     if state.request_tx.send(request).is_err() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
+            Json(serde_json::json!({"error": "Game loop not available"})),
         )
             .into_response();
     }
 
     match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => Json(response).into_response(),
+        Ok(info) => Json(info).into_response(),
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
             Json(serde_json::json!({"error": "Request timeout"})),
@@ -126,37 +217,32 @@ async fn get_world(State(state): State<DashboardState>) -> impl IntoResponse {
 }
 
 #[derive(Deserialize)]
-struct ListEntitiesParams {
-    filter: Option<String>,
+struct ListParams {
     limit: Option<usize>,
     offset: Option<usize>,
 }
 
 async fn list_entities(
     State(state): State<DashboardState>,
-    axum::extract::Query(params): axum::extract::Query<ListEntitiesParams>,
+    axum::extract::Query(params): axum::extract::Query<ListParams>,
 ) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let filter = params
-        .filter
-        .map(|f| f.split(',').map(String::from).collect());
-    let request = IntrospectRequest::ListEntities {
-        filter,
-        limit: params.limit,
-        offset: params.offset,
+    let (tx, rx) = bounded(1);
+    let request = DashboardRequest::ListEntities {
+        limit: params.limit.unwrap_or(100),
+        offset: params.offset.unwrap_or(0),
         response: tx,
     };
 
     if state.request_tx.send(request).is_err() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
+            Json(serde_json::json!({"error": "Game loop not available"})),
         )
             .into_response();
     }
 
     match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => Json(response).into_response(),
+        Ok(entities) => Json(entities).into_response(),
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
             Json(serde_json::json!({"error": "Request timeout"})),
@@ -166,33 +252,24 @@ async fn list_entities(
 }
 
 async fn get_entity(State(state): State<DashboardState>, Path(id): Path<u64>) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let entity = rgb_ecs::Entity::from_bits(id);
-    let request = IntrospectRequest::GetEntity {
-        entity,
-        response: tx,
-    };
+    let (tx, rx) = bounded(1);
+    let request = DashboardRequest::GetEntity { id, response: tx };
 
     if state.request_tx.send(request).is_err() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
+            Json(serde_json::json!({"error": "Game loop not available"})),
         )
             .into_response();
     }
 
     match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.found {
-                Json(response).into_response()
-            } else {
-                (
-                    StatusCode::NOT_FOUND,
-                    Json(serde_json::json!({"error": "Entity not found"})),
-                )
-                    .into_response()
-            }
-        }
+        Ok(Some(entity)) => Json(entity).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "Entity not found"})),
+        )
+            .into_response(),
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
             Json(serde_json::json!({"error": "Request timeout"})),
@@ -201,38 +278,20 @@ async fn get_entity(State(state): State<DashboardState>, Path(id): Path<u64>) ->
     }
 }
 
-async fn get_component(
-    State(state): State<DashboardState>,
-    Path((id, name)): Path<(u64, String)>,
-) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let entity = rgb_ecs::Entity::from_bits(id);
-    let request = IntrospectRequest::GetComponent {
-        entity,
-        component: name,
-        response: tx,
-    };
+async fn list_players(State(state): State<DashboardState>) -> impl IntoResponse {
+    let (tx, rx) = bounded(1);
+    let request = DashboardRequest::ListPlayers { response: tx };
 
     if state.request_tx.send(request).is_err() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
+            Json(serde_json::json!({"error": "Game loop not available"})),
         )
             .into_response();
     }
 
     match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.found {
-                Json(response).into_response()
-            } else {
-                (
-                    StatusCode::NOT_FOUND,
-                    Json(serde_json::json!({"error": "Component not found"})),
-                )
-                    .into_response()
-            }
-        }
+        Ok(players) => Json(players).into_response(),
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
             Json(serde_json::json!({"error": "Request timeout"})),
@@ -241,403 +300,48 @@ async fn get_component(
     }
 }
 
-async fn update_component(
-    State(state): State<DashboardState>,
-    Path((id, name)): Path<(u64, String)>,
-    Json(value): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    let entity = rgb_ecs::Entity::from_bits(id);
-
-    // First, get the old value for history
-    let old_value = {
-        let (tx, rx) = oneshot::channel();
-        let request = IntrospectRequest::GetComponent {
-            entity,
-            component: name.clone(),
-            response: tx,
-        };
-        if state.request_tx.send(request).is_ok() {
-            rx.recv_timeout(REQUEST_TIMEOUT)
-                .ok()
-                .and_then(|r| r.value)
-                .map(|v| v.value)
-        } else {
-            None
-        }
-    };
-
-    // Now perform the update
-    let (tx, rx) = oneshot::channel();
-    let request = IntrospectRequest::UpdateComponent {
-        entity,
-        component: name.clone(),
-        value: value.clone(),
-        response: tx,
-    };
+async fn list_chunks(State(state): State<DashboardState>) -> impl IntoResponse {
+    let (tx, rx) = bounded(1);
+    let request = DashboardRequest::ListChunks { response: tx };
 
     if state.request_tx.send(request).is_err() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
+            Json(serde_json::json!({"error": "Game loop not available"})),
         )
             .into_response();
     }
 
     match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.success {
-                // Record in history
-                state
-                    .history
-                    .record(id, name, old_value, Some(value), ChangeSource::Dashboard);
-                Json(response).into_response()
-            } else {
-                (StatusCode::BAD_REQUEST, Json(response)).into_response()
-            }
-        }
+        Ok(chunks) => Json(chunks).into_response(),
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
             Json(serde_json::json!({"error": "Request timeout"})),
         )
             .into_response(),
     }
-}
-
-async fn add_component(
-    State(state): State<DashboardState>,
-    Path((id, name)): Path<(u64, String)>,
-    Json(value): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let entity = rgb_ecs::Entity::from_bits(id);
-    let request = IntrospectRequest::AddComponent {
-        entity,
-        component: name,
-        value,
-        response: tx,
-    };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.success {
-                (StatusCode::CREATED, Json(response)).into_response()
-            } else {
-                (StatusCode::BAD_REQUEST, Json(response)).into_response()
-            }
-        }
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
-async fn remove_component(
-    State(state): State<DashboardState>,
-    Path((id, name)): Path<(u64, String)>,
-) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let entity = rgb_ecs::Entity::from_bits(id);
-    let request = IntrospectRequest::RemoveComponent {
-        entity,
-        component: name,
-        response: tx,
-    };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.success {
-                Json(response).into_response()
-            } else {
-                (StatusCode::BAD_REQUEST, Json(response)).into_response()
-            }
-        }
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
-#[derive(Deserialize)]
-struct SpawnEntityRequest {
-    name: Option<String>,
-    components: Vec<(String, serde_json::Value)>,
-}
-
-async fn spawn_entity(
-    State(state): State<DashboardState>,
-    Json(body): Json<SpawnEntityRequest>,
-) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let request = IntrospectRequest::SpawnEntity {
-        name: body.name,
-        components: body.components,
-        response: tx,
-    };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.success {
-                (StatusCode::CREATED, Json(response)).into_response()
-            } else {
-                (StatusCode::BAD_REQUEST, Json(response)).into_response()
-            }
-        }
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
-async fn despawn_entity(
-    State(state): State<DashboardState>,
-    Path(id): Path<u64>,
-) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let entity = rgb_ecs::Entity::from_bits(id);
-    let request = IntrospectRequest::DespawnEntity {
-        entity,
-        response: tx,
-    };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.success {
-                Json(response).into_response()
-            } else {
-                (StatusCode::NOT_FOUND, Json(response)).into_response()
-            }
-        }
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
-async fn execute_query(
-    State(state): State<DashboardState>,
-    Json(spec): Json<QuerySpec>,
-) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let request = IntrospectRequest::Query { spec, response: tx };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => Json(response).into_response(),
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
-async fn get_component_types(State(state): State<DashboardState>) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let request = IntrospectRequest::GetComponentTypes { response: tx };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => Json(response).into_response(),
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
-async fn get_chunks(State(state): State<DashboardState>) -> impl IntoResponse {
-    let (tx, rx) = oneshot::channel();
-    let request = IntrospectRequest::GetChunks { response: tx };
-
-    if state.request_tx.send(request).is_err() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"error": "ECS not available"})),
-        )
-            .into_response();
-    }
-
-    match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => Json(response).into_response(),
-        Err(_) => (
-            StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"error": "Request timeout"})),
-        )
-            .into_response(),
-    }
-}
-
-// ============================================================================
-// History Handlers
-// ============================================================================
-
-#[derive(Deserialize)]
-struct HistoryQuery {
-    limit: Option<usize>,
-}
-
-async fn get_global_history(
-    State(state): State<DashboardState>,
-    axum::extract::Query(params): axum::extract::Query<HistoryQuery>,
-) -> impl IntoResponse {
-    let entries = state.history.get_global_history(params.limit);
-    Json(serde_json::json!({
-        "entries": entries,
-        "total": entries.len()
-    }))
 }
 
 async fn get_entity_history(
     State(state): State<DashboardState>,
     Path(id): Path<u64>,
-    axum::extract::Query(params): axum::extract::Query<HistoryQuery>,
 ) -> impl IntoResponse {
-    let entries = state.history.get_entity_history(id, params.limit);
-    Json(serde_json::json!({
-        "entries": entries,
-        "total": entries.len()
-    }))
-}
-
-async fn get_component_history(
-    State(state): State<DashboardState>,
-    Path((id, name)): Path<(u64, String)>,
-    axum::extract::Query(params): axum::extract::Query<HistoryQuery>,
-) -> impl IntoResponse {
-    let entries = state.history.get_component_history(id, &name, params.limit);
-    Json(serde_json::json!({
-        "entries": entries,
-        "total": entries.len()
-    }))
-}
-
-async fn revert_to_entry(
-    State(state): State<DashboardState>,
-    Path(entry_id): Path<u64>,
-) -> impl IntoResponse {
-    // Get the history entry
-    let entry = match state.history.get_entry(entry_id) {
-        Some(e) => e,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"success": false, "error": "History entry not found"})),
-            )
-                .into_response();
-        }
-    };
-
-    // Get the value to revert to (the old_value from this entry)
-    let revert_value = match &entry.old_value {
-        Some(v) => v.clone(),
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({
-                    "success": false,
-                    "error": "Cannot revert: no previous value (component was added)"
-                })),
-            )
-                .into_response();
-        }
-    };
-
-    // Send update request
-    let (tx, rx) = oneshot::channel();
-    let entity = rgb_ecs::Entity::from_bits(entry.entity);
-    let request = IntrospectRequest::UpdateComponent {
-        entity,
-        component: entry.component.clone(),
-        value: revert_value.clone(),
-        response: tx,
-    };
+    let (tx, rx) = bounded(1);
+    let request = DashboardRequest::GetEntityHistory { id, response: tx };
 
     if state.request_tx.send(request).is_err() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({"success": false, "error": "ECS not available"})),
+            Json(serde_json::json!({"error": "Game loop not available"})),
         )
             .into_response();
     }
 
     match rx.recv_timeout(REQUEST_TIMEOUT) {
-        Ok(response) => {
-            if response.success {
-                // Record the revert in history
-                state.history.record(
-                    entry.entity,
-                    entry.component.clone(),
-                    entry.new_value.clone(),
-                    Some(revert_value),
-                    ChangeSource::Revert,
-                );
-                Json(serde_json::json!({
-                    "success": true,
-                    "reverted_to": entry_id
-                }))
-                .into_response()
-            } else {
-                (StatusCode::BAD_REQUEST, Json(response)).into_response()
-            }
-        }
+        Ok(history) => Json(history).into_response(),
         Err(_) => (
             StatusCode::REQUEST_TIMEOUT,
-            Json(serde_json::json!({"success": false, "error": "Request timeout"})),
+            Json(serde_json::json!({"error": "Request timeout"})),
         )
             .into_response(),
     }

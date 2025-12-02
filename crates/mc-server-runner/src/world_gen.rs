@@ -2,8 +2,8 @@
 
 use byteorder::{BigEndian, WriteBytesExt};
 use bytes::Bytes;
+use flecs_ecs::prelude::*;
 use mc_protocol::write_varint;
-use rgb_ecs::World;
 use tracing::info;
 
 use crate::components::{ChunkData, ChunkLoaded, ChunkPos};
@@ -371,18 +371,19 @@ fn write_varint_vec(buf: &mut Vec<u8>, value: i32) {
 }
 
 /// Generate spawn chunks around origin
-pub fn generate_spawn_chunks(world: &mut World, view_distance: i32) {
+pub fn generate_spawn_chunks(world: &World, view_distance: i32) {
     for cx in -view_distance..=view_distance {
         for cz in -view_distance..=view_distance {
             let pos = ChunkPos::new(cx, cz);
 
             if let Ok(data) = create_dune_chunk(cx, cz) {
                 // Use readable string name for dashboard visibility
-                let name = format!("chunk({cx}, {cz})");
-                let entity = world.entity_named(name.as_bytes());
-                world.insert(entity, pos);
-                world.insert(entity, ChunkData::new(data));
-                world.insert(entity, ChunkLoaded);
+                let name = format!("chunk:{}:{}", cx, cz);
+                world
+                    .entity_named(&name)
+                    .set(pos)
+                    .set(ChunkData::new(data))
+                    .add(ChunkLoaded);
             }
         }
     }
