@@ -63,10 +63,11 @@ java -jar cfr.jar client.jar --outputdir /tmp/mc-decompile-1.21.11-pre4/decompil
 
 Use `nix run .#mc-data-gen` to generate Mojang's data reports (blocks, items, packets, etc).
 
-Data files in `crates/mc-data/data/`:
-- `blocks.json` - All block states with IDs (from Mojang data generator)
-- `packets-ids.json` - Packet IDs
-- `protocol.json` - Protocol version info
+Data files:
+- `crates/mc-data/data/blocks.json` - All block states with IDs (from Mojang data generator)
+- `crates/mc-data/data/packets-ids.json` - Packet IDs per protocol state
+- `crates/mc-data/data/packets-fields.json` - Packet field definitions (used by build.rs to generate packet structs)
+- `crates/mc-data/data/protocol.json` - Protocol version info
 
 ### Block Registry
 
